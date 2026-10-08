@@ -1,0 +1,63 @@
+name: Robô Drop Certo
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # confere o Telegram a cada 10 minutos (horário UTC)
+  workflow_dispatch:          # botão "Run workflow" para rodar na hora
+
+concurrency:
+  group: robo-drop-certo
+  cancel-in-progress: false
+
+jobs:
+  robo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+      CANAL_ID: ${{ secrets.CANAL_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      # Ajustes opcionais (Settings > Secrets and variables > Actions > Variables)
+      SUPABASE_TABELA: ${{ vars.SUPABASE_TABELA }}
+      SUPABASE_BUCKET: ${{ vars.SUPABASE_BUCKET }}
+      COL_NOME: ${{ vars.COL_NOME }}
+      COL_PRECO: ${{ vars.COL_PRECO }}
+      COL_IMAGEM: ${{ vars.COL_IMAGEM }}
+      COL_LINK: ${{ vars.COL_LINK }}
+      COL_DESCRICAO: ${{ vars.COL_DESCRICAO }}
+      AUTO_POSTAR_CANAL: ${{ vars.AUTO_POSTAR_CANAL }}
+      ARROBA: ${{ vars.ARROBA }}
+      MARCA: ${{ vars.MARCA }}
+    steps:
+      - name: Tem mensagem nova?
+        id: checar
+        run: |
+          RESPOSTA=$(curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getUpdates?limit=1&timeout=0")
+          if echo "$RESPOSTA" | grep -q '"update_id"'; then
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nenhuma mensagem nova."
+            echo "tem=nao" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.checar.outputs.tem == 'sim'
+
+      - uses: actions/setup-python@v5
+        if: steps.checar.outputs.tem == 'sim'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        if: steps.checar.outputs.tem == 'sim'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-inter
+          pip install -q -r requirements.txt
+
+      - name: Rodar o robô
+        if: steps.checar.outputs.tem == 'sim'
+        run: python main.py
