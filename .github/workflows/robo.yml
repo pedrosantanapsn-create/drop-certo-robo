@@ -40,6 +40,10 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhuma mensagem nova."
+            [ -z "$TELEGRAM_TOKEN" ] && echo "AVISO: segredo TELEGRAM_TOKEN vazio ou ausente."
+            echo "Resposta do Telegram: $(echo "$RESPOSTA" | head -c 300)"
+            WEBHOOK=$(curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getWebhookInfo" | grep -o '"url":"[^"]*"')
+            echo "Webhook do bot: ${WEBHOOK:-nenhum}"
             echo "tem=nao" >> "$GITHUB_OUTPUT"
           fi
 
