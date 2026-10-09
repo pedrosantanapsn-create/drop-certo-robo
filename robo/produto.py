@@ -144,6 +144,26 @@ def _link_de_produto_na_pagina(sopa: BeautifulSoup) -> str:
     return ""
 
 
+RE_ARIA = re.compile(r"(Agora|Antes)?:?\s*([\d.]+)\s*reais(?:\s*com\s*(\d{1,2})\s*centavos?)?", re.I)
+
+
+def _precos_aria(sopa: BeautifulSoup) -> tuple[float | None, float | None]:
+    """Lê o 1º par Antes/Agora dos rótulos de acessibilidade dos preços."""
+    agora = antes = None
+    for el in sopa.select("[aria-label]"):
+        m = RE_ARIA.fullmatch(el["aria-label"].strip())
+        if not m:
+            continue
+        valor = float(m.group(2).replace(".", "")) + (int(m.group(3)) / 100 if m.group(3) else 0)
+        rotulo = (m.group(1) or "").lower()
+        if rotulo == "antes" and antes is None and agora is None:
+            antes = valor
+        elif rotulo == "agora" or (not rotulo and agora is None):
+            agora = valor
+            break
+    return agora, antes
+
+
 def _extrair(html: str, produto: Produto) -> bool:
     sopa = BeautifulSoup(html, "html.parser")
     ld = _json_ld_produto(sopa)
@@ -158,6 +178,14 @@ def _extrair(html: str, produto: Produto) -> bool:
     preco = _para_float(oferta.get("price")) or _para_float(_meta(sopa, "product:price:amount", "price"))
     if preco and produto.preco is None:
         produto.preco = preco
+
+    # Página "Perfil Social" (meli.la/...): preços em aria-label "Antes: X reais com Y centavos"
+    if produto.preco is None or produto.preco_antigo is None:
+        agora, antes = _precos_aria(sopa)
+        if agora and produto.preco is None:
+            produto.preco = agora
+        if antes and produto.preco_antigo is None:
+            produto.preco_antigo = antes
 
     antigo = sopa.select_one(".ui-pdp-price__original-value .andes-money-amount__fraction")
     if antigo and produto.preco_antigo is None:
@@ -200,7 +228,7 @@ def buscar_produto(dados: dict) -> Produto:
     resp = sessao.get(produto.link, timeout=25, allow_redirects=True)
     produto.url_final = resp.url
 
-    if not _extrair(resp.text, produto):
+    if not _extrair(resp.text, produto) or produto.preco is None:
         outro = _link_de_produto_na_pagina(BeautifulSoup(resp.text, "html.parser"))
         if outro:
             resp = sessao.get(outro, timeout=25)

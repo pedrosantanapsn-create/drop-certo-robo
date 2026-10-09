@@ -14,6 +14,7 @@ from . import config
 from .produto import Produto, formatar_preco
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+MODELOS_RESERVA = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.0-flash"]
 
 INSTRUCOES = """Você escreve posts de ofertas para o perfil "{marca}" ({arroba}),
 focado em achados de informática e tecnologia com bom preço.
@@ -77,21 +78,34 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
         antigo=formatar_preco(p.preco_antigo) or "não informado",
         obs=p.observacao or "nenhuma",
     )
-    try:
-        r = requests.post(
-            URL_GEMINI.format(modelo=config.GEMINI_MODEL),
-            params={"key": config.GEMINI_API_KEY},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.8, "responseMimeType": "application/json"},
-            },
-            timeout=60,
-        )
-        r.raise_for_status()
-        texto = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        gerado = _limpar_json(texto)
-    except Exception as erro:  # noqa: BLE001 — qualquer falha cai no modelo pronto
-        return padrao, f"modelo pronto (Gemini falhou: {str(erro)[:80]})"
+    # Se um modelo for desativado pelo Google (erro 404), tenta o próximo da lista
+    modelos = list(dict.fromkeys([config.GEMINI_MODEL, *MODELOS_RESERVA]))
+    gerado, ultimo_erro = None, ""
+    for modelo in modelos:
+        try:
+            r = requests.post(
+                URL_GEMINI.format(modelo=modelo),
+                headers={"x-goog-api-key": config.GEMINI_API_KEY},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.8, "responseMimeType": "application/json"},
+                },
+                timeout=60,
+            )
+            if r.status_code == 404:
+                ultimo_erro = f"modelo {modelo} indisponível"
+                continue
+            if r.status_code >= 300:
+                ultimo_erro = f"erro {r.status_code}: {r.text[:120]}"
+                break
+            texto = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            gerado = _limpar_json(texto)
+            break
+        except Exception as erro:  # noqa: BLE001 — qualquer falha cai no modelo pronto
+            ultimo_erro = str(erro)[:120]
+            break
+    if gerado is None:
+        return padrao, f"modelo pronto (Gemini falhou: {ultimo_erro})"
 
     for chave, valor in padrao.items():
         if not gerado.get(chave):
@@ -100,7 +114,7 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
     gerado["hashtags"] = [
         h if h.startswith("#") else f"#{h}" for h in gerado["hashtags"] if h.lower() != "#publi"
     ][:6]
-    return gerado, "gemini"
+    return gerado, f"gemini ({modelo})"
 
 
 def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:

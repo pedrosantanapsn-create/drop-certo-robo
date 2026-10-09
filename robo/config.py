@@ -40,7 +40,7 @@ AUTO_POSTAR_CANAL = _env_bool("AUTO_POSTAR_CANAL", True)
 
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
-GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-flash-latest")
 
 # --- Supabase (site) ------------------------------------------------------
 SUPABASE_URL = _env("SUPABASE_URL").rstrip("/")
