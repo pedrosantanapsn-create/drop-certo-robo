@@ -46,13 +46,14 @@ GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-2.5-flash")
 SUPABASE_URL = _env("SUPABASE_URL").rstrip("/")
 SUPABASE_KEY = _env("SUPABASE_SERVICE_KEY")        # chave service_role (secreta)
 SUPABASE_TABELA = _env("SUPABASE_TABELA", "produtos")
-SUPABASE_BUCKET = _env("SUPABASE_BUCKET", "imagens")
+SUPABASE_BUCKET = _env("SUPABASE_BUCKET", "produtos")
 # Nomes das colunas da sua tabela (ajuste se o seu site usar outros nomes)
 COL_NOME = _env("COL_NOME", "nome")
 COL_PRECO = _env("COL_PRECO", "preco")
 COL_IMAGEM = _env("COL_IMAGEM", "imagem_url")
 COL_LINK = _env("COL_LINK", "link")
-COL_DESCRICAO = _env("COL_DESCRICAO", "descricao")  # use "-" para não enviar
+COL_PRECO_ANTIGO = _env("COL_PRECO_ANTIGO", "preco_anterior")
+COL_DESCRICAO = _env("COL_DESCRICAO", "-")  # "-" = a tabela não tem coluna de descrição
 if COL_DESCRICAO == "-":
     COL_DESCRICAO = ""
 

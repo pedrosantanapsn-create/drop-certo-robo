@@ -40,13 +40,17 @@ def cadastrar_produto(p: Produto, imagem: Path, descricao: str) -> str:
     Usa a foto original do anúncio (não a arte), porque o site já mostra
     nome e preço nos cards.
     """
+    if p.preco is None:
+        raise ValueError("sem preço — mande o link de novo com a linha  preco: 99,90")
     url_imagem = enviar_imagem(imagem, f"{int(time.time())}.jpg")
     linha = {
         config.COL_NOME: p.nome,
-        config.COL_PRECO: p.preco,
+        config.COL_PRECO: round(p.preco, 2),
         config.COL_IMAGEM: url_imagem,
         config.COL_LINK: p.link,
     }
+    if config.COL_PRECO_ANTIGO and p.desconto:
+        linha[config.COL_PRECO_ANTIGO] = round(p.preco_antigo, 2)
     if config.COL_DESCRICAO:
         linha[config.COL_DESCRICAO] = descricao
     r = requests.post(
