@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   robo:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -28,6 +28,7 @@ jobs:
       COL_IMAGEM: ${{ vars.COL_IMAGEM }}
       COL_LINK: ${{ vars.COL_LINK }}
       COL_DESCRICAO: ${{ vars.COL_DESCRICAO }}
+      COL_PRECO_ANTIGO: ${{ vars.COL_PRECO_ANTIGO }}
       AUTO_POSTAR_CANAL: ${{ vars.AUTO_POSTAR_CANAL }}
       ARROBA: ${{ vars.ARROBA }}
       MARCA: ${{ vars.MARCA }}
