@@ -92,8 +92,8 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
                 },
                 timeout=60,
             )
-            if r.status_code == 404:
-                ultimo_erro = f"modelo {modelo} indisponível"
+            if r.status_code in (404, 429, 500, 503):  # modelo desativado ou sobrecarregado
+                ultimo_erro = f"{modelo}: erro {r.status_code}"
                 continue
             if r.status_code >= 300:
                 ultimo_erro = f"erro {r.status_code}: {r.text[:120]}"
