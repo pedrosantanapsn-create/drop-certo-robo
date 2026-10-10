@@ -20,6 +20,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      IG_TOKEN: ${{ secrets.IG_TOKEN }}
       # Ajustes opcionais (Settings > Secrets and variables > Actions > Variables)
       SUPABASE_TABELA: ${{ vars.SUPABASE_TABELA }}
       SUPABASE_BUCKET: ${{ vars.SUPABASE_BUCKET }}
@@ -30,6 +31,7 @@ jobs:
       COL_DESCRICAO: ${{ vars.COL_DESCRICAO }}
       COL_PRECO_ANTIGO: ${{ vars.COL_PRECO_ANTIGO }}
       AUTO_POSTAR_CANAL: ${{ vars.AUTO_POSTAR_CANAL }}
+      AUTO_POSTAR_INSTAGRAM: ${{ vars.AUTO_POSTAR_INSTAGRAM }}
       ARROBA: ${{ vars.ARROBA }}
       MARCA: ${{ vars.MARCA }}
     steps:
