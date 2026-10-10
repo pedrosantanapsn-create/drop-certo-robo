@@ -21,6 +21,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       IG_TOKEN: ${{ secrets.IG_TOKEN }}
+      MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
       # Ajustes opcionais (Settings > Secrets and variables > Actions > Variables)
       SUPABASE_TABELA: ${{ vars.SUPABASE_TABELA }}
       SUPABASE_BUCKET: ${{ vars.SUPABASE_BUCKET }}
