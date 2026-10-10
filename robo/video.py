@@ -108,9 +108,11 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
     if audio:
         cmd += ["-i", str(audio)]
         filtros.append(f"[{len(clipes)}:a]adelay=300|300,apad[a]")
+    else:  # faixa de áudio silenciosa: o Reels exige áudio
+        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+        filtros.append(f"[{len(clipes)}:a]anull[a]")
     cmd += ["-filter_complex", ";".join(filtros), "-map", anterior]
-    if audio:
-        cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"]
+    cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k", "-ar", "44100"]
     cmd += [
         "-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
         "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart", str(destino),

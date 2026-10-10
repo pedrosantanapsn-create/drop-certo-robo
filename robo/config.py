@@ -38,6 +38,10 @@ ADMIN_CHAT_ID = _env("ADMIN_CHAT_ID")              # seu ID (só você comanda o
 CANAL_ID = _env("CANAL_ID")                        # ex.: @certodrop_ofertas
 AUTO_POSTAR_CANAL = _env_bool("AUTO_POSTAR_CANAL", True)
 
+# --- Instagram (API oficial com login do Instagram) -----------------------
+IG_TOKEN = _env("IG_TOKEN")                        # só na 1ª vez; depois fica no Supabase
+AUTO_POSTAR_INSTAGRAM = _env_bool("AUTO_POSTAR_INSTAGRAM", True)
+
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-flash-latest")
