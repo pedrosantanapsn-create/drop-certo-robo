@@ -1,4 +1,10 @@
-"""Publicação automática no Instagram (API oficial da Meta, gratuita).
+"""Publicação automática no Instagram.
+
+Dois caminhos (o robô usa o primeiro que estiver configurado):
+  A) Make.com (MAKE_WEBHOOK_URL): o robô manda o vídeo e a legenda para um
+     cenário do Make, que publica o Reels pela conexão "Instagram for
+     Business". Não exige conta de desenvolvedor na Meta.
+  B) API oficial da Meta (IG_TOKEN), explicada abaixo.
 
 Usa a "Instagram API com login do Instagram" (graph.instagram.com):
   1. o robô envia o vídeo e a arte para o Supabase (endereço público);
@@ -62,7 +68,7 @@ def _renovar_se_preciso(token: str, atualizado_em: str | None) -> str:
 def ativo() -> bool:
     if not config.AUTO_POSTAR_INSTAGRAM:
         return False
-    if config.IG_TOKEN:
+    if config.MAKE_WEBHOOK_URL or config.IG_TOKEN:
         return True
     return supabase.ativo() and bool(supabase.ler_config(CHAVE_TOKEN))
 
@@ -95,6 +101,8 @@ def _esperar_processar(container_id: str, token: str, limite_s: int = 300) -> No
 
 
 def conta(token: str | None = None) -> dict:
+    if config.MAKE_WEBHOOK_URL and not (token or config.IG_TOKEN):
+        return {"username": "certodrop (via Make.com)"}
     token = token or _token()
     if not token:
         raise RuntimeError("Sem token do Instagram")
@@ -104,8 +112,31 @@ def conta(token: str | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Publicação
 # ---------------------------------------------------------------------------
+def _publicar_via_make(video: Path, legenda: str, capa: Path | None) -> str:
+    carimbo = int(time.time())
+    dados = {
+        "video_url": supabase.enviar_arquivo(video, f"posts/{carimbo}.mp4", "video/mp4"),
+        "legenda": legenda[:2200],
+        "capa_url": supabase.enviar_arquivo(capa, f"posts/{carimbo}_capa.jpg", "image/jpeg") if capa else "",
+    }
+    # O Make processa o vídeo e só responde quando o Reels foi publicado (até ~5 min)
+    r = requests.post(config.MAKE_WEBHOOK_URL, json=dados, timeout=330)
+    if r.status_code >= 300:
+        raise RuntimeError(f"Make respondeu {r.status_code}: {r.text[:200]}")
+    texto = r.text.strip()
+    if texto.lower() == "accepted":
+        return "enviado ao Make (o Reels sai em alguns minutos)"
+    try:
+        resposta = r.json()
+        return resposta.get("permalink") or resposta.get("id") or texto[:120]
+    except ValueError:
+        return texto[:120] or "publicado"
+
+
 def publicar_reels(video: Path, legenda: str, capa: Path | None = None) -> str:
     """Publica o vídeo como Reels (aparece também no feed). Retorna o link do post."""
+    if config.MAKE_WEBHOOK_URL:
+        return _publicar_via_make(video, legenda, capa)
     token = _token()
     if not token:
         raise RuntimeError("Instagram não configurado (falta o token)")
