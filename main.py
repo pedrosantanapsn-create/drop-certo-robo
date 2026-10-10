@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, legenda, supabase, telegram, video
+from robo import arte, config, instagram, legenda, supabase, telegram, video
 from robo.produto import Produto, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -38,6 +38,7 @@ obs: ótimo para quem joga FPS
 Comandos:
 /id — mostra seu ID do Telegram
 /colunas — mostra as colunas da tabela do site
+/instagram — confere a ligação com o Instagram
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (o Mercado Livre às vezes bloqueia robôs).
@@ -110,6 +111,15 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Canal: erro — {str(erro)[:120]}")
 
+    # 4b. Instagram (Reels automático)
+    legenda_redes = legenda.montar_legenda(produto, textos, com_link=False)
+    if caminho_video and instagram.ativo():
+        try:
+            link_post = instagram.publicar_reels(caminho_video, legenda_redes, capa=caminho_arte)
+            status.append(f"• Instagram: Reels publicado ✅ {link_post}")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• Instagram: erro — {str(erro)[:160]}")
+
     # 5. Site (Supabase)
     if supabase.ativo():
         if fotos:
@@ -121,8 +131,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         else:
             status.append("• Site: não cadastrado (sem foto)")
 
-    # 6. Entrega para você publicar no Instagram / TikTok
-    legenda_redes = legenda.montar_legenda(produto, textos, com_link=False)
+    # 6. Entrega para você publicar no TikTok (e no Instagram, se não for automático)
     if caminho_video:
         telegram.enviar_video(chat_id, caminho_video, "🎬 Vídeo para Reels/TikTok/Shorts", capa=None)
     telegram.enviar_arquivo(chat_id, caminho_arte, "🖼️ Arte do feed (arquivo em qualidade máxima)")
@@ -152,6 +161,12 @@ def tratar(mensagem: dict) -> None:
         telegram.enviar_texto(chat_id, AJUDA)
     elif comando == "/id":
         telegram.enviar_texto(chat_id, f"Seu ID: {chat_id}")
+    elif comando == "/instagram":
+        try:
+            eu = instagram.conta()
+            telegram.enviar_texto(chat_id, f"✅ Instagram ligado: @{eu.get('username')}")
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Instagram não está ligado: {str(erro)[:200]}")
     elif comando == "/colunas":
         telegram.enviar_texto(chat_id, supabase.listar_colunas() if supabase.ativo()
                               else "Supabase não configurado.")
