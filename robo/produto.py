@@ -14,6 +14,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from html import unescape
+from urllib.parse import unquote, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -43,6 +44,8 @@ class Produto:
     url_final: str = ""
     observacao: str = ""            # texto extra que você escreveu na mensagem
     imagens_extra: list[str] = field(default_factory=list)  # achadas por regra de cada loja
+    bloqueado: bool = False          # a loja pediu verificação de robô
+    nome_do_link: bool = False       # o nome veio do endereço (pode estar incompleto)
 
     @property
     def desconto(self) -> int | None:
@@ -280,6 +283,23 @@ def _extrair(html: str, produto: Produto) -> bool:
     return bool(produto.nome and produto.imagens)
 
 
+def nome_pela_url(url: str) -> str:
+    """Tira o nome do produto do próprio endereço, quando a loja o coloca lá.
+
+    Ex.: amazon.com.br/Echo-Dot-5ª-geração-Cor-Preta/dp/B09B8VGCR8 -> "Echo Dot 5ª geração Cor Preta"
+    """
+    caminho = unquote(urlparse(url or "").path)
+    melhor = ""
+    for parte in caminho.split("/"):
+        parte = re.sub(r"^MLB-?\d+-", "", parte)            # Mercado Livre
+        parte = re.sub(r"(-_JM.*|-i\.\d+\.\d+.*)$", "", parte)  # ML / Shopee
+        parte = re.sub(r"\.html?$", "", parte)
+        if parte.count("-") >= 2 and len(parte) > len(melhor):
+            melhor = parte
+    nome = re.sub(r"\s+", " ", melhor.replace("-", " ").replace("_", " ")).strip()
+    return nome[:1].upper() + nome[1:] if len(nome) >= 6 else ""
+
+
 def buscar_produto(dados: dict) -> Produto:
     produto = Produto(
         link=dados.get("link", ""),
@@ -293,15 +313,27 @@ def buscar_produto(dados: dict) -> Produto:
 
     sessao = requests.Session()
     sessao.headers.update(CABECALHOS)
-    resp = sessao.get(produto.link, timeout=25, allow_redirects=True)
-    produto.url_final = resp.url
+    try:
+        resp = sessao.get(produto.link, timeout=25, allow_redirects=True)
+        produto.url_final = resp.url
+        if not _extrair(resp.text, produto) or produto.preco is None:
+            outro = _link_de_produto_na_pagina(BeautifulSoup(resp.text, "html.parser"))
+            if outro:
+                resp = sessao.get(outro, timeout=25)
+                produto.url_final = resp.url
+                _extrair(resp.text, produto)
+    except LojaBloqueou:
+        produto.bloqueado = True
+    except requests.RequestException:
+        produto.bloqueado = True
 
-    if not _extrair(resp.text, produto) or produto.preco is None:
-        outro = _link_de_produto_na_pagina(BeautifulSoup(resp.text, "html.parser"))
-        if outro:
-            resp = sessao.get(outro, timeout=25)
-            produto.url_final = resp.url
-            _extrair(resp.text, produto)
+    # Sem nome (loja bloqueou ou página estranha): tenta tirar do próprio endereço
+    if not produto.nome:
+        for url in (produto.url_final, produto.link):
+            nome = nome_pela_url(url)
+            if nome:
+                produto.nome, produto.nome_do_link = nome, True
+                break
     return produto
 
 

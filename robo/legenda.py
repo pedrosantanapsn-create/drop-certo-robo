@@ -117,6 +117,44 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
     return gerado, f"gemini ({modelo})"
 
 
+PROMPT_IMAGEM = """Esta imagem é um print ou foto de um anúncio de loja online (Amazon, Shopee, Mercado Livre etc.).
+Leia o que estiver VISÍVEL e responda só com JSON:
+{"nome": "nome do produto como aparece no anúncio", "preco": "preço atual", "preco_antigo": "preço riscado/antes, se houver"}
+Use null no que não aparecer. Não invente nada. Preços no formato 1.299,90."""
+
+
+def ler_imagem(foto) -> dict:
+    """Lê nome e preços de um print/foto do anúncio com o Gemini (visão, gratuito)."""
+    if not config.GEMINI_API_KEY or not foto:
+        return {}
+    import base64
+    dados = base64.b64encode(open(foto, "rb").read()).decode()
+    modelos = list(dict.fromkeys([config.GEMINI_MODEL, *MODELOS_RESERVA]))
+    for modelo in modelos:
+        try:
+            r = requests.post(
+                URL_GEMINI.format(modelo=modelo),
+                headers={"x-goog-api-key": config.GEMINI_API_KEY},
+                json={
+                    "contents": [{"parts": [
+                        {"text": PROMPT_IMAGEM},
+                        {"inline_data": {"mime_type": "image/jpeg", "data": dados}},
+                    ]}],
+                    "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+                },
+                timeout=60,
+            )
+            if r.status_code in (404, 429, 500, 503):
+                continue
+            if r.status_code >= 300:
+                return {}
+            resposta = _limpar_json(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+            return {k: v for k, v in resposta.items() if v not in (None, "", "null")}
+        except Exception:  # noqa: BLE001
+            return {}
+    return {}
+
+
 def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:
     """Legenda final. O aviso legal é colocado pelo código, nunca pela IA."""
     partes = [t["legenda"].strip(), ""]
