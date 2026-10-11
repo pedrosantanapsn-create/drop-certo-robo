@@ -50,7 +50,7 @@ Comandos:
 /instagram — confere a ligação com o Instagram
 /ajuda — mostra esta mensagem"""
 
-FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (o Mercado Livre às vezes bloqueia robôs).
+FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
 
 Mande de novo assim, que eu faço o post mesmo assim:
 {link}
