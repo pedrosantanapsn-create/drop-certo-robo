@@ -112,9 +112,11 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
         filtros.append(f"[{len(clipes)}:a]anull[a]")
     cmd += ["-filter_complex", ";".join(filtros), "-map", anterior]
-    cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "160k", "-ar", "44100"]
+    # Limites do Instagram: áudio até 128 kbps / 48 kHz; vídeo até 5 Mbps
+    cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"]
     cmd += [
         "-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+        "-maxrate", "4500k", "-bufsize", "9000k", "-profile:v", "high", "-g", str(FPS * 2),
         "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart", str(destino),
     ]
     _rodar(cmd)
