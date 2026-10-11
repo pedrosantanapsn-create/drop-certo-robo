@@ -40,9 +40,17 @@ jobs:
         id: checar
         run: |
           RESPOSTA=$(curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getUpdates?limit=1&timeout=0")
+          # Fila de postagens: horário do próximo post guardado no Supabase
+          PROXIMA=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.fila_proxima&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           if echo "$RESPOSTA" | grep -q '"update_id"'; then
             echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$PROXIMA" ] && [ "$(date +%s)" -ge "$PROXIMA" ]; then
+            echo "Hora de postar o próximo da fila."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
           else
+            [ -n "$PROXIMA" ] && echo "Próximo post da fila: $(TZ=America/Sao_Paulo date -d @"$PROXIMA" '+%d/%m %H:%M')"
             echo "Nenhuma mensagem nova."
             [ -z "$TELEGRAM_TOKEN" ] && echo "AVISO: segredo TELEGRAM_TOKEN vazio ou ausente."
             echo "Resposta do Telegram: $(echo "$RESPOSTA" | head -c 300)"
