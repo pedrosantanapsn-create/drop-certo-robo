@@ -43,6 +43,10 @@ IG_TOKEN = _env("IG_TOKEN")                        # só na 1ª vez; depois fica
 MAKE_WEBHOOK_URL = _env("MAKE_WEBHOOK_URL")        # endereço do cenário do Make.com
 AUTO_POSTAR_INSTAGRAM = _env_bool("AUTO_POSTAR_INSTAGRAM", True)
 
+# --- Fila de postagens (horário de Brasília) ------------------------------
+POSTAR_DAS = int(_env("POSTAR_DAS", "8"))          # primeiro post do dia
+POSTAR_ATE = int(_env("POSTAR_ATE", "22"))         # depois disso, só no dia seguinte
+
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-flash-latest")
