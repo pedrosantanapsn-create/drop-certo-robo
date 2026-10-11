@@ -214,10 +214,12 @@ def agendar(chat_id, texto: str) -> None:
     if not ofertas:
         telegram.enviar_texto(chat_id, "Não achei links na mensagem. Mande um por linha.")
         return
-    total, proxima = fila.adicionar(ofertas)
+    total, proxima, ignorados = fila.adicionar(ofertas)
+    novas = len(ofertas) - ignorados
+    aviso = f"\n♻️ {ignorados} link(s) repetido(s) ignorado(s)." if ignorados else ""
     telegram.enviar_texto(
         chat_id,
-        f"🗓️ {len(ofertas)} oferta(s) na fila (total: {total}).\n"
+        f"🗓️ {novas} oferta(s) na fila (total: {total}).{aviso}\n"
         f"⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}\n\n"
         "Mande /fila para ver a lista.",
     )
