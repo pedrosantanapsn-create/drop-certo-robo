@@ -122,18 +122,41 @@ def separar_ofertas(texto: str) -> list[str]:
     return ["\n".join(o) for o in ofertas]
 
 
-def adicionar(ofertas: list[str]) -> tuple[int, datetime]:
-    """Coloca as ofertas no fim da fila. Devolve (total na fila, horário do próximo post)."""
+def chave_link(texto: str) -> str:
+    """Forma "normalizada" do link, para achar repetidos (ignora https, www, / final)."""
+    achado = RE_LINK.search(texto or "")
+    if not achado:
+        return ""
+    link = achado.group(1).rstrip(").,;!?")
+    link = re.sub(r"^https?://", "", link, flags=re.I)
+    link = re.sub(r"^www\.", "", link, flags=re.I)
+    dominio, _, caminho = link.partition("/")
+    # o domínio não diferencia maiúsculas; o código do link curto diferencia (1AoCm7N ≠ 1aocm7n)
+    return f"{dominio.lower()}/{caminho}".rstrip("/")
+
+
+def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
+    """Coloca as ofertas no fim da fila, sem repetir links.
+
+    Devolve (total na fila, horário do próximo post, quantos repetidos foram ignorados).
+    """
     lista = itens()
     agora = datetime.now(FUSO)
+    ja_tem = {chave_link(i.get("texto", "")) for i in lista}
+    ignorados = 0
     for texto in ofertas:
+        chave = chave_link(texto)
+        if chave and chave in ja_tem:
+            ignorados += 1
+            continue
+        ja_tem.add(chave)
         lista.append({"texto": texto, "adicionado": agora.isoformat(timespec="minutes")})
     _salvar(lista)
     proxima = _proxima()
-    if proxima is None or proxima < agora:
+    if lista and (proxima is None or proxima < agora):
         proxima = _dentro_da_janela(agora)
         _marcar_proxima(proxima)
-    return len(lista), proxima
+    return len(lista), proxima or _dentro_da_janela(agora), ignorados
 
 
 def esta_na_hora() -> bool:
