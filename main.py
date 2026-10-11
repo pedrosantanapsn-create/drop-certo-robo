@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, instagram, legenda, supabase, telegram, video
+from robo import arte, config, fila, instagram, legenda, supabase, telegram, video
 from robo.produto import Produto, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -35,7 +35,16 @@ obs: ótimo para quem joga FPS
 
 📷 Mandar uma FOTO com o link na legenda faz o robô usar a sua foto.
 
+🗓️ FILA (posta ao longo do dia):
+Mande VÁRIOS links numa mensagem, um por linha.
+O robô posta um por vez, espalhados entre 8h e 22h.
+Para agendar um link só: /agendar meli.la/abc123
+
 Comandos:
+/fila — mostra o que está agendado
+/agora — posta o próximo da fila agora
+/intervalo 60 — um post a cada 60 min (/intervalo auto volta ao normal)
+/limpar — apaga a fila
 /id — mostra seu ID do Telegram
 /colunas — mostra as colunas da tabela do site
 /instagram — confere a ligação com o Instagram
@@ -167,11 +176,70 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_texto(chat_id, f"✅ Instagram ligado: @{eu.get('username')}")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Instagram não está ligado: {str(erro)[:200]}")
+    elif comando == "/fila":
+        telegram.enviar_texto(chat_id, fila.resumo())
+    elif comando == "/limpar":
+        telegram.enviar_texto(chat_id, f"🗑️ Fila apagada ({fila.limpar()} oferta(s) removida(s)).")
+    elif comando == "/agora":
+        if fila.itens():
+            fila.adiantar()
+            telegram.enviar_texto(chat_id, "⏩ O próximo da fila sai na próxima rodada (até 10 min).")
+        else:
+            telegram.enviar_texto(chat_id, "📭 A fila está vazia.")
+    elif comando == "/intervalo":
+        partes = texto.split()
+        valor = partes[1].lower() if len(partes) > 1 else ""
+        if valor.isdigit() and int(valor) >= 20:
+            fila.definir_intervalo(int(valor))
+            telegram.enviar_texto(chat_id, f"⏱️ Pronto: um post a cada {int(valor)} minutos.")
+        elif valor in ("auto", "automatico", "automático", "0"):
+            fila.definir_intervalo(None)
+            telegram.enviar_texto(chat_id, f"⏱️ Intervalo automático: espalha a fila até as {config.POSTAR_ATE}h.")
+        else:
+            telegram.enviar_texto(chat_id, "Use assim: /intervalo 60  (mínimo 20)  ou  /intervalo auto")
+    elif comando == "/agendar" or len(fila.separar_ofertas(texto)) > 1:
+        agendar(chat_id, texto.split(None, 1)[1] if comando == "/agendar" and " " in texto else texto)
     elif comando == "/colunas":
         telegram.enviar_texto(chat_id, supabase.listar_colunas() if supabase.ativo()
                               else "Supabase não configurado.")
     else:
         processar_oferta(mensagem, chat_id)
+
+
+def agendar(chat_id, texto: str) -> None:
+    if not fila.ativa():
+        telegram.enviar_texto(chat_id, "❌ A fila precisa do Supabase configurado.")
+        return
+    ofertas = fila.separar_ofertas(texto)
+    if not ofertas:
+        telegram.enviar_texto(chat_id, "Não achei links na mensagem. Mande um por linha.")
+        return
+    total, proxima = fila.adicionar(ofertas)
+    telegram.enviar_texto(
+        chat_id,
+        f"🗓️ {len(ofertas)} oferta(s) na fila (total: {total}).\n"
+        f"⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}\n\n"
+        "Mande /fila para ver a lista.",
+    )
+
+
+def postar_da_fila() -> bool:
+    """Se chegou a hora, posta o próximo item da fila. Um por rodada."""
+    if not (fila.ativa() and config.ADMIN_CHAT_ID) or not fila.esta_na_hora():
+        return False
+    item = fila.retirar_proximo()
+    if not item:
+        return False
+    restantes = len(fila.itens())
+    telegram.enviar_texto(config.ADMIN_CHAT_ID,
+                          f"🗓️ Postando da fila (faltam {restantes} depois deste)…")
+    try:
+        processar_oferta({"text": item["texto"]}, config.ADMIN_CHAT_ID)
+    except Exception:  # noqa: BLE001
+        detalhe = traceback.format_exc()[-700:]
+        print(detalhe, file=sys.stderr)
+        telegram.enviar_texto(config.ADMIN_CHAT_ID, "❌ Erro no post da fila:\n" + detalhe)
+    return True
 
 
 def rodar_uma_vez() -> int:
@@ -191,6 +259,10 @@ def rodar_uma_vez() -> int:
                 telegram.enviar_texto(mensagem["chat"]["id"], "❌ Deu erro neste post:\n" + detalhe)
             except Exception:  # noqa: BLE001
                 pass
+    try:
+        postar_da_fila()
+    except Exception as erro:  # noqa: BLE001
+        print("Fila:", erro, file=sys.stderr)
     return len(atualizacoes)
 
 
