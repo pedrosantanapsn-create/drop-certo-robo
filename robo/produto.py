@@ -1,8 +1,12 @@
-"""Leitura dos dados do produto a partir do link de afiliado do Mercado Livre.
+"""Leitura dos dados do produto a partir do link de afiliado.
 
-O robô NÃO gera link de afiliado: ele recebe o link meli.la que você já
-gerou no Mercado Livre e só lê a página pública do anúncio (nome, preço,
-fotos). Assim nenhuma senha ou cookie seu é usado.
+Funciona com o Mercado Livre (meli.la) e, de forma genérica, com outras lojas
+(Amazon, Shopee, Magalu, AliExpress...): lê os dados que as lojas publicam
+para o Google (JSON-LD e etiquetas og:). Se a loja bloquear robôs, você manda
+nome e preço na mensagem (e de preferência uma foto) que o post sai igual.
+
+O robô NÃO gera link de afiliado: ele recebe o link que você já gerou na loja
+e só lê a página pública do anúncio. Nenhuma senha ou cookie seu é usado.
 """
 from __future__ import annotations
 
@@ -21,6 +25,11 @@ UA = (
 CABECALHOS = {"User-Agent": UA, "Accept-Language": "pt-BR,pt;q=0.9"}
 
 RE_URL = re.compile(r"https?://\S+", re.I)
+# Sufixos que as lojas colocam no título da página
+RE_SUFIXO_LOJA = re.compile(
+    r"\s*(\||\s-\s|–)\s*(Mercado\s?Livre|Amazon\.com\.br|Amazon|Shopee(\s+Brasil)?|Magazine Luiza|"
+    r"Magalu|AliExpress|KaBuM!?|Americanas|Casas Bahia|Netshoes)(\.com(\.br)?)?\s*$", re.I)
+RE_PREFIXO_AMAZON = re.compile(r"^Amazon\.com\.br\s*:\s*", re.I)
 RE_PRECO = re.compile(r"R\$\s*([\d.]+(?:,\d{1,2})?)", re.I)
 
 
@@ -33,6 +42,7 @@ class Produto:
     imagens: list[str] = field(default_factory=list)
     url_final: str = ""
     observacao: str = ""            # texto extra que você escreveu na mensagem
+    imagens_extra: list[str] = field(default_factory=list)  # achadas por regra de cada loja
 
     @property
     def desconto(self) -> int | None:
@@ -120,7 +130,11 @@ def _json_ld_produto(sopa: BeautifulSoup) -> dict:
             continue
         itens = dados if isinstance(dados, list) else dados.get("@graph", [dados])
         for item in itens:
-            if isinstance(item, dict) and item.get("@type") in ("Product", ["Product"]):
+            if not isinstance(item, dict):
+                continue
+            tipo = item.get("@type")
+            tipos = tipo if isinstance(tipo, list) else [tipo]
+            if "Product" in tipos or "ProductGroup" in tipos:
                 return item
     return {}
 
@@ -164,18 +178,70 @@ def _precos_aria(sopa: BeautifulSoup) -> tuple[float | None, float | None]:
     return agora, antes
 
 
+class LojaBloqueou(RuntimeError):
+    """A loja mostrou uma página de verificação ("não sou robô") no lugar do produto."""
+
+
+def _amazon(sopa: BeautifulSoup, produto: Produto) -> None:
+    """A Amazon não publica JSON-LD de produto; lê os campos da própria página."""
+    titulo = sopa.select_one("#productTitle")
+    if not titulo:
+        return
+    if not produto.nome:
+        produto.nome = titulo.get_text(" ", strip=True)
+    if produto.preco is None:
+        el = sopa.select_one("#corePrice_feature_div .a-offscreen, .priceToPay .a-offscreen, "
+                             "#apex_desktop .a-price .a-offscreen, .a-price .a-offscreen")
+        if el:
+            produto.preco = _para_float(el.get_text(strip=True))
+    if produto.preco_antigo is None:
+        el = sopa.select_one(".basisPrice .a-offscreen, .a-price.a-text-price .a-offscreen")
+        if el:
+            antigo = _para_float(el.get_text(strip=True))
+            if antigo and produto.preco and antigo > produto.preco:
+                produto.preco_antigo = antigo
+    img = sopa.select_one("#landingImage, #imgBlkFront")
+    if img:
+        grande = img.get("data-old-hires") or ""
+        if not grande and img.get("data-a-dynamic-image"):
+            try:
+                grande = next(iter(json.loads(img["data-a-dynamic-image"])), "")
+            except (ValueError, TypeError):
+                grande = ""
+        grande = grande or img.get("src", "")
+        if grande.startswith("http"):
+            produto.imagens_extra.append(grande)
+
+
+def _pagina_de_bloqueio(html: str) -> bool:
+    trecho = html[:20000].lower()
+    sinais = ("validatecaptcha", "robot check", "digite os caracteres", "are you a human",
+              "verify you are human", "captcha-delivery", "/punish?", "unusual traffic")
+    return any(s in trecho for s in sinais)
+
+
 def _extrair(html: str, produto: Produto) -> bool:
+    if _pagina_de_bloqueio(html):
+        raise LojaBloqueou("a loja pediu verificação de robô")
     sopa = BeautifulSoup(html, "html.parser")
     ld = _json_ld_produto(sopa)
 
-    nome = ld.get("name") or _meta(sopa, "og:title")
-    if nome:
-        produto.nome = produto.nome or re.sub(r"\s*\|\s*Mercado Livre.*$", "", nome).strip()
+    _amazon(sopa, produto)
+
+    nome = ld.get("name") or _meta(sopa, "og:title", "twitter:title")
+    if nome and not produto.nome:
+        nome = RE_PREFIXO_AMAZON.sub("", unescape(str(nome)))
+        produto.nome = RE_SUFIXO_LOJA.sub("", nome).strip()
 
     oferta = ld.get("offers") or {}
     if isinstance(oferta, list):
         oferta = oferta[0] if oferta else {}
-    preco = _para_float(oferta.get("price")) or _para_float(_meta(sopa, "product:price:amount", "price"))
+    if not isinstance(oferta, dict):
+        oferta = {}
+    preco = (_para_float(oferta.get("price")) or _para_float(oferta.get("lowPrice"))
+             or _para_float((oferta.get("priceSpecification") or {}).get("price")
+                            if isinstance(oferta.get("priceSpecification"), dict) else None)
+             or _para_float(_meta(sopa, "product:price:amount", "og:price:amount", "price")))
     if preco and produto.preco is None:
         produto.preco = preco
 
@@ -194,9 +260,11 @@ def _extrair(html: str, produto: Produto) -> bool:
         produto.preco_antigo = _para_float(valor)
 
     imagens = ld.get("image") or []
-    if isinstance(imagens, str):
+    if isinstance(imagens, (str, dict)):
         imagens = [imagens]
-    og = _meta(sopa, "og:image")
+    imagens = [i.get("url", "") if isinstance(i, dict) else str(i) for i in imagens]
+    imagens = list(produto.imagens_extra) + imagens
+    og = _meta(sopa, "og:image", "og:image:secure_url", "twitter:image")
     if og:
         imagens = [og, *imagens]
     for img in sopa.select("figure.ui-pdp-gallery__figure img"):

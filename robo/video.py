@@ -1,13 +1,15 @@
 """Vídeo vertical (Reels / TikTok / Shorts) com FFmpeg + narração gratuita.
 
-Monta 4 cenas (gancho, benefícios, preço, chamada), com zoom suave,
-transições e narração em voz neural (edge-tts). Sem música, para evitar
-problemas de direitos autorais — você pode pôr um áudio em alta ao
-publicar no app.
+Monta de 4 a 6 cenas (gancho, fotos do produto, benefícios, preço, chamada),
+com zoom, transições, narração em voz neural (edge-tts) e LEGENDAS ANIMADAS
+sincronizadas com a fala (a palavra da vez fica em destaque, estilo Reels).
+Sem música, para evitar problemas de direitos autorais — você pode pôr um
+áudio em alta ao publicar no app.
 """
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 from pathlib import Path
 
@@ -15,9 +17,10 @@ from . import arte, config
 from .produto import Produto
 
 FPS = 30
-TRANSICAO = 0.35
-PESOS_CENAS = (0.22, 0.33, 0.27, 0.18)
+TRANSICAO = 0.30
+ATRASO_VOZ = 0.30          # a narração começa 0,3 s depois do início
 DURACAO_MINIMA = 12.0
+PALAVRAS_POR_FRASE = 3     # quantas palavras aparecem juntas na legenda
 
 
 def _rodar(cmd: list[str]) -> None:
@@ -35,27 +38,79 @@ def duracao(arquivo: Path) -> float:
     return float(saida or 0)
 
 
-def narrar(texto: str, destino: Path) -> Path | None:
-    """Gera a narração. Se não houver internet ou a voz falhar, devolve None."""
+# ---------------------------------------------------------------------------
+# Narração + tempo de cada palavra
+# ---------------------------------------------------------------------------
+def narrar(texto: str, destino: Path) -> tuple[Path | None, list[tuple[float, float, str]]]:
+    """Gera a narração e devolve (arquivo, [(início, fim, palavra), ...]).
+
+    Se não houver internet ou a voz falhar, devolve (None, []).
+    """
     try:
         import edge_tts
 
+        palavras: list[tuple[float, float, str]] = []
+
         async def _falar():
-            await edge_tts.Communicate(texto, config.VOZ, rate="+8%").save(str(destino))
+            com = edge_tts.Communicate(texto, config.VOZ, rate="+8%", boundary="WordBoundary")
+            with open(destino, "wb") as arq:
+                async for parte in com.stream():
+                    if parte["type"] == "audio":
+                        arq.write(parte["data"])
+                    elif parte["type"] == "WordBoundary":
+                        ini = parte["offset"] / 1e7
+                        palavras.append((ini, ini + parte["duration"] / 1e7, parte["text"]))
 
         asyncio.run(_falar())
-        return destino if destino.exists() and destino.stat().st_size > 1000 else None
+        if destino.exists() and destino.stat().st_size > 1000:
+            return destino, palavras
     except Exception:  # noqa: BLE001
-        return None
+        pass
+    return None, []
 
 
+def _tempos_estimados(texto: str, inicio: float, fim: float) -> list[tuple[float, float, str]]:
+    """Sem marcação da voz: espalha as palavras pelo tempo, pelo tamanho de cada uma."""
+    palavras = texto.split()
+    if not palavras:
+        return []
+    pesos = [len(p) + 2 for p in palavras]
+    total, t, saida = sum(pesos), inicio, []
+    for p, w in zip(palavras, pesos):
+        dur = (fim - inicio) * w / total
+        saida.append((t, t + dur, p))
+        t += dur
+    return saida
+
+
+def _frases(palavras: list[tuple[float, float, str]]) -> list[list[tuple[float, float, str]]]:
+    """Agrupa as palavras em frases curtas (até 3 palavras, quebra na pontuação)."""
+    grupos, atual = [], []
+    for item in palavras:
+        atual.append(item)
+        fim_de_frase = re.search(r"[.!?,;:]$", item[2])
+        if len(atual) >= PALAVRAS_POR_FRASE or fim_de_frase:
+            grupos.append(atual)
+            atual = []
+    if atual:
+        grupos.append(atual)
+    return grupos
+
+
+def _limpar(palavra: str) -> str:
+    return palavra.strip().upper().rstrip(",;:")
+
+
+# ---------------------------------------------------------------------------
+# Cenas
+# ---------------------------------------------------------------------------
 def _clipe(quadro: Path, segundos: float, destino: Path, indice: int) -> Path:
     quadros = max(int(segundos * FPS), 1)
-    # Alterna zoom de aproximação e de afastamento para dar ritmo
+    # Alterna aproximação e afastamento, com zoom um pouco mais forte que antes
     if indice % 2 == 0:
-        zoom = f"1+0.06*on/{quadros}"
+        zoom = f"1+0.09*on/{quadros}"
     else:
-        zoom = f"1.06-0.06*on/{quadros}"
+        zoom = f"1.09-0.09*on/{quadros}"
     filtro = (
         "scale=2160:-1,"
         f"zoompan=z='{zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
@@ -69,23 +124,43 @@ def _clipe(quadro: Path, segundos: float, destino: Path, indice: int) -> Path:
     return destino
 
 
+def _montar_cenas(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> list[tuple[Path, float]]:
+    """Devolve [(quadro, peso_de_tempo)]. Fotos extras viram cenas a mais."""
+    foto = lambda i: fotos[i % len(fotos)] if fotos else None  # noqa: E731
+    cenas = [(arte.cena_gancho(p, t, foto(0), pasta / "cena_1.png"), 1.25)]
+    if len(fotos) >= 2:
+        cenas.append((arte.cena_foto(p, t, fotos[1], pasta / "cena_f1.png", "OLHA ISSO"), 0.85))
+    cenas.append((arte.cena_beneficios(p, t, foto(2 if len(fotos) > 2 else 0),
+                                       pasta / "cena_2.png"), 1.35))
+    if len(fotos) >= 4:
+        cenas.append((arte.cena_foto(p, t, fotos[3], pasta / "cena_f2.png", "DETALHES"), 0.85))
+    cenas.append((arte.cena_preco(p, t, foto(0), pasta / "cena_3.png"), 1.25))
+    cenas.append((arte.cena_cta(p, t, foto(0), pasta / "cena_4.png"), 0.85))
+    return cenas
+
+
+# ---------------------------------------------------------------------------
+# Vídeo final
+# ---------------------------------------------------------------------------
 def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Path, bool]:
     """Retorna (caminho_do_video, tem_narracao)."""
-    foto = lambda i: fotos[i % len(fotos)] if fotos else None  # noqa: E731
-    quadros = [
-        arte.cena_gancho(p, t, foto(0), pasta / "cena_1.png"),
-        arte.cena_beneficios(p, t, foto(1), pasta / "cena_2.png"),
-        arte.cena_preco(p, t, foto(0), pasta / "cena_3.png"),
-        arte.cena_cta(p, t, foto(2), pasta / "cena_4.png"),
-    ]
+    cenas = _montar_cenas(p, t, fotos, pasta)
 
-    audio = narrar(t["narracao"], pasta / "narracao.mp3")
-    total = max(DURACAO_MINIMA, (duracao(audio) + 0.8) if audio else 0)
-    duracoes = [total * peso for peso in PESOS_CENAS]
+    audio, palavras = narrar(t["narracao"], pasta / "narracao.mp3")
+    total = max(DURACAO_MINIMA, (duracao(audio) + ATRASO_VOZ + 0.6) if audio else 0)
+    soma = sum(peso for _, peso in cenas)
+    duracoes = [total * peso / soma for _, peso in cenas]
+
+    # Tempo de cada palavra (da voz; se não vier, estimado)
+    if palavras:
+        palavras = [(a + ATRASO_VOZ, b + ATRASO_VOZ, w) for a, b, w in palavras]
+    else:
+        fim_fala = (duracao(audio) + ATRASO_VOZ) if audio else total - 1.2
+        palavras = _tempos_estimados(t["narracao"], ATRASO_VOZ, fim_fala)
 
     clipes = []
-    for i, (q, seg) in enumerate(zip(quadros, duracoes)):
-        extra = TRANSICAO if i < len(quadros) - 1 else 0
+    for i, ((q, _), seg) in enumerate(zip(cenas, duracoes)):
+        extra = TRANSICAO if i < len(cenas) - 1 else 0
         clipes.append(_clipe(q, seg + extra, pasta / f"clipe_{i}.mp4", i))
 
     entradas: list[str] = []
@@ -93,24 +168,49 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         entradas += ["-i", str(c)]
 
     filtros, anterior, deslocamento = [], "[0:v]", 0.0
-    transicoes = ["fade", "slideleft", "fade"]
+    transicoes = ["fade", "slideleft", "fade", "slideup", "fade"]
     for i in range(1, len(clipes)):
         deslocamento += duracoes[i - 1]
         saida = f"[v{i}]"
         filtros.append(
-            f"{anterior}[{i}:v]xfade=transition={transicoes[i - 1]}:"
+            f"{anterior}[{i}:v]xfade=transition={transicoes[(i - 1) % len(transicoes)]}:"
             f"duration={TRANSICAO}:offset={deslocamento:.3f}{saida}"
+        )
+        anterior = saida
+
+    # Legendas animadas: uma imagem por palavra falada (frase com a palavra em destaque)
+    n = len(clipes)
+    legendas: list[tuple[Path, float, float]] = []
+    inicios = [a for a, _, _ in palavras]
+    pos = 0
+    for g, frase in enumerate(_frases(palavras)):
+        textos = [_limpar(w) for _, _, w in frase]
+        for k, (ini, fim, _) in enumerate(frase):
+            # fica na tela até a próxima palavra começar (sem "piscar" nem sobrepor)
+            prox = inicios[pos + 1] if pos + 1 < len(inicios) else fim + 0.4
+            prox = min(prox, fim + 0.6, total)
+            arq = arte.quadro_legenda(textos, k, pasta / f"leg_{g}_{k}.png")
+            legendas.append((arq, ini, prox - 0.001))
+            pos += 1
+    for j, (arq, ini, fim) in enumerate(legendas):
+        entradas += ["-i", str(arq)]
+        saida = f"[l{j}]"
+        filtros.append(
+            f"{anterior}[{n + j}:v]overlay=0:{arte.LEGENDA_Y}:"
+            f"enable='between(t,{ini:.3f},{fim:.3f})'{saida}"
         )
         anterior = saida
 
     destino = pasta / "video.mp4"
     cmd = ["ffmpeg", "-y", *entradas]
+    idx_audio = n + len(legendas)
     if audio:
         cmd += ["-i", str(audio)]
-        filtros.append(f"[{len(clipes)}:a]adelay=300|300,apad[a]")
+        atraso = int(ATRASO_VOZ * 1000)
+        filtros.append(f"[{idx_audio}:a]adelay={atraso}|{atraso},apad[a]")
     else:  # faixa de áudio silenciosa: o Reels exige áudio
-        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
-        filtros.append(f"[{len(clipes)}:a]anull[a]")
+        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]
+        filtros.append(f"[{idx_audio}:a]anull[a]")
     cmd += ["-filter_complex", ";".join(filtros), "-map", anterior]
     # Limites do Instagram: áudio até 128 kbps / 48 kHz; vídeo até 5 Mbps
     cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"]

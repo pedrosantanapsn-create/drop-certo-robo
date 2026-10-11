@@ -197,20 +197,23 @@ def arte_feed(p: Produto, t: dict, fotos: list[Path], destino: Path) -> Path:
 VW, VH, VM = 1080, 1920, 72
 
 
+LEGENDA_Y = 1335   # topo da faixa de legendas animadas (altura ~200 px)
+
+
 def _rodape_video(d) -> None:
-    d.text((VW / 2, 1545), config.AVISO_LEGAL, font=fonte("semibold", 28),
+    d.text((VW / 2, 1575), config.AVISO_LEGAL, font=fonte("semibold", 28),
            fill=CINZA, anchor="mm")
 
 
 def cena_gancho(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     img = fundo(VW, VH)
     d = ImageDraw.Draw(img)
-    pilula(d, (VM, 230), "ACHADO DO DIA", fonte("black", 36), config.COR_DESTAQUE, config.COR_FUNDO)
-    texto_bloco(d, (VM, 330), t["gancho"].upper(), fonte("black", 96), config.COR_TEXTO,
-                VW - 2 * VM, 3, espaco=1.08)
-    cartao_produto(img, foto, (VM + 40, 700, VW - VM - 40, 1470), raio=56)
+    pilula(d, (VM, 200), "ACHADO DO DIA", fonte("black", 36), config.COR_DESTAQUE, config.COR_FUNDO)
+    texto_bloco(d, (VM, 290), t["gancho"].upper(), fonte("black", 92), config.COR_TEXTO,
+                VW - 2 * VM, 3, espaco=1.06)
+    cartao_produto(img, foto, (VM + 60, 640, VW - VM - 60, 1290), raio=56)
     if p.desconto:
-        selo_desconto(d, (VW - VM - 110, 790), p.desconto, raio=100)
+        selo_desconto(d, (VW - VM - 110, 720), p.desconto, raio=100)
     _rodape_video(d)
     img.save(destino)
     return destino
@@ -219,16 +222,16 @@ def cena_gancho(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
 def cena_beneficios(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     img = fundo(VW, VH)
     d = ImageDraw.Draw(img)
-    cartao_produto(img, foto, (VM, 230, VW - VM, 900), raio=56)
-    y = texto_bloco(d, (VM, 950), t.get("titulo_curto") or p.nome, fonte("extrabold", 64),
+    cartao_produto(img, foto, (VM + 40, 190, VW - VM - 40, 760), raio=56)
+    y = texto_bloco(d, (VM, 800), t.get("titulo_curto") or p.nome, fonte("extrabold", 60),
                     config.COR_TEXTO, VW - 2 * VM, 2)
-    y += 40
-    f = fonte("bold", 52)
+    y += 30
+    f = fonte("bold", 50)
     for b in t["beneficios"][:3]:
         d.ellipse((VM, y + 12, VM + 40, y + 52), fill=config.COR_DESTAQUE)
         d.line((VM + 10, y + 33, VM + 18, y + 42), fill=config.COR_FUNDO, width=6)
         d.line((VM + 18, y + 42, VM + 31, y + 22), fill=config.COR_FUNDO, width=6)
-        y = texto_bloco(d, (VM + 70, y), b, f, config.COR_TEXTO, VW - 2 * VM - 70, 2) + 26
+        y = texto_bloco(d, (VM + 70, y), b, f, config.COR_TEXTO, VW - 2 * VM - 70, 1) + 22
     _rodape_video(d)
     img.save(destino)
     return destino
@@ -237,11 +240,11 @@ def cena_beneficios(p: Produto, t: dict, foto: Path | None, destino: Path) -> Pa
 def cena_preco(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     img = fundo(VW, VH)
     d = ImageDraw.Draw(img)
-    cartao_produto(img, foto, (VM + 90, 240, VW - VM - 90, 960), raio=56)
+    cartao_produto(img, foto, (VM + 110, 190, VW - VM - 110, 850), raio=56)
     if p.desconto:
-        selo_desconto(d, (VW - VM - 100, 320), p.desconto, raio=110)
-    d.text((VW / 2, 1070), "SAINDO POR", font=fonte("black", 54), fill=config.COR_TEXTO, anchor="mm")
-    bloco_preco(d, 0, 1130, p, 170, centro_largura=VW)
+        selo_desconto(d, (VW - VM - 100, 270), p.desconto, raio=110)
+    d.text((VW / 2, 945), "SAINDO POR", font=fonte("black", 54), fill=config.COR_TEXTO, anchor="mm")
+    bloco_preco(d, 0, 1000, p, 160, centro_largura=VW)
     _rodape_video(d)
     img.save(destino)
     return destino
@@ -250,19 +253,80 @@ def cena_preco(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
 def cena_cta(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     img = fundo(VW, VH)
     d = ImageDraw.Draw(img)
-    d.text((VW / 2, 560), config.MARCA, font=fonte("black", 110), fill=config.COR_TEXTO, anchor="mm")
-    d.text((VW / 2, 680), "achados que valem a pena", font=fonte("semibold", 46),
+    d.text((VW / 2, 480), config.MARCA, font=fonte("black", 110), fill=config.COR_TEXTO, anchor="mm")
+    d.text((VW / 2, 600), "achados que valem a pena", font=fonte("semibold", 46),
            fill=CINZA, anchor="mm")
     f = fonte("black", 72)
     txt = "LINK NA BIO"
     w = d.textlength(txt, font=f)
-    d.rounded_rectangle((VW / 2 - w / 2 - 60, 860, VW / 2 + w / 2 + 60, 1000), 70,
+    d.rounded_rectangle((VW / 2 - w / 2 - 60, 760, VW / 2 + w / 2 + 60, 900), 70,
                         fill=config.COR_DESTAQUE)
-    d.text((VW / 2, 930), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
-    d.text((VW / 2, 1110), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE,
+    d.text((VW / 2, 830), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
+    d.text((VW / 2, 1010), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE,
            anchor="mm")
-    d.text((VW / 2, 1230), "Siga para mais achados de tecnologia", font=fonte("semibold", 44),
+    d.text((VW / 2, 1120), "Siga para mais achados", font=fonte("semibold", 44),
            fill=config.COR_TEXTO, anchor="mm")
     _rodape_video(d)
+    img.save(destino)
+    return destino
+
+
+def cena_foto(p: Produto, t: dict, foto: Path | None, destino: Path, rotulo: str = "") -> Path:
+    """Cena só com a foto do produto, grande, sobre a própria foto desfocada."""
+    img = fundo(VW, VH)
+    if foto:
+        try:
+            base = ImageOps.exif_transpose(Image.open(foto)).convert("RGB")
+            borrada = ImageOps.fit(base, (VW, VH), Image.LANCZOS).filter(ImageFilter.GaussianBlur(40))
+            escuro = Image.new("RGB", (VW, VH), _rgb(config.COR_FUNDO))
+            img = Image.blend(borrada, escuro, 0.55)
+        except OSError:
+            foto = None
+    cartao_produto(img, foto, (VM, 230, VW - VM, 1250), raio=60)
+    d = ImageDraw.Draw(img)
+    if rotulo:
+        f = fonte("black", 44)
+        w = d.textlength(rotulo, font=f)
+        pilula(d, ((VW - w) / 2 - 30, 120), rotulo, f, config.COR_DESTAQUE, config.COR_FUNDO, pad=(30, 14))
+    _rodape_video(d)
+    img.save(destino)
+    return destino
+
+
+def quadro_legenda(palavras: list[str], ativa: int, destino: Path) -> Path:
+    """Faixa transparente com a frase falada; a palavra da vez em destaque (estilo Reels)."""
+    larg_max = VW - 2 * VM - 40
+    tam = 70
+    f = fonte("black", tam)
+    rascunho = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    espaco = rascunho.textlength(" ", font=f)
+    # monta até 2 linhas
+    linhas, atual, larg = [], [], 0.0
+    for i, w in enumerate(palavras):
+        lw = rascunho.textlength(w, font=f)
+        if atual and larg + espaco + lw > larg_max:
+            linhas.append(atual)
+            atual, larg = [], 0.0
+        atual.append((i, w, lw))
+        larg += (espaco if len(atual) > 1 else 0) + lw
+    if atual:
+        linhas.append(atual)
+    alt_linha = int(tam * 1.18)
+    img = Image.new("RGBA", (VW, 210), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    y = (210 - alt_linha * len(linhas)) // 2
+    for linha in linhas:
+        total = sum(lw for _, _, lw in linha) + espaco * (len(linha) - 1)
+        x = (VW - total) / 2
+        for i, w, lw in linha:
+            if i == ativa:
+                d.rounded_rectangle((x - 12, y - 4, x + lw + 12, y + alt_linha - 2), 16,
+                                    fill=_rgb(config.COR_DESTAQUE) + (255,))
+                d.text((x, y + 2), w, font=f, fill=_rgb(config.COR_FUNDO) + (255,))
+            else:
+                d.text((x, y + 2), w, font=f, fill=(255, 255, 255, 255),
+                       stroke_width=7, stroke_fill=(0, 0, 0, 235))
+            x += lw + espaco
+        y += alt_linha
     img.save(destino)
     return destino
