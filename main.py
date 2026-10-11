@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from robo import arte, config, fila, instagram, legenda, supabase, telegram, video
-from robo.produto import Produto, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
+from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
 
@@ -52,12 +52,13 @@ Comandos:
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
 
-Mande de novo assim, que eu faço o post mesmo assim:
+Jeito mais fácil: tire um PRINT da página do produto (com nome e preço aparecendo)
+e mande o print com o link na legenda. Eu leio o nome e o preço do print.
+
+Ou mande assim:
 {link}
 nome: (nome do produto)
-preco: (preço atual)
-
-Dica: mande uma FOTO do produto com esse texto na legenda."""
+preco: (preço atual)"""
 
 
 def nova_pasta() -> Path:
@@ -90,6 +91,22 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if foto_enviada:
         fotos.append(foto_enviada)
     fotos += baixar_imagens(produto, pasta)
+
+    # Loja bloqueou ou faltou dado: tenta ler nome e preço da foto/print que você mandou
+    if foto_enviada and (not produto.nome or produto.nome_do_link or produto.preco is None):
+        lido = legenda.ler_imagem(foto_enviada)
+        if lido.get("nome") and (not produto.nome or produto.nome_do_link) and not dados.get("nome"):
+            produto.nome, produto.nome_do_link = str(lido["nome"]).strip(), False
+        if produto.preco is None and lido.get("preco"):
+            produto.preco = _para_float(lido["preco"])
+        if produto.preco_antigo is None and lido.get("preco_antigo"):
+            produto.preco_antigo = _para_float(lido["preco_antigo"])
+        if lido:
+            status.append("• Dados lidos da sua foto pelo Gemini ✅")
+    if produto.bloqueado:
+        status.append("• A loja bloqueou a leitura automática")
+    if produto.nome_do_link:
+        status.append("• Nome tirado do link (mande um print da página para sair melhor)")
 
     if not produto.nome:
         telegram.enviar_texto(chat_id, FALHA_LEITURA.format(link=produto.link))
