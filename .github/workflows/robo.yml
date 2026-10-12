@@ -46,6 +46,7 @@ jobs:
       ZERNIO_TIKTOK_ACCOUNT: ${{ vars.ZERNIO_TIKTOK_ACCOUNT }}
       ZERNIO_INSTAGRAM_ACCOUNT: ${{ vars.ZERNIO_INSTAGRAM_ACCOUNT }}
       AUTO_STORY_INSTAGRAM: ${{ vars.AUTO_STORY_INSTAGRAM }}
+      FOTO_LIMPA: ${{ vars.FOTO_LIMPA }}
       ARROBA: ${{ vars.ARROBA }}
       MARCA: ${{ vars.MARCA }}
     steps:

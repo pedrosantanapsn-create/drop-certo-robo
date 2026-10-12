@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, instantaneo, legenda, relatorio, supabase, telegram, tiktok, verificador, video
+from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -121,6 +121,17 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             produto.preco_antigo = _para_float(lido["preco_antigo"])
         if lido:
             status.append("• Dados lidos da sua foto pelo Gemini ✅")
+    # Foto limpa: recorta só o produto do print/foto e põe em fundo branco
+    if foto_enviada and config.FOTO_LIMPA:
+        try:
+            limpa, como = recorte.foto_limpa(foto_enviada, pasta / "foto_produto.jpg")
+            if limpa:
+                fotos[0] = limpa
+                status.append(f"• Foto do produto: {como} ✅")
+            else:
+                status.append(f"• Foto do produto: usei a imagem inteira ({como})")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• Foto do produto: usei a imagem inteira (erro: {str(erro)[:80]})")
     if produto.bloqueado:
         status.append("• A loja bloqueou a leitura automática")
     if produto.nome_do_link:

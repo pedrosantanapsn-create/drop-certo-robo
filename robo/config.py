@@ -53,6 +53,9 @@ TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
 ZERNIO_INSTAGRAM_ACCOUNT = _env("ZERNIO_INSTAGRAM_ACCOUNT")  # opcional
 AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto com o Reels
 
+# --- Foto limpa: recorta o produto do print que você manda (Gemini) -----
+FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
+
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "8"))          # primeiro post do dia
 POSTAR_ATE = int(_env("POSTAR_ATE", "22"))         # depois disso, só no dia seguinte
