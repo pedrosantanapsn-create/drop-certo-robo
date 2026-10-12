@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drop Certo — Achados de tecnologia com preço bom</title>
+<meta name="description" content="Drop Certo: achados de tecnologia, informática e setup com preço bom, selecionados a dedo. Ofertas todo dia no Telegram.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --laranja:#F26A21; --laranja-esc:#d4561a; --azul:#0E3A5D; --teal:#1BA39C;
+    --fundo:#F5F7FA; --card:#fff; --texto:#1c2430; --texto-2:#5b6572; --borda:#e6e9ee;
+    --sombra:0 6px 20px rgba(14,58,93,.08); --raio:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Poppins,system-ui,sans-serif;background:var(--fundo);color:var(--texto);line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  .container{width:min(1200px,100% - 32px);margin-inline:auto}
+
+  /* Header */
+  header{background:#fff;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .topo{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;color:var(--azul)}
+  .logo .m{color:var(--laranja)}
+  .logo small{display:block;font-size:10px;font-weight:500;color:var(--texto-2);letter-spacing:.5px;text-transform:uppercase}
+  .busca{flex:1;min-width:220px;display:flex;background:var(--fundo);border:1.5px solid var(--borda);border-radius:999px;overflow:hidden}
+  .busca input{flex:1;border:0;background:transparent;padding:11px 18px;font:inherit;font-size:15px;outline:none}
+  .busca button{border:0;background:var(--laranja);color:#fff;padding:0 20px;font-weight:600;cursor:pointer}
+  .redes{display:flex;gap:8px}
+  .redes a{width:38px;height:38px;border-radius:50%;background:var(--fundo);display:grid;place-items:center;color:var(--azul);font-weight:700;font-size:13px}
+  .redes a:hover{background:var(--laranja);color:#fff}
+  .redes svg{width:18px;height:18px;fill:currentColor}
+  .faixa-tg{display:block;background:#229ED9;color:#fff;text-align:center;font-size:14px;font-weight:500;padding:9px 16px}
+  .faixa-tg strong{font-weight:700;text-decoration:underline}
+  .faixa-tg:hover{background:#1c8cc2}
+  footer .redes-rodape a{color:#fff;font-weight:600;margin:0 6px}
+
+  /* Banner */
+  .banner{margin:22px auto;position:relative;border-radius:20px;overflow:hidden;background:linear-gradient(120deg,var(--azul),#154b78 60%,var(--teal));color:#fff;min-height:260px;box-shadow:var(--sombra)}
+  .slides{display:flex;transition:transform .6s ease}
+  .slide{min-width:100%;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:20px;padding:34px 44px}
+  .slide h2{font-size:clamp(22px,3.4vw,38px);line-height:1.15;font-weight:800}
+  .slide .tag{display:inline-block;background:var(--laranja);padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:12px}
+  .slide .preco{font-size:28px;font-weight:800;margin:12px 0}
+  .slide .preco s{font-size:16px;opacity:.7;margin-right:8px;font-weight:500}
+  .slide .btn{display:inline-block;background:#fff;color:var(--azul);padding:12px 22px;border-radius:999px;font-weight:700}
+  .slide .btn:hover{background:var(--laranja);color:#fff}
+  .slide img{width:100%;max-height:260px;object-fit:contain;filter:drop-shadow(0 12px 24px rgba(0,0,0,.35))}
+  .dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+  .dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45);cursor:pointer}
+  .dots span.ativo{background:#fff}
+  .banner.vazio{display:grid;place-items:center;text-align:center;padding:40px}
+
+  /* Filtros */
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 18px}
+  .chip{padding:8px 16px;border-radius:999px;background:#fff;border:1.5px solid var(--borda);font-size:14px;font-weight:500;cursor:pointer}
+  .chip.ativo{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .secao-titulo{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 14px}
+  .secao-titulo h3{font-size:20px;font-weight:700;color:var(--azul)}
+  .secao-titulo span{font-size:13px;color:var(--texto-2)}
+
+  /* Grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;padding-bottom:40px}
+  .card{background:var(--card);border-radius:var(--raio);overflow:hidden;box-shadow:var(--sombra);display:flex;flex-direction:column;transition:transform .2s}
+  .card:hover{transform:translateY(-4px)}
+  .card .foto{aspect-ratio:1;background:#fff;display:grid;place-items:center;padding:14px;position:relative}
+  .card .foto img{max-height:100%;object-fit:contain}
+  .card .selo{position:absolute;top:10px;left:10px;background:var(--laranja);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px}
+  .card .selo.novo{background:var(--teal)}
+  .card .info{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .card .nome{font-size:14px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card .antes{font-size:12px;color:var(--texto-2);text-decoration:line-through}
+  .card .valor{font-size:20px;font-weight:800;color:var(--azul)}
+  .card .desc{font-size:12px;color:var(--teal);font-weight:600}
+  .card .comprar{margin-top:auto;background:var(--laranja);color:#fff;text-align:center;padding:11px;border-radius:10px;font-weight:700;font-size:14px}
+  .card .comprar:hover{background:var(--laranja-esc)}
+  .vazio-msg{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--texto-2)}
+
+  footer{background:var(--azul);color:#cfd9e3;padding:28px 0;font-size:13px;text-align:center;line-height:1.7}
+  footer strong{color:#fff}
+
+  @media (max-width:720px){
+    .slide{grid-template-columns:1fr;padding:26px 22px;text-align:center}
+    .slide img{max-height:180px;order:-1}
+    .redes{order:3;width:100%;justify-content:center}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container topo">
+    <a class="logo" href="./">
+      <span>Drop<span class="m">Certo</span><small>achados que valem a pena</small></span>
+    </a>
+    <form class="busca" id="formBusca" role="search" onsubmit="return false">
+      <input id="campoBusca" type="search" placeholder="Buscar produto…" aria-label="Buscar produto" autocomplete="off">
+      <button type="submit" aria-label="Buscar">Buscar</button>
+    </form>
+    <nav class="redes" id="redes" aria-label="Redes sociais"></nav>
+  </div>
+</header>
+<a class="faixa-tg" id="faixaTg" href="https://t.me/DropCerto22" target="_blank" rel="noopener">📢 Receba as ofertas na hora no nosso canal do Telegram → <strong>Entrar no canal</strong></a>
+
+<main class="container">
+  <section class="banner" id="banner" aria-label="Novos produtos">
+    <div class="slides" id="slides"></div>
+    <div class="dots" id="dots"></div>
+  </section>
+
+  <div class="filtros" id="filtros"></div>
+
+  <div class="secao-titulo">
+    <h3 id="tituloSecao">Todos os produtos</h3>
+    <span id="contador"></span>
+  </div>
+
+  <section class="grid" id="grid" aria-live="polite">
+    <div class="vazio-msg">Carregando produtos…</div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <strong>Drop Certo</strong> · Achados de tecnologia com preço bom<br>
+    <span class="redes-rodape"><a href="https://www.instagram.com/certodrop/" target="_blank" rel="noopener">Instagram</a>·<a href="https://www.tiktok.com/@certo.drop" target="_blank" rel="noopener">TikTok</a>·<a href="https://t.me/DropCerto22" target="_blank" rel="noopener">Telegram</a></span><br>
+    Os links desta página são <strong>links de afiliado</strong>: ao comprar por eles, o Drop Certo recebe uma comissão sem custo extra para você. #publi<br>
+    Preços e disponibilidade são definidos pelos vendedores nas lojas (Mercado Livre, Amazon, Shopee e outras) e podem mudar sem aviso.
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  const cfg = window.LOJAML_CONFIG;
+  const sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+  const $ = s => document.querySelector(s);
+  const brl = v => (v==null||v==='') ? '' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let produtos = [], categoria = 'Todos', termo = '';
+
+  // Redes sociais no topo
+  const ICONES = {
+    IG: '<svg viewBox="0 0 24 24"><path d="M12 2.2c3.2 0 3.6 0 4.8.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.7 4.8-4.9 4.9-1.3.1-1.6.1-4.8.1s-3.6 0-4.8-.1c-3.3-.1-4.8-1.7-4.9-4.9C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.8C2.4 3.9 3.9 2.4 7.2 2.3 8.4 2.2 8.8 2.2 12 2.2zm0 4.7a5.1 5.1 0 1 0 0 10.2 5.1 5.1 0 0 0 0-10.2zm0 8.4a3.3 3.3 0 1 1 0-6.6 3.3 3.3 0 0 1 0 6.6zm5.3-9.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
+    TT: '<svg viewBox="0 0 24 24"><path d="M16.6 2h-3.4v13.4a2.9 2.9 0 1 1-2-2.8V9.1a6.4 6.4 0 1 0 5.4 6.3V8.6a8 8 0 0 0 4.6 1.5V6.7a4.6 4.6 0 0 1-4.6-4.7z"/></svg>',
+    TG: '<svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.7 19.5c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13.1 1.2 11.6c-1.1-.3-1.1-1.1.2-1.6L20.5 2.6c.9-.3 1.7.2 1.4 1.7z"/></svg>'
+  };
+  $('#redes').innerHTML = [
+    ['IG', cfg.INSTAGRAM, 'Instagram @certodrop'], ['TT', cfg.TIKTOK, 'TikTok @certo.drop'], ['TG', cfg.TELEGRAM, 'Canal do Telegram']
+  ].filter(([,u]) => u).map(([t,u,l]) => `<a href="${esc(u)}" target="_blank" rel="noopener" title="${l}" aria-label="${l}">${ICONES[t]}</a>`).join('');
+  if (cfg.TELEGRAM) $('#faixaTg').href = cfg.TELEGRAM;
+
+  // Loja de cada produto, pelo endereço do link de afiliado
+  function loja(link){
+    const u = (link||'').toLowerCase();
+    if (/meli\.la|mercadolivre|mercadolibre/.test(u)) return 'no Mercado Livre';
+    if (/amzn\.|amazon\.|link\.amazon/.test(u)) return 'na Amazon';
+    if (/shopee|shope\.ee/.test(u)) return 'na Shopee';
+    if (/magalu|magazineluiza|divulgador\.magalu/.test(u)) return 'na Magalu';
+    if (/aliexpress|s\.click\.ali/.test(u)) return 'no AliExpress';
+    if (/kabum/.test(u)) return 'na KaBuM!';
+    return 'na loja';
+  }
+
+  async function carregar(){
+    const { data, error } = await sb.from('produtos')
+      .select('id,nome,preco,preco_anterior,link,imagem_url,categoria,destaque,criado_em')
+      .eq('ativo', true).order('criado_em', { ascending:false });
+    if (error){ $('#grid').innerHTML = `<div class="vazio-msg">Não foi possível carregar os produtos.<br><small>${esc(error.message)}</small></div>`; return; }
+    produtos = data || [];
+    montarBanner(); montarFiltros(); render();
+  }
+
+  // ---------- Banner (novidades) ----------
+  let slideAtual = 0, timer;
+  function montarBanner(){
+    const novos = produtos.filter(p => p.destaque).slice(0,5);
+    const lista = novos.length ? novos : produtos.slice(0,3);
+    const banner = $('#banner');
+    if (!lista.length){ banner.classList.add('vazio'); banner.innerHTML = '<h2>Em breve, novos achados!</h2>'; return; }
+    $('#slides').innerHTML = lista.map(p => `
+      <article class="slide">
+        <div>
+          <span class="tag">${p.destaque ? 'NOVO NA LOJA' : 'DESTAQUE'}</span>
+          <h2>${esc(p.nome)}</h2>
+          <div class="preco">${p.preco_anterior ? `<s>${brl(p.preco_anterior)}</s>` : ''}${brl(p.preco)}</div>
+          <a class="btn" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)} →</a>
+        </div>
+        <img src="${esc(p.imagem_url)}" alt="${esc(p.nome)}" loading="eager">
+      </article>`).join('');
+    $('#dots').innerHTML = lista.map((_,i)=>`<span data-i="${i}" class="${i===0?'ativo':''}"></span>`).join('');
+    $('#dots').onclick = e => { if (e.target.dataset.i!=null){ ir(+e.target.dataset.i); } };
+    clearInterval(timer);
+    if (lista.length > 1) timer = setInterval(()=>ir((slideAtual+1)%lista.length), 5000);
+  }
+  function ir(i){
+    slideAtual = i;
+    $('#slides').style.transform = `translateX(-${i*100}%)`;
+    document.querySelectorAll('#dots span').forEach((d,k)=>d.classList.toggle('ativo',k===i));
+  }
+
+  // ---------- Filtros por categoria ----------
+  function montarFiltros(){
+    const cats = ['Todos', ...new Set(produtos.map(p=>p.categoria).filter(Boolean))];
+    $('#filtros').innerHTML = cats.map(c=>`<button class="chip ${c===categoria?'ativo':''}" data-c="${esc(c)}">${esc(c)}</button>`).join('');
+    $('#filtros').onclick = e => { const b = e.target.closest('.chip'); if(!b) return; categoria = b.dataset.c; montarFiltros(); render(); };
+  }
+
+  // ---------- Busca ----------
+  $('#campoBusca').addEventListener('input', e => { termo = e.target.value.trim().toLowerCase(); render(); });
+
+  // ---------- Grid ----------
+  function render(){
+    const agora = Date.now(), seteDias = 7*24*3600*1000;
+    const lista = produtos.filter(p =>
+      (categoria==='Todos' || p.categoria===categoria) &&
+      (!termo || (p.nome||'').toLowerCase().includes(termo) || (p.categoria||'').toLowerCase().includes(termo))
+    );
+    $('#tituloSecao').textContent = termo ? `Resultados para "${termo}"` : (categoria==='Todos' ? 'Todos os produtos' : categoria);
+    $('#contador').textContent = `${lista.length} ${lista.length===1?'produto':'produtos'}`;
+    if (!lista.length){ $('#grid').innerHTML = '<div class="vazio-msg">Nenhum produto encontrado.</div>'; return; }
+    $('#grid').innerHTML = lista.map(p => {
+      const desc = p.preco_anterior && p.preco ? Math.round((1 - p.preco/p.preco_anterior)*100) : 0;
+      const novo = p.destaque || (agora - new Date(p.criado_em).getTime() < seteDias);
+      return `
+      <article class="card">
+        <div class="foto">
+          ${desc>0 ? `<span class="selo">-${desc}%</span>` : (novo ? '<span class="selo novo">NOVO</span>' : '')}
+          <img src="${esc(p.imagem_url)}" alt="${esc(p.nome)}" loading="lazy">
+        </div>
+        <div class="info">
+          <div class="nome">${esc(p.nome)}</div>
+          ${p.preco_anterior ? `<div class="antes">${brl(p.preco_anterior)}</div>` : ''}
+          <div class="valor">${brl(p.preco)}</div>
+          ${desc>0 ? `<div class="desc">Economize ${brl(p.preco_anterior - p.preco)}</div>` : ''}
+          <a class="comprar" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)}</a>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  carregar();
+})();
+</script>
+</body>
+</html>

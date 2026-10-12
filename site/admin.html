@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>LojaML — Painel administrativo</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--laranja:#F26A21;--azul:#0E3A5D;--teal:#1BA39C;--fundo:#F3F5F8;--borda:#e3e7ec;--texto:#1c2430;--texto-2:#5b6572;--erro:#c62828;--ok:#2e7d32;--raio:12px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Poppins,system-ui,sans-serif;background:var(--fundo);color:var(--texto);line-height:1.5}
+  img{max-width:100%}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;width:100%;padding:10px 12px;border:1.5px solid var(--borda);border-radius:10px;background:#fff;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--texto-2);margin:10px 0 4px}
+  .btn{background:var(--laranja);color:#fff;border:0;padding:11px 18px;border-radius:10px;font-weight:700}
+  .btn.sec{background:#fff;color:var(--azul);border:1.5px solid var(--borda)}
+  .btn.perigo{background:#fff;color:var(--erro);border:1.5px solid #f3c4c4}
+  .btn:disabled{opacity:.55;cursor:wait}
+  .msg{padding:10px 14px;border-radius:10px;font-size:14px;margin-top:12px;display:none}
+  .msg.ok{display:block;background:#e8f5e9;color:var(--ok)} .msg.erro{display:block;background:#fdecea;color:var(--erro)}
+
+  /* Login */
+  #login{min-height:100vh;display:grid;place-items:center;padding:20px}
+  #login form{background:#fff;padding:34px;border-radius:18px;width:min(400px,100%);box-shadow:0 10px 30px rgba(14,58,93,.1)}
+  .logo{font-weight:800;font-size:24px;color:var(--azul)} .logo span{color:var(--laranja)}
+
+  /* App */
+  #app{display:none;min-height:100vh}
+  .barra{background:#fff;border-bottom:1px solid var(--borda);padding:12px 0}
+  .container{width:min(1100px,100% - 32px);margin-inline:auto}
+  .barra .container{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .abas{display:flex;gap:6px}
+  .abas button{background:transparent;border:0;padding:9px 14px;border-radius:999px;font-weight:600;color:var(--texto-2)}
+  .abas button.ativo{background:var(--azul);color:#fff}
+  .painel{display:none;padding:22px 0 60px} .painel.ativo{display:block}
+  .cols{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+  .box{background:#fff;border-radius:var(--raio);padding:20px;box-shadow:0 4px 16px rgba(14,58,93,.06)}
+  .box h3{font-size:16px;color:var(--azul);margin-bottom:8px}
+  .linha{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px} .check input{width:auto}
+  .preview{margin-top:8px;height:120px;border:1.5px dashed var(--borda);border-radius:10px;display:grid;place-items:center;color:var(--texto-2);font-size:13px;overflow:hidden}
+  .preview img{max-height:100%;object-fit:contain}
+  .lista{display:flex;flex-direction:column;gap:10px}
+  .item{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:#fff;border-radius:var(--raio);padding:10px 12px;box-shadow:0 2px 10px rgba(14,58,93,.05)}
+  .item img{width:64px;height:64px;object-fit:contain;background:#fafafa;border-radius:8px}
+  .item .n{font-size:14px;font-weight:500} .item .p{font-size:13px;color:var(--texto-2)}
+  .item .tags span{font-size:11px;padding:2px 7px;border-radius:6px;background:#eef2f6;margin-right:4px}
+  .item .tags .on{background:#e0f5f3;color:var(--teal)} .item .tags .off{background:#fdecea;color:var(--erro)}
+  .acoes{display:flex;gap:6px} .acoes button{padding:7px 10px;font-size:13px}
+  .busca-admin{margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px} th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--borda);vertical-align:top}
+  .st{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+  .st.agendado{background:#fff3e0;color:#b25a00} .st.publicado{background:#e8f5e9;color:var(--ok)} .st.erro{background:#fdecea;color:var(--erro)}
+  .contador{font-size:12px;color:var(--texto-2);text-align:right}
+  @media (max-width:860px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<section id="login">
+  <form id="formLogin">
+    <div class="logo">Loja<span>ML</span> · Admin</div>
+    <label>E-mail</label><input id="email" type="email" required autocomplete="username">
+    <label>Senha</label><input id="senha" type="password" required autocomplete="current-password">
+    <button class="btn" style="width:100%;margin-top:18px" type="submit">Entrar</button>
+    <div class="msg" id="msgLogin"></div>
+  </form>
+</section>
+
+<!-- ================= APP ================= -->
+<section id="app">
+  <div class="barra"><div class="container">
+    <div class="logo">Loja<span>ML</span> · Admin</div>
+    <nav class="abas">
+      <button data-aba="produtos" class="ativo">Produtos</button>
+      <button data-aba="agendar">Agendar post</button>
+    </nav>
+    <div><a class="btn sec" href="./" target="_blank" style="text-decoration:none;margin-right:6px">Ver loja</a><button class="btn sec" id="sair">Sair</button></div>
+  </div></div>
+
+  <!-- ---------- PRODUTOS ---------- -->
+  <div class="painel ativo container" id="aba-produtos">
+    <div class="cols">
+      <form class="box" id="formProduto">
+        <h3 id="tituloForm">Novo produto</h3>
+        <input type="hidden" id="pid">
+        <label>Nome *</label><input id="nome" required maxlength="120">
+        <div class="linha">
+          <div><label>Preço (R$) *</label><input id="preco" type="number" step="0.01" min="0" required></div>
+          <div><label>Preço anterior (R$)</label><input id="preco_anterior" type="number" step="0.01" min="0"></div>
+        </div>
+        <label>Link de afiliado *</label><input id="link" type="url" required placeholder="https://mercadolivre.com/sec/…">
+        <label>Categoria</label>
+        <select id="categoria"><option>Moda</option><option>Eletrônicos</option><option>Casa</option><option>Esporte</option><option>Beleza</option><option>Outros</option></select>
+        <label>Foto do produto</label>
+        <input id="arquivo" type="file" accept="image/*">
+        <label style="margin-top:6px">ou URL da imagem</label><input id="imagem_url" type="url" placeholder="https://…">
+        <div class="preview" id="preview">Pré-visualização</div>
+        <div class="check"><input type="checkbox" id="destaque"><label for="destaque" style="margin:0">Mostrar no banner (novo produto)</label></div>
+        <div class="check"><input type="checkbox" id="ativo" checked><label for="ativo" style="margin:0">Visível na loja</label></div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn" type="submit" id="btnSalvar">Salvar</button>
+          <button class="btn sec" type="button" id="btnLimpar">Limpar</button>
+        </div>
+        <div class="msg" id="msgProduto"></div>
+      </form>
+
+      <div>
+        <input class="busca-admin" id="buscaAdmin" type="search" placeholder="Filtrar produtos…">
+        <div class="contador" id="contProdutos"></div>
+        <div class="lista" id="listaProdutos"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- AGENDAR ---------- -->
+  <div class="painel container" id="aba-agendar">
+    <div class="cols">
+      <form class="box" id="formAgendar">
+        <h3>Agendar publicação</h3>
+        <label>Produto</label>
+        <select id="agProduto"><option value="">— escolher (preenche texto e mídia) —</option></select>
+        <label>Texto da publicação *</label>
+        <textarea id="agTexto" rows="7" required placeholder="Legenda… (inclua #publi e o aviso de link de afiliado)"></textarea>
+        <label>Mídia (URL pública da imagem ou vídeo) *</label>
+        <input id="agMidia" type="url" required placeholder="https://…/imagem.jpg ou vídeo.mp4">
+        <input id="agArquivo" type="file" accept="image/*,video/mp4" style="margin-top:6px">
+        <small style="color:var(--texto-2)">Enviar um arquivo aqui grava no Supabase e preenche a URL acima. TikTok exige vídeo; Instagram aceita imagem ou vídeo.</small>
+        <label>Redes</label>
+        <div class="check"><input type="checkbox" id="agIG" checked><label for="agIG" style="margin:0">Instagram</label></div>
+        <div class="check"><input type="checkbox" id="agTT"><label for="agTT" style="margin:0">TikTok</label></div>
+        <label>Data e hora da publicação *</label>
+        <input id="agData" type="datetime-local" required>
+        <button class="btn" type="submit" id="btnAgendar" style="margin-top:16px">Agendar</button>
+        <div class="msg" id="msgAgendar"></div>
+      </form>
+
+      <div class="box">
+        <h3>Agendamentos</h3>
+        <table><thead><tr><th>Quando</th><th>Redes</th><th>Texto</th><th>Status</th></tr></thead><tbody id="listaAg"></tbody></table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  const cfg = window.LOJAML_CONFIG;
+  const sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const $ = s => document.querySelector(s);
+  const brl = v => v==null ? '' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const aviso = (el, texto, tipo) => { el.className = 'msg ' + tipo; el.textContent = texto; if (tipo==='ok') setTimeout(()=>el.className='msg', 4000); };
+
+  let produtos = [];
+
+  // ---------- Sessão ----------
+  async function iniciar(){
+    const { data:{ session } } = await sb.auth.getSession();
+    mostrar(!!session);
+    sb.auth.onAuthStateChange((_e, s) => mostrar(!!s));
+  }
+  function mostrar(logado){
+    $('#login').style.display = logado ? 'none' : 'grid';
+    $('#app').style.display = logado ? 'block' : 'none';
+    if (logado){ carregarProdutos(); carregarAgendamentos(); }
+  }
+  $('#formLogin').addEventListener('submit', async e => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email:$('#email').value, password:$('#senha').value });
+    if (error) aviso($('#msgLogin'), 'E-mail ou senha inválidos.', 'erro');
+  });
+  $('#sair').onclick = () => sb.auth.signOut();
+
+  // ---------- Abas ----------
+  document.querySelectorAll('.abas button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.abas button').forEach(x=>x.classList.toggle('ativo', x===b));
+    document.querySelectorAll('.painel').forEach(p=>p.classList.toggle('ativo', p.id==='aba-'+b.dataset.aba));
+  });
+
+  // ---------- Upload para o Storage ----------
+  async function upload(file){
+    const ext = file.name.split('.').pop().toLowerCase();
+    const nome = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error } = await sb.storage.from('produtos').upload(nome, file, { upsert:false, contentType:file.type });
+    if (error) throw error;
+    return sb.storage.from('produtos').getPublicUrl(nome).data.publicUrl;
+  }
+  $('#arquivo').onchange = e => { const f = e.target.files[0]; if (f) $('#preview').innerHTML = `<img src="${URL.createObjectURL(f)}">`; };
+  $('#imagem_url').oninput = e => { if (e.target.value) $('#preview').innerHTML = `<img src="${esc(e.target.value)}">`; };
+
+  // ---------- CRUD produtos ----------
+  async function carregarProdutos(){
+    const { data, error } = await sb.from('produtos').select('*').order('criado_em',{ascending:false});
+    if (error){ aviso($('#msgProduto'), error.message, 'erro'); return; }
+    produtos = data || []; renderLista(); preencherSelectAg();
+  }
+  function renderLista(){
+    const t = $('#buscaAdmin').value.trim().toLowerCase();
+    const lista = produtos.filter(p => !t || p.nome.toLowerCase().includes(t));
+    $('#contProdutos').textContent = `${lista.length} produto(s)`;
+    $('#listaProdutos').innerHTML = lista.map(p => `
+      <div class="item">
+        <img src="${esc(p.imagem_url)}" alt="">
+        <div>
+          <div class="n">${esc(p.nome)}</div>
+          <div class="p">${brl(p.preco)} ${p.preco_anterior?`<s>${brl(p.preco_anterior)}</s>`:''} · ${esc(p.categoria||'')}</div>
+          <div class="tags">${p.destaque?'<span class="on">banner</span>':''}<span class="${p.ativo?'on':'off'}">${p.ativo?'visível':'oculto'}</span></div>
+        </div>
+        <div class="acoes">
+          <button class="btn sec" data-ed="${p.id}">Editar</button>
+          <button class="btn perigo" data-del="${p.id}">Excluir</button>
+        </div>
+      </div>`).join('') || '<p style="color:var(--texto-2)">Nenhum produto ainda.</p>';
+  }
+  $('#buscaAdmin').oninput = renderLista;
+  $('#listaProdutos').onclick = async e => {
+    const ed = e.target.dataset.ed, del = e.target.dataset.del;
+    if (ed){ const p = produtos.find(x=>x.id===ed); editar(p); }
+    if (del && confirm('Excluir este produto?')){
+      const { error } = await sb.from('produtos').delete().eq('id', del);
+      if (error) aviso($('#msgProduto'), error.message, 'erro'); else carregarProdutos();
+    }
+  };
+  function editar(p){
+    $('#tituloForm').textContent = 'Editar produto';
+    $('#pid').value = p.id; $('#nome').value = p.nome; $('#preco').value = p.preco; $('#preco_anterior').value = p.preco_anterior ?? '';
+    $('#link').value = p.link; $('#categoria').value = p.categoria || 'Outros'; $('#imagem_url').value = p.imagem_url || '';
+    $('#destaque').checked = !!p.destaque; $('#ativo').checked = !!p.ativo;
+    $('#preview').innerHTML = p.imagem_url ? `<img src="${esc(p.imagem_url)}">` : 'Pré-visualização';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function limpar(){
+    $('#formProduto').reset(); $('#pid').value=''; $('#tituloForm').textContent='Novo produto'; $('#preview').textContent='Pré-visualização'; $('#ativo').checked=true;
+  }
+  $('#btnLimpar').onclick = limpar;
+  $('#formProduto').addEventListener('submit', async e => {
+    e.preventDefault(); const btn = $('#btnSalvar'); btn.disabled = true;
+    try{
+      let imagem_url = $('#imagem_url').value.trim();
+      const f = $('#arquivo').files[0];
+      if (f) imagem_url = await upload(f);
+      if (!imagem_url) throw new Error('Envie uma foto ou informe a URL da imagem.');
+      const reg = {
+        nome:$('#nome').value.trim(), preco:+$('#preco').value, preco_anterior: $('#preco_anterior').value ? +$('#preco_anterior').value : null,
+        link:$('#link').value.trim(), categoria:$('#categoria').value, imagem_url, destaque:$('#destaque').checked, ativo:$('#ativo').checked
+      };
+      const id = $('#pid').value;
+      const { error } = id ? await sb.from('produtos').update(reg).eq('id', id) : await sb.from('produtos').insert(reg);
+      if (error) throw error;
+      aviso($('#msgProduto'), 'Produto salvo!', 'ok'); limpar(); carregarProdutos();
+    }catch(err){ aviso($('#msgProduto'), err.message, 'erro'); }
+    btn.disabled = false;
+  });
+
+  // ---------- Agendamento ----------
+  function preencherSelectAg(){
+    $('#agProduto').innerHTML = '<option value="">— escolher (preenche texto e mídia) —</option>' +
+      produtos.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
+  }
+  $('#agProduto').onchange = e => {
+    const p = produtos.find(x=>x.id===e.target.value); if (!p) return;
+    const desc = p.preco_anterior ? ` (antes ${brl(p.preco_anterior)})` : '';
+    $('#agTexto').value = `🔥 ${p.nome}\n\n💰 Por ${brl(p.preco)}${desc}\n\n👉 Link na bio / no site LojaML\n\n#publi #linkdeafiliado #lojaml #ofertas #mercadolivre`;
+    $('#agMidia').value = p.imagem_url;
+  };
+  $('#agArquivo').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try{ $('#agMidia').value = await upload(f); aviso($('#msgAgendar'),'Mídia enviada.','ok'); }catch(err){ aviso($('#msgAgendar'), err.message, 'erro'); }
+  };
+  // data mínima = agora + 10 min
+  const min = new Date(Date.now()+10*60000); min.setSeconds(0,0);
+  $('#agData').min = new Date(min - min.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  $('#formAgendar').addEventListener('submit', async e => {
+    e.preventDefault(); const btn = $('#btnAgendar'); btn.disabled = true; btn.textContent = 'Enviando…';
+    try{
+      const plataformas = [$('#agIG').checked && 'instagram', $('#agTT').checked && 'tiktok'].filter(Boolean);
+      if (!plataformas.length) throw new Error('Escolha ao menos uma rede.');
+      const midia = $('#agMidia').value.trim();
+      if (plataformas.includes('tiktok') && !/\.(mp4|mov|webm)(\?|$)/i.test(midia)) throw new Error('O TikTok exige um vídeo (.mp4).');
+      const data = new Date($('#agData').value).toISOString();
+      const { data:{ session } } = await sb.auth.getSession();
+      const r = await fetch('/.netlify/functions/agendar', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
+        body: JSON.stringify({ texto:$('#agTexto').value, midia_url:midia, plataformas, data, produto_id:$('#agProduto').value || null })
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.erro || 'Falha ao agendar.');
+      aviso($('#msgAgendar'), 'Agendado com sucesso!', 'ok'); $('#formAgendar').reset(); $('#agIG').checked = true; carregarAgendamentos();
+    }catch(err){ aviso($('#msgAgendar'), err.message, 'erro'); }
+    btn.disabled = false; btn.textContent = 'Agendar';
+  });
+
+  async function carregarAgendamentos(){
+    const { data } = await sb.from('agendamentos').select('*').order('data_publicacao',{ascending:false}).limit(50);
+    $('#listaAg').innerHTML = (data||[]).map(a => `
+      <tr>
+        <td>${new Date(a.data_publicacao).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td>${(a.plataformas||[]).join(', ')}</td>
+        <td>${esc((a.texto||'').slice(0,60))}…</td>
+        <td><span class="st ${a.status}">${a.status}</span>${a.erro?`<br><small>${esc(a.erro)}</small>`:''}</td>
+      </tr>`).join('') || '<tr><td colspan="4" style="color:var(--texto-2)">Nenhum agendamento.</td></tr>';
+  }
+
+  iniciar();
+})();
+</script>
+</body>
+</html>
