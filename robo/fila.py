@@ -24,6 +24,7 @@ CHAVE_INTERVALO = "fila_intervalo"   # minutos fixos (vazio = automático)
 
 INTERVALO_MIN = timedelta(minutes=30)
 INTERVALO_MAX = timedelta(hours=3)
+DISTANCIA_PICO = timedelta(minutes=55)   # espaço mínimo entre posts no modo pico
 RE_LINK = re.compile(r"(https?://\S+|\bmeli\.la/\S+|\bmercadolivre\.com\.br/\S+)", re.I)
 
 
@@ -59,6 +60,19 @@ def _marcar_proxima(quando: datetime | None) -> None:
     supabase.gravar_config(CHAVE_PROXIMA, str(int(quando.timestamp())) if quando else "")
 
 
+def modo() -> str:
+    """"pico" (padrão: posta nos horários de mais movimento), "igual" (espalha por
+    igual no dia) ou "fixo" (intervalo em minutos definido com /intervalo N)."""
+    valor = str((supabase.ler_config(CHAVE_INTERVALO) or {}).get("valor", "")).strip()
+    if valor.isdigit() and int(valor) > 0:
+        return "fixo"
+    return "igual" if valor == "igual" else "pico"
+
+
+def definir_modo(nome: str) -> None:
+    supabase.gravar_config(CHAVE_INTERVALO, "igual" if nome == "igual" else "")
+
+
 def intervalo_fixo() -> int | None:
     linha = supabase.ler_config(CHAVE_INTERVALO)
     valor = (linha or {}).get("valor", "")
@@ -90,6 +104,52 @@ def _dentro_da_janela(quando: datetime) -> datetime:
     if quando >= fim:
         return _amanha_cedo(quando)
     return quando
+
+
+# Horários de mais movimento nas redes no Brasil (almoço e noite valem mais).
+# Peso maior = horário preferido. Os posts vão para os melhores horários que
+# ainda restam no dia; se sobrar oferta, ocupam também os horários comuns.
+def _peso(h: float) -> int:
+    if 19 <= h < 21.5:
+        return 5          # noite: pico principal
+    if 18 <= h < 19 or 21.5 <= h < 22.5:
+        return 4
+    if 11.5 <= h < 13.5:
+        return 4          # almoço
+    if 7.5 <= h < 9:
+        return 3          # começo do dia (ônibus, metrô)
+    if 17 <= h < 18:
+        return 2
+    return 1
+
+
+def _horarios_do_dia(dia: datetime) -> list[datetime]:
+    """Horários possíveis (de 30 em 30 min) dentro do período de postagem."""
+    inicio, fim = _janela(dia)
+    lista, h = [], inicio
+    while h < fim:
+        lista.append(h)
+        h += timedelta(minutes=30)
+    return lista
+
+
+def plano_pico(agora: datetime, pendentes: int, folga: timedelta = INTERVALO_MIN) -> datetime:
+    """Melhor horário para o próximo post, escolhendo os horários de pico."""
+    dia = agora
+    for _ in range(8):
+        livres = [h for h in _horarios_do_dia(dia) if h >= agora + folga]
+        if livres:
+            # Pega os melhores horários, com pelo menos ~1 hora entre um post e outro
+            escolhidos: list[datetime] = []
+            for h in sorted(livres, key=lambda h: (-_peso(h.hour + h.minute / 60), h)):
+                if all(abs(h - e) >= DISTANCIA_PICO for e in escolhidos):
+                    escolhidos.append(h)
+                if len(escolhidos) >= max(pendentes, 1):
+                    break
+            return min(escolhidos)
+        dia = _amanha_cedo(dia)
+        agora, folga = dia, timedelta(0)
+    return _dentro_da_janela(agora)
 
 
 def _passo(agora: datetime, pendentes: int) -> timedelta:
@@ -153,7 +213,12 @@ def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
         lista.append({"texto": texto, "adicionado": agora.isoformat(timespec="minutes")})
     _salvar(lista)
     proxima = _proxima()
-    if lista and (proxima is None or proxima < agora):
+    if lista and modo() == "pico":
+        plano = plano_pico(agora, len(lista), timedelta(0))
+        if proxima is None or proxima < agora or plano < proxima:
+            proxima = plano
+            _marcar_proxima(proxima)
+    elif lista and (proxima is None or proxima < agora):
         proxima = _dentro_da_janela(agora)
         _marcar_proxima(proxima)
     return len(lista), proxima or _dentro_da_janela(agora), ignorados
@@ -173,7 +238,9 @@ def retirar_proximo() -> dict | None:
     item = lista.pop(0)
     _salvar(lista)
     agora = datetime.now(FUSO)
-    if lista:
+    if lista and modo() == "pico":
+        _marcar_proxima(plano_pico(agora, len(lista)))
+    elif lista:
         _marcar_proxima(_dentro_da_janela(agora + _passo(agora, len(lista))))
     else:
         _marcar_proxima(None)
@@ -199,10 +266,16 @@ def resumo() -> str:
         return "📭 A fila está vazia.\n\nMande vários links numa mensagem (um por linha) para agendar."
     proxima = _proxima()
     fixo = intervalo_fixo()
+    jeito = modo()
     linhas = [f"🗓️ Fila de postagens: {len(lista)} oferta(s)"]
     if proxima:
         linhas.append(f"⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}")
-    linhas.append(f"⏱️ Intervalo: {f'{fixo} min (fixo)' if fixo else 'automático (espalha até as %dh)' % config.POSTAR_ATE}")
+    if jeito == "fixo":
+        linhas.append(f"⏱️ Intervalo: {fixo} min (fixo)")
+    elif jeito == "igual":
+        linhas.append(f"⏱️ Intervalo: espalhado por igual até as {config.POSTAR_ATE}h")
+    else:
+        linhas.append("⏱️ Horários de pico: almoço (11h30–13h30) e noite (18h–22h) primeiro")
     linhas.append(f"🕗 Posta das {config.POSTAR_DAS}h às {config.POSTAR_ATE}h\n")
     for i, item in enumerate(lista[:15], 1):
         primeira = item["texto"].splitlines()[0]

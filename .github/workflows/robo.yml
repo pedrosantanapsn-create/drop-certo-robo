@@ -51,6 +51,10 @@ jobs:
           RELATORIO=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.relatorio_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Conferência diária das ofertas do site (6h)
+          CONFERIR=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.verificacao_proxima&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           if echo "$RESPOSTA" | grep -q '"update_id"'; then
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$PROXIMA" ] && [ "$(date +%s)" -ge "$PROXIMA" ]; then
@@ -58,6 +62,9 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$RELATORIO" ] && [ "$(date +%s)" -ge "$RELATORIO" ]; then
             echo "Hora do relatório semanal."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$CONFERIR" ] && [ "$(date +%s)" -ge "$CONFERIR" ]; then
+            echo "Hora da conferência diária do site."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           else
             [ -n "$PROXIMA" ] && echo "Próximo post da fila: $(TZ=America/Sao_Paulo date -d @"$PROXIMA" '+%d/%m %H:%M')"

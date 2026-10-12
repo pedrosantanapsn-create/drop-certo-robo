@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, legenda, relatorio, supabase, telegram, tiktok, video
+from robo import arte, config, fila, instagram, legenda, relatorio, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -37,19 +37,23 @@ obs: ótimo para quem joga FPS
 
 🗓️ FILA (posta ao longo do dia):
 Mande VÁRIOS links numa mensagem, um por linha.
-O robô posta um por vez, espalhados entre 8h e 22h.
+O robô posta um por vez nos horários de mais movimento
+(almoço e noite primeiro), entre 8h e 22h.
 Para agendar um link só: /agendar meli.la/abc123
 
 Comandos:
 /fila — mostra o que está agendado
 /agora — posta o próximo da fila agora
-/intervalo 60 — um post a cada 60 min (/intervalo auto volta ao normal)
+/intervalo 60 — um post a cada 60 min
+/intervalo igual — espalha por igual no dia
+/intervalo auto — volta aos horários de pico
 /limpar — apaga a fila
 /id — mostra seu ID do Telegram
 /colunas — mostra as colunas da tabela do site
 /instagram — confere a ligação com o Instagram
 /tiktok — confere a ligação com o TikTok
 /relatorio — posts e cliques dos últimos 7 dias (/relatorio 30 = 30 dias)
+/conferir — confere agora preços e ofertas esgotadas do site
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -220,6 +224,12 @@ def tratar(mensagem: dict) -> None:
                                   else "❌ TikTok não está ligado (falta o segredo ZERNIO_API_KEY no GitHub).")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ TikTok: {str(erro)[:200]}")
+    elif comando == "/conferir":
+        if not supabase.ativo():
+            telegram.enviar_texto(chat_id, "Supabase não configurado.")
+        else:
+            telegram.enviar_texto(chat_id, "🔎 Conferindo as ofertas do site (leva alguns minutos)…")
+            telegram.enviar_texto(chat_id, verificador.conferir())
     elif comando == "/relatorio":
         partes = texto.split()
         dias = int(partes[1]) if len(partes) > 1 and partes[1].isdigit() else 7
@@ -241,11 +251,14 @@ def tratar(mensagem: dict) -> None:
         if valor.isdigit() and int(valor) >= 20:
             fila.definir_intervalo(int(valor))
             telegram.enviar_texto(chat_id, f"⏱️ Pronto: um post a cada {int(valor)} minutos.")
-        elif valor in ("auto", "automatico", "automático", "0"):
-            fila.definir_intervalo(None)
-            telegram.enviar_texto(chat_id, f"⏱️ Intervalo automático: espalha a fila até as {config.POSTAR_ATE}h.")
+        elif valor in ("auto", "automatico", "automático", "0", "pico"):
+            fila.definir_modo("pico")
+            telegram.enviar_texto(chat_id, "⏱️ Horários de pico: a fila sai primeiro no almoço e à noite.")
+        elif valor == "igual":
+            fila.definir_modo("igual")
+            telegram.enviar_texto(chat_id, f"⏱️ A fila vai ser espalhada por igual até as {config.POSTAR_ATE}h.")
         else:
-            telegram.enviar_texto(chat_id, "Use assim: /intervalo 60  (mínimo 20)  ou  /intervalo auto")
+            telegram.enviar_texto(chat_id, "Use assim: /intervalo 60 (mínimo 20), /intervalo igual ou /intervalo auto")
     elif comando == "/agendar" or len(fila.separar_ofertas(texto)) > 1:
         agendar(chat_id, texto.split(None, 1)[1] if comando == "/agendar" and " " in texto else texto)
     elif comando == "/colunas":
@@ -318,6 +331,10 @@ def rodar_uma_vez() -> int:
         relatorio.enviar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Relatório:", erro, file=sys.stderr)
+    try:
+        verificador.conferir_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Conferência:", erro, file=sys.stderr)
     return len(atualizacoes)
 
 
