@@ -115,9 +115,9 @@ def conta(token: str | None = None) -> dict:
 def _publicar_via_make(video: Path, legenda: str, capa: Path | None) -> str:
     carimbo = int(time.time())
     dados = {
-        "video_url": supabase.enviar_arquivo(video, f"posts/{carimbo}.mp4", "video/mp4"),
+        "video_url": supabase.url_publica(video, "video/mp4"),
         "legenda": legenda[:2200],
-        "capa_url": supabase.enviar_arquivo(capa, f"posts/{carimbo}_capa.jpg", "image/jpeg") if capa else "",
+        "capa_url": supabase.url_publica(capa, "image/jpeg") if capa else "",
     }
     # O Make processa o vídeo e só responde quando o Reels foi publicado (até ~5 min)
     r = requests.post(config.MAKE_WEBHOOK_URL, json=dados, timeout=330)
@@ -144,10 +144,10 @@ def publicar_reels(video: Path, legenda: str, capa: Path | None = None) -> str:
     ig_id = eu["user_id"]
 
     carimbo = int(time.time())
-    url_video = supabase.enviar_arquivo(video, f"posts/{carimbo}.mp4", "video/mp4")
+    url_video = supabase.url_publica(video, "video/mp4")
     extras = {}
     if capa:
-        extras["cover_url"] = supabase.enviar_arquivo(capa, f"posts/{carimbo}_capa.jpg", "image/jpeg")
+        extras["cover_url"] = supabase.url_publica(capa, "image/jpeg")
 
     container = _chamar("POST", f"{ig_id}/media", token, media_type="REELS",
                         video_url=url_video, caption=legenda[:2200], share_to_feed="true", **extras)

@@ -43,6 +43,13 @@ IG_TOKEN = _env("IG_TOKEN")                        # só na 1ª vez; depois fica
 MAKE_WEBHOOK_URL = _env("MAKE_WEBHOOK_URL")        # endereço do cenário do Make.com
 AUTO_POSTAR_INSTAGRAM = _env_bool("AUTO_POSTAR_INSTAGRAM", True)
 
+# --- TikTok (via Zernio, plano grátis) ------------------------------------
+ZERNIO_API_KEY = _env("ZERNIO_API_KEY")            # Zernio → API Keys (começa com sk_)
+ZERNIO_TIKTOK_ACCOUNT = _env("ZERNIO_TIKTOK_ACCOUNT")  # opcional: o robô acha sozinho
+AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
+# Tipo de aviso comercial no TikTok: brand_content = parceria/afiliado (recomendado)
+TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
+
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "8"))          # primeiro post do dia
 POSTAR_ATE = int(_env("POSTAR_ATE", "22"))         # depois disso, só no dia seguinte

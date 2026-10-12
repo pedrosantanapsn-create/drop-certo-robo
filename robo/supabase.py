@@ -35,6 +35,54 @@ def enviar_arquivo(arquivo: Path, caminho: str, tipo: str) -> str:
     return f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{caminho}"
 
 
+_urls_publicas: dict[str, str] = {}
+
+
+def url_publica(arquivo: Path, tipo: str) -> str:
+    """Sobe o arquivo do post (vídeo/capa) uma vez só e reaproveita o endereço
+    para o Instagram e o TikTok."""
+    chave = str(arquivo)
+    if chave not in _urls_publicas:
+        extensao = Path(arquivo).suffix or ".bin"
+        nome = f"posts/{int(time.time() * 1000)}_{Path(arquivo).stem}{extensao}"
+        _urls_publicas[chave] = enviar_arquivo(Path(arquivo), nome, tipo)
+    return _urls_publicas[chave]
+
+
+def limpar_posts_antigos(dias: int = 3) -> int:
+    """Apaga vídeos/capas de posts com mais de X dias da pasta "posts/".
+
+    Instagram e TikTok baixam o vídeo na hora de publicar; depois disso ele só
+    ocupa espaço (o plano grátis do Supabase tem 1 GB). As fotos do site ficam.
+    """
+    r = requests.post(
+        f"{config.SUPABASE_URL}/storage/v1/object/list/{config.SUPABASE_BUCKET}",
+        headers=_cabecalhos({"Content-Type": "application/json"}),
+        json={"prefix": "posts/", "limit": 1000, "sortBy": {"column": "created_at", "order": "asc"}},
+        timeout=30,
+    )
+    if r.status_code >= 300:
+        return 0
+    limite = datetime.now(timezone.utc).timestamp() - dias * 86400
+    velhos = []
+    for item in r.json():
+        criado = item.get("created_at") or ""
+        try:
+            quando = datetime.fromisoformat(criado.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+        if item.get("name") and quando < limite:
+            velhos.append(f"posts/{item['name']}")
+    if velhos:
+        requests.delete(
+            f"{config.SUPABASE_URL}/storage/v1/object/{config.SUPABASE_BUCKET}",
+            headers=_cabecalhos({"Content-Type": "application/json"}),
+            json={"prefixes": velhos},
+            timeout=30,
+        )
+    return len(velhos)
+
+
 def enviar_imagem(arquivo: Path, nome: str) -> str:
     return enviar_arquivo(arquivo, f"robo/{nome}", "image/jpeg")
 
