@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, legenda, supabase, telegram, video
+from robo import arte, config, fila, instagram, legenda, supabase, telegram, tiktok, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -48,6 +48,7 @@ Comandos:
 /id — mostra seu ID do Telegram
 /colunas — mostra as colunas da tabela do site
 /instagram — confere a ligação com o Instagram
+/tiktok — confere a ligação com o TikTok
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -148,6 +149,13 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Instagram: erro — {str(erro)[:160]}")
 
+    # 4c. TikTok (pelo Zernio)
+    if caminho_video and tiktok.ativo():
+        try:
+            status.append(f"• TikTok: publicado ✅ {tiktok.publicar(caminho_video, legenda_redes)}")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• TikTok: erro — {str(erro)[:160]}")
+
     # 5. Site (Supabase)
     if supabase.ativo():
         if fotos:
@@ -168,6 +176,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     resumo = [f"✅ {produto.nome}", formatar_preco(produto.preco) or "Preço não encontrado", "", *status]
     telegram.enviar_texto(chat_id, "\n".join(resumo))
     shutil.rmtree(pasta, ignore_errors=True)
+    if supabase.ativo():
+        try:
+            supabase.limpar_posts_antigos(dias=3)   # libera espaço (plano grátis = 1 GB)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def tratar(mensagem: dict) -> None:
@@ -195,6 +208,13 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_texto(chat_id, f"✅ Instagram ligado: @{eu.get('username')}")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Instagram não está ligado: {str(erro)[:200]}")
+    elif comando == "/tiktok":
+        try:
+            c = tiktok.conta() if config.ZERNIO_API_KEY else None
+            telegram.enviar_texto(chat_id, f"✅ TikTok ligado pelo Zernio: @{c.get('username')}" if c
+                                  else "❌ TikTok não está ligado (falta o segredo ZERNIO_API_KEY no GitHub).")
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ TikTok: {str(erro)[:200]}")
     elif comando == "/fila":
         telegram.enviar_texto(chat_id, fila.resumo())
     elif comando == "/limpar":
