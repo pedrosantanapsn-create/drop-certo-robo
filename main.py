@@ -221,7 +221,9 @@ def tratar(mensagem: dict) -> None:
     elif comando == "/instagram":
         try:
             eu = instagram.conta()
-            telegram.enviar_texto(chat_id, f"✅ Instagram ligado: @{eu.get('username')}")
+            aviso = instagram.diagnostico_zernio() if "Zernio" not in str(eu.get("username")) else ""
+            telegram.enviar_texto(chat_id, f"✅ Instagram ligado: @{eu.get('username')}"
+                                  + (f"\nℹ️ Zernio: {aviso}" if aviso else ""))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Instagram não está ligado: {str(erro)[:200]}")
     elif comando == "/tiktok":

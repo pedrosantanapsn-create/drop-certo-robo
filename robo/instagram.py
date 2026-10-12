@@ -102,14 +102,30 @@ def _esperar_processar(container_id: str, token: str, limite_s: int = 300) -> No
     raise RuntimeError("Instagram demorou demais para processar o vídeo")
 
 
+_motivo_zernio = ""
+
+
 def _conta_zernio() -> dict | None:
     """Conta do Instagram conectada no Zernio (None se não houver)."""
+    global _motivo_zernio
     if not zernio.ativo():
+        _motivo_zernio = "sem ZERNIO_API_KEY"
         return None
     try:
-        return zernio.conta("instagram", config.ZERNIO_INSTAGRAM_ACCOUNT)
-    except Exception:  # noqa: BLE001
+        achada = zernio.conta("instagram", config.ZERNIO_INSTAGRAM_ACCOUNT)
+        if not achada:
+            vistas = ", ".join(f"{c.get('platform')}:{c.get('username')}"
+                               f"{'' if c.get('isActive', True) else '(inativa)'}" for c in zernio.contas())
+            _motivo_zernio = f"Instagram não encontrado no Zernio (contas vistas: {vistas or 'nenhuma'})"
+        return achada
+    except Exception as erro:  # noqa: BLE001
+        _motivo_zernio = f"erro ao consultar o Zernio: {str(erro)[:150]}"
         return None
+
+
+def diagnostico_zernio() -> str:
+    _conta_zernio()
+    return _motivo_zernio
 
 
 def conta(token: str | None = None) -> dict:
