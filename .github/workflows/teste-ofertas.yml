@@ -1,0 +1,26 @@
+name: Teste fontes de ofertas
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - run: |
+          python - <<'PY'
+          import requests, re, json
+          UA={"User-Agent":"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36","Accept-Language":"pt-BR,pt;q=0.9"}
+          def w(t,m): print(f"::warning title={t}::{m}")
+          for nome,url in [("api-search","https://api.mercadolibre.com/sites/MLB/search?q=mouse%20gamer&limit=3"),
+                           ("ofertas","https://www.mercadolivre.com.br/ofertas?category=MLB1648"),
+                           ("ofertas-geral","https://www.mercadolivre.com.br/ofertas"),
+                           ("lista","https://lista.mercadolivre.com.br/informatica/_Discount_30-100")]:
+              try:
+                  r=requests.get(url,headers=UA,timeout=25)
+                  t=r.text
+                  n_poly=t.count("poly-card"); n_price=t.count("andes-money-amount__fraction")
+                  m=re.search(r'"items"\s*:\s*\[',t)
+                  w(nome,f"status {r.status_code} len {len(t)} poly {n_poly} prices {n_price} desc {t.count('% OFF')} json {bool(m)} | {t[:150].replace(chr(10),' ')}")
+              except Exception as e: w(nome,f"erro {e}")
+          PY
