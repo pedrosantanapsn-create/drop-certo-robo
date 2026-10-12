@@ -92,10 +92,12 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         fotos.append(foto_enviada)
     fotos += baixar_imagens(produto, pasta)
 
-    # Loja bloqueou ou faltou dado: tenta ler nome e preço da foto/print que você mandou
-    if foto_enviada and (not produto.nome or produto.nome_do_link or produto.preco is None):
+    # Você mandou foto/print: o robô lê o produto da imagem. Ela vale mais que a página
+    # quando a página não trouxe preço (loja bloqueou, link curto caiu na vitrine etc.).
+    pagina_confiavel = bool(produto.nome) and produto.preco is not None and not produto.nome_do_link
+    if foto_enviada and not (pagina_confiavel and produto.preco_antigo is not None):
         lido = legenda.ler_imagem(foto_enviada)
-        if lido.get("nome") and (not produto.nome or produto.nome_do_link) and not dados.get("nome"):
+        if lido.get("nome") and not dados.get("nome") and not pagina_confiavel:
             produto.nome, produto.nome_do_link = str(lido["nome"]).strip(), False
         if produto.preco is None and lido.get("preco"):
             produto.preco = _para_float(lido["preco"])
