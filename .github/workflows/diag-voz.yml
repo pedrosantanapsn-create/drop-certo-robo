@@ -1,0 +1,28 @@
+name: Diagnóstico da voz
+on: workflow_dispatch
+jobs:
+  voz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q edge-tts
+      - name: Testar edge-tts
+        run: |
+          python - <<'PY'
+          import asyncio, traceback, edge_tts
+          async def main():
+              c = edge_tts.Communicate("Teste de voz do Drop Certo.", "pt-BR-FranciscaNeural")
+              n = 0
+              async for p in c.stream():
+                  if p["type"] == "audio": n += len(p["data"])
+              return n
+          try:
+              n = asyncio.run(main())
+              print(f"::warning title=edge-tts::OK {n} bytes, versao {edge_tts.__version__ if hasattr(edge_tts,'__version__') else '?'}")
+          except Exception as e:
+              msg = (type(e).__name__ + ": " + str(e)).replace("\n"," ")[:600]
+              print(f"::warning title=edge-tts::FALHOU {msg}")
+          PY
