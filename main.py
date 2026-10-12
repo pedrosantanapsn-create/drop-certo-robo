@@ -414,6 +414,11 @@ def rodar_uma_vez() -> int:
                 telegram.enviar_texto(mensagem["chat"]["id"], "❌ Deu erro neste post:\n" + detalhe)
             except Exception:  # noqa: BLE001
                 pass
+    if pelo_webhook:
+        # Rodadas do modo instantâneo só tratam a mensagem. Fila, relatório e
+        # conferência ficam com a rodada de 10 min (evita post repetido quando
+        # várias fotos chegam juntas e o robô roda várias vezes ao mesmo tempo).
+        return len(atualizacoes)
     try:
         postar_da_fila()
     except Exception as erro:  # noqa: BLE001
