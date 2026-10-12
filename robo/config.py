@@ -56,6 +56,10 @@ AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto co
 # --- Foto limpa: recorta o produto do print que você manda (Gemini) -----
 FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 
+# --- Ofertas sugeridas (todo dia às 10h) -------------------------------
+SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
+LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
+
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "8"))          # primeiro post do dia
 POSTAR_ATE = int(_env("POSTAR_ATE", "22"))         # depois disso, só no dia seguinte

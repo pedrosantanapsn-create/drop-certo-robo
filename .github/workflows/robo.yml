@@ -47,6 +47,8 @@ jobs:
       ZERNIO_INSTAGRAM_ACCOUNT: ${{ vars.ZERNIO_INSTAGRAM_ACCOUNT }}
       AUTO_STORY_INSTAGRAM: ${{ vars.AUTO_STORY_INSTAGRAM }}
       FOTO_LIMPA: ${{ vars.FOTO_LIMPA }}
+      SUGERIR_OFERTAS: ${{ vars.SUGERIR_OFERTAS }}
+      LOJAS_OFERTAS: ${{ vars.LOJAS_OFERTAS }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
       VELOCIDADE_VOZ: ${{ vars.VELOCIDADE_VOZ }}
       ARROBA: ${{ vars.ARROBA }}
@@ -68,6 +70,10 @@ jobs:
           CONFERIR=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.verificacao_proxima&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Ofertas sugeridas (10h)
+          SUGERIR=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.ofertas_proxima&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           if [ -n "$UPDATE_JSON" ]; then
             echo "Mensagem recebida pelo modo instantâneo."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
@@ -78,6 +84,9 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$RELATORIO" ] && [ "$(date +%s)" -ge "$RELATORIO" ]; then
             echo "Hora do relatório semanal."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SUGERIR" ] && [ "$(date +%s)" -ge "$SUGERIR" ]; then
+            echo "Hora das ofertas sugeridas."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$CONFERIR" ] && [ "$(date +%s)" -ge "$CONFERIR" ]; then
             echo "Hora da conferência diária do site."

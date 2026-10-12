@@ -1,0 +1,21 @@
+name: Teste sugestoes
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 Pillow
+      - run: |
+          python - <<'PY'
+          from robo import sugestoes, supabase
+          supabase.ativo = lambda: False
+          sugestoes._vistas = lambda: []
+          for u in sugestoes.PAGINAS:
+              print(f"::warning title=pagina::{u} -> {len(sugestoes._ler_pagina(u))}")
+          txt = sugestoes.mensagem(sugestoes.buscar())
+          for i, linha in enumerate(txt.splitlines()[:30]):
+              print(f"::warning title=msg {i:02d}::{linha or '.'}")
+          PY

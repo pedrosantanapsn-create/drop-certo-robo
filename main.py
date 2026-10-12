@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, supabase, telegram, tiktok, verificador, video
+from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -63,6 +63,7 @@ Comandos:
 /relatorio — posts e cliques dos últimos 7 dias (/relatorio 30 = 30 dias)
 /conferir — confere agora preços e ofertas esgotadas do site
 /voz — testa a narração dos vídeos
+/ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /instantaneo on — o robô responde na hora (off = volta aos 10 min)
 /ajuda — mostra esta mensagem"""
 
@@ -271,6 +272,9 @@ def tratar(mensagem: dict) -> None:
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Modo instantâneo: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
+    elif comando == "/ofertas":
+        telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
+        telegram.enviar_texto(chat_id, sugestoes.sugerir())
     elif comando == "/voz":
         pasta = nova_pasta()
         audio, _ = video.narrar("Olá! Este é um teste da narração do Drop Certo.", pasta / "teste_voz.mp3")
@@ -438,6 +442,10 @@ def rodar_uma_vez() -> int:
         relatorio.enviar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Relatório:", erro, file=sys.stderr)
+    try:
+        sugestoes.sugerir_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Ofertas sugeridas:", erro, file=sys.stderr)
     try:
         verificador.conferir_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
