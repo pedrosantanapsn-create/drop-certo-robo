@@ -54,6 +54,7 @@ Comandos:
 /tiktok — confere a ligação com o TikTok
 /relatorio — posts e cliques dos últimos 7 dias (/relatorio 30 = 30 dias)
 /conferir — confere agora preços e ofertas esgotadas do site
+/voz — testa a narração dos vídeos
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -131,7 +132,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     caminho_arte = arte.arte_feed(produto, textos, fotos, pasta / "arte_feed.jpg")
     try:
         caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
-        status.append("• Vídeo: pronto" + (" com narração" if com_voz else " (sem narração)"))
+        if com_voz:
+            status.append(f"• Vídeo: pronto com narração ({video.voz_usada})")
+        else:
+            status.append(f"• Vídeo: pronto (sem narração — {video.motivo_sem_voz[:200]})")
     except Exception as erro:  # noqa: BLE001
         caminho_video = None
         status.append(f"• Vídeo falhou: {str(erro)[:120]}")
@@ -233,6 +237,14 @@ def tratar(mensagem: dict) -> None:
                                   else "❌ TikTok não está ligado (falta o segredo ZERNIO_API_KEY no GitHub).")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ TikTok: {str(erro)[:200]}")
+    elif comando == "/voz":
+        pasta = nova_pasta()
+        audio, _ = video.narrar("Olá! Este é um teste da narração do Drop Certo.", pasta / "teste_voz.mp3")
+        if audio:
+            telegram.enviar_arquivo(chat_id, audio, f"🔊 Voz funcionando: {video.voz_usada}")
+        else:
+            telegram.enviar_texto(chat_id, f"❌ Narração falhou: {video.motivo_sem_voz}")
+        shutil.rmtree(pasta, ignore_errors=True)
     elif comando == "/conferir":
         if not supabase.ativo():
             telegram.enviar_texto(chat_id, "Supabase não configurado.")

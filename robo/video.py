@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import re
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 from . import arte, config
@@ -41,31 +43,69 @@ def duracao(arquivo: Path) -> float:
 # ---------------------------------------------------------------------------
 # Narração + tempo de cada palavra
 # ---------------------------------------------------------------------------
+motivo_sem_voz = ""        # por que a narração falhou (aparece no resumo do Telegram)
+voz_usada = ""
+
+
+def _narrar_edge(texto: str, destino: Path) -> list[tuple[float, float, str]]:
+    """Voz neural da Microsoft (edge-tts), com o tempo de cada palavra."""
+    import edge_tts
+
+    palavras: list[tuple[float, float, str]] = []
+
+    async def _falar():
+        com = edge_tts.Communicate(texto, config.VOZ, rate="+8%", boundary="WordBoundary")
+        with open(destino, "wb") as arq:
+            async for parte in com.stream():
+                if parte["type"] == "audio":
+                    arq.write(parte["data"])
+                elif parte["type"] == "WordBoundary":
+                    ini = parte["offset"] / 1e7
+                    palavras.append((ini, ini + parte["duration"] / 1e7, parte["text"]))
+
+    asyncio.run(_falar())
+    if not destino.exists() or destino.stat().st_size < 1000:
+        raise RuntimeError("edge-tts não devolveu áudio")
+    return palavras
+
+
+def _narrar_google(texto: str, destino: Path) -> None:
+    """Voz de reserva (Google, gratuita). Sem tempo por palavra: a legenda é estimada."""
+    from gtts import gTTS
+
+    bruto = destino.with_name("narracao_google.mp3")
+    gTTS(texto, lang="pt", tld="com.br").save(str(bruto))
+    # a voz do Google é mais lenta: acelera 15% sem mudar o tom
+    _rodar(["ffmpeg", "-y", "-i", str(bruto), "-filter:a", "atempo=1.15", "-b:a", "128k", str(destino)])
+    if not destino.exists() or destino.stat().st_size < 1000:
+        raise RuntimeError("gTTS não devolveu áudio")
+
+
 def narrar(texto: str, destino: Path) -> tuple[Path | None, list[tuple[float, float, str]]]:
     """Gera a narração e devolve (arquivo, [(início, fim, palavra), ...]).
 
-    Se não houver internet ou a voz falhar, devolve (None, []).
+    Tenta a voz da Microsoft (2 vezes) e, se falhar, a voz de reserva do Google.
+    Se as duas falharem, devolve (None, []) e o vídeo sai só com legenda.
     """
-    try:
-        import edge_tts
-
-        palavras: list[tuple[float, float, str]] = []
-
-        async def _falar():
-            com = edge_tts.Communicate(texto, config.VOZ, rate="+8%", boundary="WordBoundary")
-            with open(destino, "wb") as arq:
-                async for parte in com.stream():
-                    if parte["type"] == "audio":
-                        arq.write(parte["data"])
-                    elif parte["type"] == "WordBoundary":
-                        ini = parte["offset"] / 1e7
-                        palavras.append((ini, ini + parte["duration"] / 1e7, parte["text"]))
-
-        asyncio.run(_falar())
-        if destino.exists() and destino.stat().st_size > 1000:
+    global motivo_sem_voz, voz_usada
+    motivo_sem_voz, voz_usada, erros = "", "", []
+    for tentativa in range(2):
+        try:
+            palavras = _narrar_edge(texto, destino)
+            voz_usada = "Microsoft"
             return destino, palavras
-    except Exception:  # noqa: BLE001
-        pass
+        except Exception as erro:  # noqa: BLE001
+            erros.append(f"Microsoft: {type(erro).__name__}: {str(erro)[:90]}")
+            print("Narração (edge-tts):", repr(erro), file=sys.stderr)
+            time.sleep(2)
+    try:
+        _narrar_google(texto, destino)
+        voz_usada = "Google (reserva)"
+        return destino, []
+    except Exception as erro:  # noqa: BLE001
+        erros.append(f"Google: {type(erro).__name__}: {str(erro)[:90]}")
+        print("Narração (gTTS):", repr(erro), file=sys.stderr)
+    motivo_sem_voz = " | ".join(erros[-2:])
     return None, []
 
 
