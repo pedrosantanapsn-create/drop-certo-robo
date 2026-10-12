@@ -10,12 +10,9 @@ jobs:
       - run: pip install -q requests beautifulsoup4 Pillow
       - run: |
           python - <<'PY'
-          from robo import sugestoes, supabase
-          supabase.ativo = lambda: False
-          sugestoes._vistas = lambda: []
-          for u in sugestoes.PAGINAS:
-              print(f"::warning title=pagina::{u} -> {len(sugestoes._ler_pagina(u))}")
-          txt = sugestoes.mensagem(sugestoes.buscar())
-          for i, linha in enumerate(txt.splitlines()[:30]):
-              print(f"::warning title=msg {i:02d}::{linha or '.'}")
+          from robo import sugestoes
+          slugs = ["smartphones","celulares-e-smartphones","telefonia","tv-e-video","audio","eletronicos-e-tv","tv-audio-e-video","casa-inteligente","perifericos","notebooks"]
+          for s in slugs:
+              n = len(sugestoes._ler_pagina(f"https://www.promobit.com.br/promocoes/{s}/"))
+              print(f"::warning title={s}::{n}")
           PY
