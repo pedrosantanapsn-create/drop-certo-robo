@@ -120,7 +120,9 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
 PROMPT_IMAGEM = """Esta imagem é um print ou foto de um anúncio de loja online (Amazon, Shopee, Mercado Livre etc.).
 Leia o que estiver VISÍVEL e responda só com JSON:
 {"nome": "nome do produto como aparece no anúncio", "preco": "preço atual", "preco_antigo": "preço riscado/antes, se houver"}
-Use null no que não aparecer. Não invente nada. Preços no formato 1.299,90."""
+Se for só uma FOTO do produto (sem nome escrito), em "nome" descreva o produto em até 8 palavras
+(ex.: "Fone de ouvido Bluetooth sem fio preto"), sem inventar marca.
+Use null no que não aparecer. Não invente preços. Preços no formato 1.299,90."""
 
 
 def ler_imagem(foto) -> dict:

@@ -283,6 +283,16 @@ def _extrair(html: str, produto: Produto) -> bool:
     return bool(produto.nome and produto.imagens)
 
 
+RE_TITULO_GENERICO = re.compile(
+    r"(ofertas incr[ií]veis|melhores pre[cç]os|compre online|frete gr[aá]tis|"
+    r"^\s*(shopee|amazon|mercado ?livre|magalu|aliexpress)\b|p[aá]gina inicial|login|entrar)", re.I)
+
+
+def titulo_generico(nome: str) -> bool:
+    """True se o "nome" é o título da loja (página inicial/vitrine), não de um produto."""
+    return bool(nome) and bool(RE_TITULO_GENERICO.search(nome))
+
+
 def nome_pela_url(url: str) -> str:
     """Tira o nome do produto do próprio endereço, quando a loja o coloca lá.
 
@@ -325,6 +335,12 @@ def buscar_produto(dados: dict) -> Produto:
     except LojaBloqueou:
         produto.bloqueado = True
     except requests.RequestException:
+        produto.bloqueado = True
+
+    # Título genérico da loja (ex.: link curto que caiu na página inicial): descarta
+    if titulo_generico(produto.nome) and not dados.get("nome"):
+        produto.nome = ""
+        produto.imagens = []          # a imagem da vitrine é o logo da loja, não o produto
         produto.bloqueado = True
 
     # Sem nome (loja bloqueou ou página estranha): tenta tirar do próprio endereço
