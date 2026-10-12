@@ -1,6 +1,8 @@
 """Publicação automática no Instagram.
 
-Dois caminhos (o robô usa o primeiro que estiver configurado):
+Três caminhos (o robô usa o primeiro que estiver configurado):
+  0) Zernio (ZERNIO_API_KEY + Instagram conectado no Zernio): Reels e Story,
+     sem limite de operações. Se o Zernio falhar, cai para o Make.
   A) Make.com (MAKE_WEBHOOK_URL): o robô manda o vídeo e a legenda para um
      cenário do Make, que publica o Reels pela conexão "Instagram for
      Business". Não exige conta de desenvolvedor na Meta.
@@ -23,7 +25,7 @@ from pathlib import Path
 
 import requests
 
-from . import config, supabase
+from . import config, supabase, zernio
 
 API = "https://graph.instagram.com"
 VERSAO = "v25.0"
@@ -68,7 +70,7 @@ def _renovar_se_preciso(token: str, atualizado_em: str | None) -> str:
 def ativo() -> bool:
     if not config.AUTO_POSTAR_INSTAGRAM:
         return False
-    if config.MAKE_WEBHOOK_URL or config.IG_TOKEN:
+    if config.MAKE_WEBHOOK_URL or config.IG_TOKEN or _conta_zernio():
         return True
     return supabase.ativo() and bool(supabase.ler_config(CHAVE_TOKEN))
 
@@ -100,7 +102,20 @@ def _esperar_processar(container_id: str, token: str, limite_s: int = 300) -> No
     raise RuntimeError("Instagram demorou demais para processar o vídeo")
 
 
+def _conta_zernio() -> dict | None:
+    """Conta do Instagram conectada no Zernio (None se não houver)."""
+    if not zernio.ativo():
+        return None
+    try:
+        return zernio.conta("instagram", config.ZERNIO_INSTAGRAM_ACCOUNT)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def conta(token: str | None = None) -> dict:
+    pelo_zernio = None if token else _conta_zernio()
+    if pelo_zernio:
+        return {"username": f"{pelo_zernio.get('username', '')} (via Zernio)"}
     if config.MAKE_WEBHOOK_URL and not (token or config.IG_TOKEN):
         return {"username": "certodrop (via Make.com)"}
     token = token or _token()
@@ -133,8 +148,48 @@ def _publicar_via_make(video: Path, legenda: str, capa: Path | None) -> str:
         return texto[:120] or "publicado"
 
 
+def _publicar_via_zernio(alvo: dict, video: Path, legenda: str, capa: Path | None) -> str:
+    dados: dict = {"shareToFeed": True}
+    if capa:
+        dados["instagramThumbnail"] = supabase.url_publica(capa, "image/jpeg")
+    post = zernio.postar({
+        "content": legenda[:2200],
+        "mediaItems": [{"type": "video", "url": supabase.url_publica(video, "video/mp4")}],
+        "platforms": [{"platform": "instagram", "accountId": alvo["_id"], "platformSpecificData": dados}],
+        "publishNow": True,
+    })
+    return f"via Zernio {post.get('status', '')} {post.get('_id') or post.get('id') or ''}".strip()
+
+
+def story_ativo() -> bool:
+    return bool(config.AUTO_STORY_INSTAGRAM and config.AUTO_POSTAR_INSTAGRAM and _conta_zernio())
+
+
+def publicar_story(midia: Path, tipo: str = "video") -> str:
+    """Publica um Story (pelo Zernio). Story não tem legenda nem link clicável pela API."""
+    alvo = _conta_zernio()
+    if not alvo:
+        raise RuntimeError("Instagram não está conectado no Zernio")
+    mime = "video/mp4" if tipo == "video" else "image/jpeg"
+    post = zernio.postar({
+        "mediaItems": [{"type": tipo, "url": supabase.url_publica(midia, mime)}],
+        "platforms": [{"platform": "instagram", "accountId": alvo["_id"],
+                       "platformSpecificData": {"contentType": "story"}}],
+        "publishNow": True,
+    })
+    return f"{post.get('status', '')} {post.get('_id') or post.get('id') or ''}".strip()
+
+
 def publicar_reels(video: Path, legenda: str, capa: Path | None = None) -> str:
     """Publica o vídeo como Reels (aparece também no feed). Retorna o link do post."""
+    alvo = _conta_zernio()
+    if alvo:
+        try:
+            return _publicar_via_zernio(alvo, video, legenda, capa)
+        except Exception as erro:  # noqa: BLE001
+            if not config.MAKE_WEBHOOK_URL:
+                raise
+            return _publicar_via_make(video, legenda, capa) + f" (Zernio falhou: {str(erro)[:80]})"
     if config.MAKE_WEBHOOK_URL:
         return _publicar_via_make(video, legenda, capa)
     token = _token()

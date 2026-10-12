@@ -153,6 +153,13 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• Instagram: Reels publicado ✅ {link_post}")
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Instagram: erro — {str(erro)[:160]}")
+    if caminho_video and instagram.story_ativo():
+        try:
+            if video.duracao(caminho_video) > 59:
+                raise RuntimeError("vídeo passou de 60 s (limite do Story)")
+            status.append(f"• Story no Instagram: publicado ✅ {instagram.publicar_story(caminho_video)}")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• Story no Instagram: erro — {str(erro)[:160]}")
 
     # 4c. TikTok (pelo Zernio)
     if caminho_video and tiktok.ativo():
