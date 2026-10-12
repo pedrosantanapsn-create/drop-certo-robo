@@ -189,7 +189,7 @@
           <span class="tag">${p.destaque ? 'NOVO NA LOJA' : 'DESTAQUE'}</span>
           <h2>${esc(p.nome)}</h2>
           <div class="preco">${p.preco_anterior ? `<s>${brl(p.preco_anterior)}</s>` : ''}${brl(p.preco)}</div>
-          <a class="btn" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)} →</a>
+          <a class="btn" data-id="${esc(p.id)}" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)} →</a>
         </div>
         <img src="${esc(p.imagem_url)}" alt="${esc(p.nome)}" loading="eager">
       </article>`).join('');
@@ -238,11 +238,27 @@
           ${p.preco_anterior ? `<div class="antes">${brl(p.preco_anterior)}</div>` : ''}
           <div class="valor">${brl(p.preco)}</div>
           ${desc>0 ? `<div class="desc">Economize ${brl(p.preco_anterior - p.preco)}</div>` : ''}
-          <a class="comprar" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)}</a>
+          <a class="comprar" data-id="${esc(p.id)}" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)}</a>
         </div>
       </article>`;
     }).join('');
   }
+
+  // Contador de cliques: anota produto, loja e horário (nenhum dado do visitante).
+  // A tabela "cliques" só aceita gravar; quem lê é o robô, para o relatório.
+  function contarClique(e){
+    const a = e.target.closest && e.target.closest('a[data-id]');
+    if (!a) return;
+    const p = produtos.find(x => String(x.id) === a.dataset.id) || {};
+    sb.from('cliques').insert({
+      produto_id: a.dataset.id,
+      nome: (p.nome || '').slice(0, 200),
+      link: (a.getAttribute('href') || '').slice(0, 500),
+      loja: loja(a.getAttribute('href')).replace(/^(no|na) /, '').slice(0, 40)
+    }).then(({ error }) => { if (error) console.warn('clique não registrado:', error.message); });
+  }
+  document.addEventListener('click', contarClique);
+  document.addEventListener('auxclick', e => { if (e.button === 1) contarClique(e); });
 
   carregar();
 })();
