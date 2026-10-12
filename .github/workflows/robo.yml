@@ -34,6 +34,8 @@ jobs:
       COL_PRECO_ANTIGO: ${{ vars.COL_PRECO_ANTIGO }}
       AUTO_POSTAR_CANAL: ${{ vars.AUTO_POSTAR_CANAL }}
       AUTO_POSTAR_INSTAGRAM: ${{ vars.AUTO_POSTAR_INSTAGRAM }}
+      AUTO_POSTAR_TIKTOK: ${{ vars.AUTO_POSTAR_TIKTOK }}
+      ZERNIO_TIKTOK_ACCOUNT: ${{ vars.ZERNIO_TIKTOK_ACCOUNT }}
       ARROBA: ${{ vars.ARROBA }}
       MARCA: ${{ vars.MARCA }}
     steps:
