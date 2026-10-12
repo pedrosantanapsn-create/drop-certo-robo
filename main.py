@@ -11,6 +11,8 @@ Modos de uso:
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import shutil
 import sys
 import time
@@ -18,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, legenda, relatorio, supabase, telegram, tiktok, verificador, video
+from robo import arte, config, fila, instagram, instantaneo, legenda, relatorio, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -55,6 +57,7 @@ Comandos:
 /relatorio — posts e cliques dos últimos 7 dias (/relatorio 30 = 30 dias)
 /conferir — confere agora preços e ofertas esgotadas do site
 /voz — testa a narração dos vídeos
+/instantaneo on — o robô responde na hora (off = volta aos 10 min)
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -237,6 +240,16 @@ def tratar(mensagem: dict) -> None:
                                   else "❌ TikTok não está ligado (falta o segredo ZERNIO_API_KEY no GitHub).")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ TikTok: {str(erro)[:200]}")
+    elif comando == "/instantaneo":
+        partes = texto.split()
+        opcao = partes[1].lower() if len(partes) > 1 else ""
+        try:
+            resposta = (instantaneo.ligar() if opcao in ("on", "ligar", "sim")
+                        else instantaneo.desligar() if opcao in ("off", "desligar", "nao", "não")
+                        else instantaneo.estado())
+        except Exception as erro:  # noqa: BLE001
+            resposta = f"❌ Modo instantâneo: {str(erro)[:200]}"
+        telegram.enviar_texto(chat_id, resposta)
     elif comando == "/voz":
         pasta = nova_pasta()
         audio, _ = video.narrar("Olá! Este é um teste da narração do Drop Certo.", pasta / "teste_voz.mp3")
@@ -327,11 +340,30 @@ def postar_da_fila() -> bool:
     return True
 
 
+def _mensagens_pendentes() -> tuple[list[dict], bool]:
+    """(mensagens, veio_do_webhook). No modo instantâneo a mensagem chega pronta
+    pela entrada "update" do GitHub; no modo normal o robô busca no Telegram."""
+    bruto = os.environ.get("UPDATE_JSON", "").strip()
+    if bruto:
+        try:
+            return [json.loads(bruto)], True
+        except ValueError:
+            print("UPDATE_JSON inválido", file=sys.stderr)
+            return [], True
+    try:
+        return telegram.buscar_mensagens(None), False
+    except RuntimeError as erro:
+        if "webhook" in str(erro).lower() or "conflict" in str(erro).lower():
+            return [], False      # modo instantâneo ligado: as mensagens vêm pelo webhook
+        raise
+
+
 def rodar_uma_vez() -> int:
-    atualizacoes = telegram.buscar_mensagens(None)
+    atualizacoes, pelo_webhook = _mensagens_pendentes()
     for upd in atualizacoes:
         # Confirma ANTES de processar: se algo travar, a mensagem não fica em loop
-        telegram.confirmar_leitura(upd["update_id"])
+        if not pelo_webhook:
+            telegram.confirmar_leitura(upd["update_id"])
         mensagem = upd.get("message")
         if not mensagem:
             continue

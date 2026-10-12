@@ -4,9 +4,16 @@ on:
   schedule:
     - cron: "*/10 * * * *"   # confere o Telegram a cada 10 minutos (horário UTC)
   workflow_dispatch:          # botão "Run workflow" para rodar na hora
+    inputs:
+      update:
+        description: "Mensagem do Telegram (preenchida pelo modo instantâneo)"
+        required: false
+        default: ""
 
+# Rodadas normais esperam uma pela outra; as do modo instantâneo (com mensagem)
+# rodam cada uma no seu grupo, para nenhuma mensagem ser descartada da fila.
 concurrency:
-  group: robo-drop-certo
+  group: ${{ inputs.update != '' && format('robo-msg-{0}', github.run_id) || 'robo-drop-certo' }}
   cancel-in-progress: false
 
 jobs:
@@ -15,6 +22,7 @@ jobs:
     timeout-minutes: 20
     env:
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      UPDATE_JSON: ${{ inputs.update }}
       ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
       CANAL_ID: ${{ secrets.CANAL_ID }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -57,7 +65,10 @@ jobs:
           CONFERIR=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.verificacao_proxima&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
-          if echo "$RESPOSTA" | grep -q '"update_id"'; then
+          if [ -n "$UPDATE_JSON" ]; then
+            echo "Mensagem recebida pelo modo instantâneo."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif echo "$RESPOSTA" | grep -q '"update_id"'; then
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$PROXIMA" ] && [ "$(date +%s)" -ge "$PROXIMA" ]; then
             echo "Hora de postar o próximo da fila."
