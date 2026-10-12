@@ -1,28 +1,58 @@
-name: Diagnóstico da voz
+name: Amostras de voz
 on: workflow_dispatch
 jobs:
   voz:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+      TEXTO: "Achado do dia! Esse fone bluetooth está com quarenta por cento de desconto. Bateria de trinta horas, cancelamento de ruído e muito conforto. Corre que o preço pode mudar! Link no perfil."
     steps:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install -q edge-tts
-      - name: Testar edge-tts
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng
+      - name: Kokoro
         run: |
-          python - <<'PY'
-          import asyncio, traceback, edge_tts
-          async def main():
-              c = edge_tts.Communicate("Teste de voz do Drop Certo.", "pt-BR-FranciscaNeural")
-              n = 0
-              async for p in c.stream():
-                  if p["type"] == "audio": n += len(p["data"])
-              return n
-          try:
-              n = asyncio.run(main())
-              print(f"::warning title=edge-tts::OK {n} bytes, versao {edge_tts.__version__ if hasattr(edge_tts,'__version__') else '?'}")
-          except Exception as e:
-              msg = (type(e).__name__ + ": " + str(e)).replace("\n"," ")[:600]
-              print(f"::warning title=edge-tts::FALHOU {msg}")
+          pip install -q kokoro-onnx soundfile
+          curl -sSL -o kokoro.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          curl -sSL -o voices.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+          python - <<'PY' || echo "::warning title=kokoro::falhou"
+          import os, soundfile as sf
+          from kokoro_onnx import Kokoro
+          k = Kokoro("kokoro.onnx", "voices.bin")
+          for v in ("pf_dora", "pm_alex", "pm_santa"):
+              try:
+                  s, sr = k.create(os.environ["TEXTO"], voice=v, speed=1.1, lang="pt-br")
+                  sf.write(f"kokoro_{v}.wav", s, sr)
+              except Exception as e:
+                  print(f"::warning title=kokoro {v}::{type(e).__name__}: {str(e)[:300]}")
           PY
+      - name: Piper
+        run: |
+          pip install -q piper-tts
+          for v in pt_BR-faber-medium pt_BR-cadu-medium pt_BR-jeff-medium; do
+            python -m piper.download_voices "$v" >/dev/null 2>&1 || echo "::warning title=piper $v::download falhou"
+            echo "$TEXTO" | python -m piper -m "$v" -f "piper_$v.wav" >/dev/null 2>&1 || echo "::warning title=piper $v::falhou"
+          done
+      - name: Mandar amostras no Telegram
+        run: |
+          n=0
+          for f in kokoro_pf_dora.wav kokoro_pm_alex.wav kokoro_pm_santa.wav piper_pt_BR-faber-medium.wav piper_pt_BR-cadu-medium.wav piper_pt_BR-jeff-medium.wav; do
+            [ -f "$f" ] || continue
+            n=$((n+1))
+            case "$f" in
+              kokoro_pf_dora.wav) nome="Kokoro — Dora (feminina)";;
+              kokoro_pm_alex.wav) nome="Kokoro — Alex (masculina)";;
+              kokoro_pm_santa.wav) nome="Kokoro — Santa (masculina)";;
+              *faber*) nome="Piper — Faber (masculina)";;
+              *cadu*) nome="Piper — Cadu (masculina)";;
+              *jeff*) nome="Piper — Jeff (masculina)";;
+            esac
+            ffmpeg -loglevel error -y -i "$f" -b:a 96k "voz$n.mp3"
+            curl -s -F chat_id="$ADMIN_CHAT_ID" -F audio=@"voz$n.mp3" -F title="Opção $n" -F caption="🔊 Opção $n: $nome" \
+              "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendAudio" >/dev/null
+            echo "::warning title=enviado::Opção $n = $nome"
+          done
+          [ "$n" -gt 0 ] || echo "::warning title=amostras::nenhuma gerada"
