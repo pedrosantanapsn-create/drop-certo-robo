@@ -32,10 +32,15 @@ QUANTAS = 6
 DESCONTO_MINIMO = 20          # %
 PAGINAS = [
     "https://www.promobit.com.br/promocoes/informatica/",
-    "https://www.promobit.com.br/promocoes/celulares/",
-    "https://www.promobit.com.br/promocoes/eletronicos/",
     "https://www.promobit.com.br/promocoes/games/",
+    "https://www.promobit.com.br/",          # página inicial: só entra o que for de tecnologia
 ]
+RE_TECNOLOGIA = re.compile(
+    r"\b(celular|smartphone|iphone|galaxy|xiaomi|redmi|motorola|fone|headset|earbuds?|airpods|"
+    r"notebook|laptop|tablet|ipad|monitor|tv|smart ?tv|mouse|teclado|ssd|hd externo|pendrive|"
+    r"mem[oó]ria|placa de v[ií]deo|processador|roteador|wi-?fi|smartwatch|rel[oó]gio inteligente|"
+    r"caixa de som|soundbar|echo|alexa|kindle|carregador|power ?bank|cabo usb|webcam|"
+    r"c[aâ]mera|drone|console|playstation|ps5|xbox|nintendo|controle|gamer)\b", re.I)
 BUSCA = {
     "Mercado Livre": "https://lista.mercadolivre.com.br/{q}",
     "Amazon": "https://www.amazon.com.br/s?k={q}",
@@ -83,7 +88,10 @@ def buscar(quantas: int = QUANTAS) -> list[dict]:
     todas: dict[str, dict] = {}
     limite = datetime.now(FUSO) - timedelta(days=3)
     for url in PAGINAS:
+        geral = url.rstrip("/").endswith("promobit.com.br")
         for o in _ler_pagina(url):
+            if geral and not RE_TECNOLOGIA.search(str(o.get("offerTitle", ""))):
+                continue
             ident = str(o.get("offerId") or "")
             loja = str(o.get("storeName") or "")
             desconto = float(o.get("offerDiscontPercentage") or 0)
