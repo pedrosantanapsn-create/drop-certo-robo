@@ -90,6 +90,7 @@ def _cliques(desde: datetime) -> list[dict] | None:
         f"{config.SUPABASE_URL}/rest/v1/cliques",
         headers=supabase._cabecalhos(),
         params={"select": "link,nome,loja,criado_em", "criado_em": f"gte.{desde.isoformat()}",
+                "loja": "neq.teste",
                 "order": "criado_em.desc", "limit": 5000},
         timeout=30,
     )
