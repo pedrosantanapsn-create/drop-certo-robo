@@ -87,6 +87,11 @@ COR_DESTAQUE = _env("COR_DESTAQUE", "#FFD43B")
 COR_TEXTO = _env("COR_TEXTO", "#FFFFFF")
 
 # --- Voz da narração (edge-tts, gratuita) --------------------------------
-VOZ = _env("VOZ", "pt-BR-FranciscaNeural")
+VOZ = _env("VOZ", "pt-BR-FranciscaNeural")         # Microsoft (reserva)
+# Voz principal: Kokoro, roda no próprio robô (sem bloqueio). Opções pt-BR:
+# pm_santa (masculina, escolhida), pm_alex (masculina), pf_dora (feminina)
+VOZ_KOKORO = _env("VOZ_KOKORO", "pm_santa")
+VELOCIDADE_VOZ = float(_env("VELOCIDADE_VOZ", "1.1"))
+PASTA_MODELOS = RAIZ / "modelos"
 
 AVISO_LEGAL = "#publi · Link de afiliado · Preço sujeito a alteração"

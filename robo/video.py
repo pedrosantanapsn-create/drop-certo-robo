@@ -69,6 +69,29 @@ def _narrar_edge(texto: str, destino: Path) -> list[tuple[float, float, str]]:
     return palavras
 
 
+_kokoro = None
+
+
+def _narrar_kokoro(texto: str, destino: Path) -> None:
+    """Voz neural Kokoro, gerada no próprio robô (gratuita, sem bloqueio)."""
+    global _kokoro
+    import soundfile as sf
+    from kokoro_onnx import Kokoro
+
+    modelo = config.PASTA_MODELOS / "kokoro-v1.0.onnx"
+    vozes = config.PASTA_MODELOS / "voices-v1.0.bin"
+    if not (modelo.exists() and vozes.exists()):
+        raise RuntimeError("modelo Kokoro não encontrado na pasta modelos/")
+    if _kokoro is None:
+        _kokoro = Kokoro(str(modelo), str(vozes))
+    amostras, taxa = _kokoro.create(texto, voice=config.VOZ_KOKORO, speed=config.VELOCIDADE_VOZ, lang="pt-br")
+    bruto = destino.with_name("narracao_kokoro.wav")
+    sf.write(str(bruto), amostras, taxa)
+    _rodar(["ffmpeg", "-y", "-i", str(bruto), "-b:a", "128k", str(destino)])
+    if not destino.exists() or destino.stat().st_size < 1000:
+        raise RuntimeError("Kokoro não devolveu áudio")
+
+
 def _narrar_google(texto: str, destino: Path) -> None:
     """Voz de reserva (Google, gratuita). Sem tempo por palavra: a legenda é estimada."""
     from gtts import gTTS
@@ -84,12 +107,19 @@ def _narrar_google(texto: str, destino: Path) -> None:
 def narrar(texto: str, destino: Path) -> tuple[Path | None, list[tuple[float, float, str]]]:
     """Gera a narração e devolve (arquivo, [(início, fim, palavra), ...]).
 
-    Tenta a voz da Microsoft (2 vezes) e, se falhar, a voz de reserva do Google.
+    Ordem: Kokoro (no próprio robô) → Microsoft → Google (último recurso).
     Se as duas falharem, devolve (None, []) e o vídeo sai só com legenda.
     """
     global motivo_sem_voz, voz_usada
     motivo_sem_voz, voz_usada, erros = "", "", []
-    for tentativa in range(2):
+    try:
+        _narrar_kokoro(texto, destino)
+        voz_usada = f"Kokoro {config.VOZ_KOKORO}"
+        return destino, []
+    except Exception as erro:  # noqa: BLE001
+        erros.append(f"Kokoro: {type(erro).__name__}: {str(erro)[:90]}")
+        print("Narração (Kokoro):", repr(erro), file=sys.stderr)
+    for tentativa in range(1):
         try:
             palavras = _narrar_edge(texto, destino)
             voz_usada = "Microsoft"
