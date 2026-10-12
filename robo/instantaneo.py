@@ -51,9 +51,9 @@ def ligar() -> str:
         return f"❌ Não consegui falar com a função {NOME_FUNCAO}: {str(erro)[:120]}"
     if teste.status_code == 404:
         return f"❌ A função '{NOME_FUNCAO}' ainda não existe no Supabase."
-    if teste.status_code not in (401, 403):
-        return (f"❌ A função respondeu {teste.status_code} sem senha — confira o código e a opção "
-                "\"Verify JWT\" (deve ficar DESLIGADA).")
+    if teste.status_code != 401 or "acesso negado" not in teste.text:
+        return (f"❌ A função respondeu {teste.status_code} ({teste.text[:80]}) — confira o código e a "
+                "opção \"Verify JWT\" (deve ficar DESLIGADA).")
     segredo = secrets.token_urlsafe(32)
     supabase.gravar_config(CHAVE_SEGREDO, segredo)
     supabase.gravar_config(CHAVE_ADMIN, str(config.ADMIN_CHAT_ID))
