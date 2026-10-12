@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, legenda, supabase, telegram, tiktok, video
+from robo import arte, config, fila, instagram, legenda, relatorio, supabase, telegram, tiktok, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -49,6 +49,7 @@ Comandos:
 /colunas — mostra as colunas da tabela do site
 /instagram — confere a ligação com o Instagram
 /tiktok — confere a ligação com o TikTok
+/relatorio — posts e cliques dos últimos 7 dias (/relatorio 30 = 30 dias)
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -176,6 +177,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     resumo = [f"✅ {produto.nome}", formatar_preco(produto.preco) or "Preço não encontrado", "", *status]
     telegram.enviar_texto(chat_id, "\n".join(resumo))
     shutil.rmtree(pasta, ignore_errors=True)
+    try:
+        relatorio.registrar_post(produto.nome, produto.preco, produto.link, status)
+    except Exception as erro:  # noqa: BLE001
+        print("Histórico:", erro, file=sys.stderr)
     if supabase.ativo():
         try:
             supabase.limpar_posts_antigos(dias=3)   # libera espaço (plano grátis = 1 GB)
@@ -215,6 +220,11 @@ def tratar(mensagem: dict) -> None:
                                   else "❌ TikTok não está ligado (falta o segredo ZERNIO_API_KEY no GitHub).")
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ TikTok: {str(erro)[:200]}")
+    elif comando == "/relatorio":
+        partes = texto.split()
+        dias = int(partes[1]) if len(partes) > 1 and partes[1].isdigit() else 7
+        telegram.enviar_texto(chat_id, relatorio.montar(max(1, min(dias, 365))) if supabase.ativo()
+                              else "Supabase não configurado.")
     elif comando == "/fila":
         telegram.enviar_texto(chat_id, fila.resumo())
     elif comando == "/limpar":
@@ -304,6 +314,10 @@ def rodar_uma_vez() -> int:
         postar_da_fila()
     except Exception as erro:  # noqa: BLE001
         print("Fila:", erro, file=sys.stderr)
+    try:
+        relatorio.enviar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Relatório:", erro, file=sys.stderr)
     return len(atualizacoes)
 
 

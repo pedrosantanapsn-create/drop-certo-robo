@@ -1,0 +1,47 @@
+name: Site Drop Certo
+
+# Publica a pasta site/ no Netlify sempre que ela muda no GitHub.
+# "Run workflow" com acao = importar baixa o site que está no ar para a pasta site/.
+on:
+  push:
+    branches: [main]
+    paths: ["site/**"]
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "publicar ou importar"
+        required: true
+        default: publicar
+        type: choice
+        options: [publicar, importar]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-drop-certo
+  cancel-in-progress: false
+
+jobs:
+  site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      SITE_ID: 6fa1736f-ddeb-4022-a4d2-9143d0aa5f21
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Importar o site que está no ar
+        if: inputs.acao == 'importar'
+        run: |
+          python3 .github/scripts/site_netlify.py importar
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site
+          git diff --cached --quiet || git commit -m "Site: cópia do que está no ar no Netlify"
+          git push
+
+      - name: Publicar no Netlify
+        if: inputs.acao != 'importar'
+        run: python3 .github/scripts/site_netlify.py publicar
