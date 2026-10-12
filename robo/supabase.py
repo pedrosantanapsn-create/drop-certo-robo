@@ -113,6 +113,26 @@ def gravar_config(chave: str, valor: str) -> None:
         raise RuntimeError(f"Supabase config {r.status_code}: {r.text[:200]}")
 
 
+def listar_config(prefixo: str) -> list[dict]:
+    """Linhas da tabela config cuja chave começa com o prefixo."""
+    r = requests.get(
+        f"{config.SUPABASE_URL}/rest/v1/config",
+        headers=_cabecalhos(),
+        params={"chave": f"like.{prefixo}*", "select": "chave,valor", "order": "chave.asc"},
+        timeout=30,
+    )
+    return r.json() if r.status_code < 300 else []
+
+
+def apagar_config(chave: str) -> None:
+    requests.delete(
+        f"{config.SUPABASE_URL}/rest/v1/config",
+        headers=_cabecalhos({"Prefer": "return=minimal"}),
+        params={"chave": f"eq.{chave}"},
+        timeout=30,
+    )
+
+
 def cadastrar_produto(p: Produto, imagem: Path, descricao: str) -> str:
     """Envia a foto principal e cria o produto na tabela do site.
 

@@ -43,6 +43,12 @@ O robô posta um por vez nos horários de mais movimento
 (almoço e noite primeiro), entre 8h e 22h.
 Para agendar um link só: /agendar meli.la/abc123
 
+📷 LISTA COM FOTOS (Shopee, Amazon…): mande as fotos
+de uma vez (álbum) com o link na legenda de cada foto —
+ou uma legenda só com todos os links, um por linha,
+na mesma ordem das fotos. Tudo vai para a fila.
+Uma foto avulsa: legenda "/agendar link"
+
 Comandos:
 /fila — mostra o que está agendado
 /agora — posta o próximo da fila agora
@@ -221,6 +227,10 @@ def tratar(mensagem: dict) -> None:
         return  # ignora qualquer outra pessoa
 
     comando = texto.split()[0].lower() if texto else ""
+    grupo = str(mensagem.get("media_group_id") or "")
+    if mensagem.get("photo") and (grupo or comando == "/agendar"):
+        agendar_foto(mensagem, chat_id, texto, grupo)
+        return
     if comando in ("/start", "/ajuda", "/help"):
         telegram.enviar_texto(chat_id, AJUDA)
     elif comando == "/id":
@@ -321,6 +331,30 @@ def agendar(chat_id, texto: str) -> None:
     )
 
 
+def agendar_foto(mensagem: dict, chat_id, texto: str, grupo: str) -> None:
+    """Foto + link na legenda vai para a fila (álbum ou legenda começando com /agendar)."""
+    if not fila.ativa():
+        telegram.enviar_texto(chat_id, "❌ A fila precisa do Supabase configurado.")
+        return
+    if texto.lower().startswith("/agendar"):
+        texto = texto.split(None, 1)[1] if " " in texto or "\n" in texto else ""
+    maior = max(mensagem["photo"], key=lambda f: f.get("file_size", 0))
+    total, proxima, repetida = fila.adicionar_foto(texto, maior["file_id"], mensagem["message_id"], grupo)
+    links = len(fila.separar_ofertas(texto))
+    if repetida:
+        telegram.enviar_texto(chat_id, "♻️ Esse link já está na fila — ignorei.")
+    elif links > 1 and grupo:
+        telegram.enviar_texto(chat_id, f"🗓️📷 Recebi o álbum com {links} links — cada foto entra na fila com "
+                                       "o link da mesma posição. Mande /fila daqui a 1 minuto para conferir.")
+    elif links:
+        telegram.enviar_texto(
+            chat_id,
+            f"🗓️📷 {'Oferta' if links == 1 else f'{links} links do álbum'} na fila com a sua foto "
+            f"(total: {total}).\n⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}\n\nMande /fila para conferir.")
+    elif not grupo:
+        telegram.enviar_texto(chat_id, "⚠️ Foto sem link na legenda — mande de novo com o link.")
+
+
 def postar_da_fila() -> bool:
     """Se chegou a hora, posta o próximo item da fila. Um por rodada."""
     if not (fila.ativa() and config.ADMIN_CHAT_ID) or not fila.esta_na_hora():
@@ -332,7 +366,11 @@ def postar_da_fila() -> bool:
     telegram.enviar_texto(config.ADMIN_CHAT_ID,
                           f"🗓️ Postando da fila (faltam {restantes} depois deste)…")
     try:
-        processar_oferta({"text": item["texto"]}, config.ADMIN_CHAT_ID)
+        if item.get("foto_id"):
+            mensagem = {"caption": item["texto"], "photo": [{"file_id": item["foto_id"], "file_size": 1}]}
+        else:
+            mensagem = {"text": item["texto"]}
+        processar_oferta(mensagem, config.ADMIN_CHAT_ID)
     except Exception:  # noqa: BLE001
         detalhe = traceback.format_exc()[-700:]
         print(detalhe, file=sys.stderr)

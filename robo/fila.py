@@ -21,6 +21,7 @@ FUSO = ZoneInfo("America/Sao_Paulo")
 CHAVE_FILA = "fila"
 CHAVE_PROXIMA = "fila_proxima"
 CHAVE_INTERVALO = "fila_intervalo"   # minutos fixos (vazio = automático)
+PREFIXO_FOTO = "fila_foto_"          # ofertas com foto (uma linha cada)
 
 INTERVALO_MIN = timedelta(minutes=30)
 INTERVALO_MAX = timedelta(hours=3)
@@ -35,7 +36,7 @@ def ativa() -> bool:
     return supabase.ativo()
 
 
-def itens() -> list[dict]:
+def _itens_texto() -> list[dict]:
     linha = supabase.ler_config(CHAVE_FILA)
     if not linha:
         return []
@@ -46,8 +47,60 @@ def itens() -> list[dict]:
         return []
 
 
+def _linhas_foto() -> list[dict]:
+    lista = []
+    for linha in supabase.listar_config(PREFIXO_FOTO):
+        try:
+            item = json.loads(linha.get("valor") or "{}")
+        except ValueError:
+            continue
+        if isinstance(item, dict) and item.get("foto_id"):
+            item["_chave"] = linha["chave"]
+            lista.append(item)
+    return lista
+
+
+def _itens_foto(incluir_sem_link: bool = False) -> list[dict]:
+    """Ofertas com foto: cada foto numa linha própria da tabela config
+    (fila_foto_...), para várias fotos chegando juntas não se atropelarem.
+
+    Álbum (várias fotos de uma vez): cada foto pode ter o seu link na legenda,
+    ou UMA legenda com todos os links, um por linha, na mesma ordem das fotos.
+    """
+    linhas = _linhas_foto()
+    grupos: dict[str, list[dict]] = {}
+    prontos = []
+    for item in linhas:
+        if item.get("grupo"):
+            grupos.setdefault(item["grupo"], []).append(item)
+        elif item.get("texto"):
+            prontos.append(item)
+    for fotos in grupos.values():
+        fotos.sort(key=lambda i: i.get("msg", 0))
+        ofertas = [o for i in fotos for o in separar_ofertas(i.get("texto", ""))]
+        if len(ofertas) == len(fotos) and any(len(separar_ofertas(i.get("texto", ""))) > 1 for i in fotos):
+            for foto, oferta in zip(fotos, ofertas):     # legenda única com todos os links
+                prontos.append({**foto, "texto": oferta})
+        else:
+            for foto in fotos:                            # cada foto com o seu link
+                if len(separar_ofertas(foto.get("texto", ""))) == 1 or incluir_sem_link:
+                    prontos.append(foto)
+    return prontos
+
+
+def fotos_sem_link() -> int:
+    com_link = {i["_chave"] for i in _itens_foto()}
+    return sum(1 for i in _linhas_foto() if i["_chave"] not in com_link)
+
+
+def itens() -> list[dict]:
+    """Fila completa, na ordem em que as ofertas chegaram."""
+    return sorted(_itens_texto() + _itens_foto(), key=lambda i: (str(i.get("adicionado", "")), i.get("msg", 0)))
+
+
 def _salvar(lista: list[dict]) -> None:
-    supabase.gravar_config(CHAVE_FILA, json.dumps(lista, ensure_ascii=False))
+    so_texto = [i for i in lista if "_chave" not in i]
+    supabase.gravar_config(CHAVE_FILA, json.dumps(so_texto, ensure_ascii=False))
 
 
 def _proxima() -> datetime | None:
@@ -210,7 +263,7 @@ def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
             ignorados += 1
             continue
         ja_tem.add(chave)
-        lista.append({"texto": texto, "adicionado": agora.isoformat(timespec="minutes")})
+        lista.append({"texto": texto, "adicionado": agora.isoformat(timespec="seconds")})
     _salvar(lista)
     proxima = _proxima()
     if lista and modo() == "pico":
@@ -222,6 +275,33 @@ def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
         proxima = _dentro_da_janela(agora)
         _marcar_proxima(proxima)
     return len(lista), proxima or _dentro_da_janela(agora), ignorados
+
+
+def adicionar_foto(texto: str, foto_id: str, msg_id: int, grupo: str = "") -> tuple[int, datetime, bool]:
+    """Coloca na fila uma oferta mandada como FOTO (link na legenda).
+
+    Devolve (total na fila, horário do próximo post, se era repetida).
+    """
+    agora = datetime.now(FUSO)
+    lista = itens()
+    links = separar_ofertas(texto)
+    ja_tem = {chave_link(i.get("texto", "")) for i in lista}
+    if len(links) == 1 and chave_link(texto) in ja_tem:
+        return len(lista), _proxima() or _dentro_da_janela(agora), True
+    supabase.gravar_config(f"{PREFIXO_FOTO}{grupo or 'avulsa'}_{int(msg_id):012d}", json.dumps(
+        {"texto": texto, "foto_id": foto_id, "grupo": grupo, "msg": int(msg_id),
+         "adicionado": agora.isoformat(timespec="seconds")}, ensure_ascii=False))
+    total = len(itens())
+    proxima = _proxima()
+    if total and modo() == "pico":
+        plano = plano_pico(agora, total, timedelta(0))
+        if proxima is None or proxima < agora or plano < proxima:
+            proxima = plano
+            _marcar_proxima(proxima)
+    elif total and (proxima is None or proxima < agora):
+        proxima = _dentro_da_janela(agora)
+        _marcar_proxima(proxima)
+    return total, proxima or _dentro_da_janela(agora), False
 
 
 def esta_na_hora() -> bool:
@@ -236,7 +316,10 @@ def retirar_proximo() -> dict | None:
         _marcar_proxima(None)
         return None
     item = lista.pop(0)
-    _salvar(lista)
+    if "_chave" in item:
+        supabase.apagar_config(item["_chave"])
+    else:
+        _salvar(lista)
     agora = datetime.now(FUSO)
     if lista and modo() == "pico":
         _marcar_proxima(plano_pico(agora, len(lista)))
@@ -249,6 +332,8 @@ def retirar_proximo() -> dict | None:
 
 def limpar() -> int:
     total = len(itens())
+    for item in _linhas_foto():
+        supabase.apagar_config(item["_chave"])
     _salvar([])
     _marcar_proxima(None)
     return total
@@ -279,7 +364,10 @@ def resumo() -> str:
     linhas.append(f"🕗 Posta das {config.POSTAR_DAS}h às {config.POSTAR_ATE}h\n")
     for i, item in enumerate(lista[:15], 1):
         primeira = item["texto"].splitlines()[0]
-        linhas.append(f"{i}. {primeira[:60]}")
+        linhas.append(f"{i}. {'📷 ' if item.get('foto_id') else ''}{primeira[:60]}")
     if len(lista) > 15:
         linhas.append(f"… e mais {len(lista) - 15}")
+    orfas = fotos_sem_link()
+    if orfas:
+        linhas.append(f"\n⚠️ {orfas} foto(s) sem link — mande /limpar e reenvie com o link na legenda.")
     return "\n".join(linhas)
