@@ -37,13 +37,18 @@ def pedir(metodo: str, caminho: str, corpo: bytes | None = None, tipo: str | Non
 
 def importar() -> None:
     arquivos = json.loads(pedir("GET", f"/sites/{SITE}/files"))
-    PASTA.mkdir(exist_ok=True)
+    baixados = {}
     for arq in arquivos:
         caminho = arq["path"].lstrip("/")
         if not caminho or caminho.startswith(".netlify/"):
             continue
         conteudo = pedir("GET", f"/sites/{SITE}/files/{urllib.parse.quote(caminho)}",
+                         tipo="application/vnd.bitballoon.v1.raw",
                          aceitar="application/vnd.bitballoon.v1.raw")
+        if len(conteudo) != arq.get("size", len(conteudo)):
+            sys.exit(f"{caminho}: veio {len(conteudo)} bytes, esperado {arq.get('size')} — nada foi salvo")
+        baixados[caminho] = conteudo
+    for caminho, conteudo in baixados.items():
         destino = PASTA / caminho
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(conteudo)
