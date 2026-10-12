@@ -1,0 +1,1 @@
+{"id":"/netlify/functions/agendar.js","path":"/netlify/functions/agendar.js","sha":"6b23a76ec87c1218534b08ce9f0018dcb4a6e2ac","mime_type":"application/javascript","size":5976,"site_id":"6fa1736f-ddeb-4022-a4d2-9143d0aa5f21","deploy_id":"6acc47feb69e9636e9629c6a"}
