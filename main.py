@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -103,8 +103,27 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                           preco_antigo=dados.get("preco_antigo"), observacao=dados.get("observacao", ""))
         status.append(f"• Leitura do anúncio falhou ({str(erro)[:60]})")
 
-    # Loja bloqueou ou não deu preço (Amazon, Shopee…): o Google abre a página pelo Gemini
-    if produto.preco is None or produto.nome_do_link or produto.bloqueado or not produto.nome:
+    # Shopee com a API oficial de afiliados: nome, preço e foto sem precisar de print
+    if shopee.ativo() and shopee.e_shopee(produto.link) and not dados.get("preco"):
+        try:
+            oficial = shopee.ler(produto.link)
+            if oficial.get("nome") and not dados.get("nome"):
+                produto.nome, produto.nome_do_link = str(oficial["nome"]).strip(), False
+            if oficial.get("preco"):
+                produto.preco = oficial["preco"]
+                produto.preco_antigo = oficial.get("preco_antigo") or produto.preco_antigo
+            if oficial.get("imagem"):
+                produto.imagens = [oficial["imagem"], *produto.imagens]
+            produto.bloqueado = False
+            status.append("• Dados lidos pela API oficial da Shopee ✅")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• API da Shopee: {str(erro)[:120]}")
+
+    # Outras lojas que bloqueiam o robô (Magalu, KaBuM!…): o Google abre a página pelo Gemini.
+    # Amazon e Shopee bloqueiam até o Google (testado), então nelas isso é pulado.
+    bloqueia_tudo = any(s in produto.link.lower() for s in ("amazon", "amzn", "shopee", "shp.ee"))
+    if not bloqueia_tudo and (produto.preco is None or produto.nome_do_link or produto.bloqueado
+                              or not produto.nome):
         pagina = legenda.ler_pagina(produto.link, produto.url_final)
         if pagina.get("nome") and (not produto.nome or produto.nome_do_link) and not dados.get("nome"):
             produto.nome, produto.nome_do_link = str(pagina["nome"]).strip(), False

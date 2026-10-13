@@ -56,6 +56,10 @@ AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto co
 # --- Foto limpa: recorta o produto do print que você manda (Gemini) -----
 FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 
+# --- Shopee: API oficial de afiliados (lê o produto sem precisar de print) --
+SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
+SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
+
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
