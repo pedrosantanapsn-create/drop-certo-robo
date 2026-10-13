@@ -10,7 +10,7 @@ import re
 
 import requests
 
-from . import config
+from . import config, gemini
 from .produto import Produto, formatar_preco
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
@@ -78,32 +78,12 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
         antigo=formatar_preco(p.preco_antigo) or "não informado",
         obs=p.observacao or "nenhuma",
     )
-    # Se um modelo for desativado pelo Google (erro 404), tenta o próximo da lista
-    modelos = list(dict.fromkeys([config.GEMINI_MODEL, *MODELOS_RESERVA]))
-    gerado, ultimo_erro = None, ""
-    for modelo in modelos:
-        try:
-            r = requests.post(
-                URL_GEMINI.format(modelo=modelo),
-                headers={"x-goog-api-key": config.GEMINI_API_KEY},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.8, "responseMimeType": "application/json"},
-                },
-                timeout=60,
-            )
-            if r.status_code in (404, 429, 500, 503):  # modelo desativado ou sobrecarregado
-                ultimo_erro = f"{modelo}: erro {r.status_code}"
-                continue
-            if r.status_code >= 300:
-                ultimo_erro = f"erro {r.status_code}: {r.text[:120]}"
-                break
-            texto = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            gerado = _limpar_json(texto)
-            break
-        except Exception as erro:  # noqa: BLE001 — qualquer falha cai no modelo pronto
-            ultimo_erro = str(erro)[:120]
-            break
+    gerado, ultimo_erro, modelo = None, "", ""
+    try:
+        dados, modelo = gemini.chamar([{"text": prompt}], temperatura=0.8)
+        gerado = _limpar_json(gemini.texto(dados))
+    except Exception as erro:  # noqa: BLE001 — qualquer falha cai no modelo pronto
+        ultimo_erro = str(erro)[:120]
     if gerado is None:
         return padrao, f"modelo pronto (Gemini falhou: {ultimo_erro})"
 
@@ -130,31 +110,57 @@ def ler_imagem(foto) -> dict:
     if not config.GEMINI_API_KEY or not foto:
         return {}
     import base64
-    dados = base64.b64encode(open(foto, "rb").read()).decode()
-    modelos = list(dict.fromkeys([config.GEMINI_MODEL, *MODELOS_RESERVA]))
-    for modelo in modelos:
-        try:
-            r = requests.post(
-                URL_GEMINI.format(modelo=modelo),
-                headers={"x-goog-api-key": config.GEMINI_API_KEY},
-                json={
-                    "contents": [{"parts": [
-                        {"text": PROMPT_IMAGEM},
-                        {"inline_data": {"mime_type": "image/jpeg", "data": dados}},
-                    ]}],
-                    "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
-                },
-                timeout=60,
-            )
-            if r.status_code in (404, 429, 500, 503):
-                continue
-            if r.status_code >= 300:
-                return {}
-            resposta = _limpar_json(r.json()["candidates"][0]["content"]["parts"][0]["text"])
-            return {k: v for k, v in resposta.items() if v not in (None, "", "null")}
-        except Exception:  # noqa: BLE001
-            return {}
-    return {}
+    dados_img = base64.b64encode(open(foto, "rb").read()).decode()
+    try:
+        dados, _ = gemini.chamar([{"text": PROMPT_IMAGEM},
+                                  {"inline_data": {"mime_type": "image/jpeg", "data": dados_img}}],
+                                 temperatura=0.1)
+        resposta = _limpar_json(gemini.texto(dados))
+        return {k: v for k, v in resposta.items() if v not in (None, "", "null")}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+PROMPT_PAGINA = """Abra a página do produto à venda neste link de loja online{extra}:
+{url}
+Responda SÓ com JSON, usando apenas o que está NA PÁGINA (não invente nada):
+{{"nome": "nome do produto como está no anúncio", "preco": "preço atual à vista em reais (ex.: 1.299,90)",
+"preco_antigo": "preço riscado/antes, se houver", "imagem": "endereço https da foto principal do produto"}}
+Use null no que não encontrar."""
+
+
+def ler_pagina(link: str, url_final: str = "") -> dict:
+    """Lê a página da loja pelo Gemini ("contexto de URL": o Google abre a página).
+
+    Serve para lojas que bloqueiam o robô (Amazon, Shopee). Só aceita a resposta
+    se o Google confirmar que conseguiu abrir a página — assim o Gemini não
+    "chuta" preço.
+    """
+    if not config.GEMINI_API_KEY:
+        return {}
+    urls = [u for u in dict.fromkeys([link, url_final]) if u and u.startswith("http")]
+    if not urls:
+        return {}
+    extra = f" (endereço completo: {urls[1]})" if len(urls) > 1 else ""
+    try:
+        dados, modelo = gemini.chamar([{"text": PROMPT_PAGINA.format(url=urls[0], extra=extra)}],
+                                      temperatura=0.1, ferramentas=[{"url_context": {}}])
+    except Exception:  # noqa: BLE001
+        return {}
+    cand = dados["candidates"][0]
+    meta = cand.get("urlContextMetadata") or cand.get("url_context_metadata") or {}
+    lidas = meta.get("urlMetadata") or meta.get("url_metadata") or []
+    if not any("SUCCESS" in str(m.get("urlRetrievalStatus") or m.get("url_retrieval_status") or "")
+               for m in lidas):
+        return {}
+    try:
+        resposta = _limpar_json(gemini.texto(dados))
+    except Exception:  # noqa: BLE001
+        return {}
+    resposta = {k: v for k, v in resposta.items() if v not in (None, "", "null")}
+    if resposta:
+        resposta["_modelo"] = modelo
+    return resposta
 
 
 def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:

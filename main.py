@@ -103,6 +103,21 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                           preco_antigo=dados.get("preco_antigo"), observacao=dados.get("observacao", ""))
         status.append(f"• Leitura do anúncio falhou ({str(erro)[:60]})")
 
+    # Loja bloqueou ou não deu preço (Amazon, Shopee…): o Google abre a página pelo Gemini
+    if produto.preco is None or produto.nome_do_link or produto.bloqueado or not produto.nome:
+        pagina = legenda.ler_pagina(produto.link, produto.url_final)
+        if pagina.get("nome") and (not produto.nome or produto.nome_do_link) and not dados.get("nome"):
+            produto.nome, produto.nome_do_link = str(pagina["nome"]).strip(), False
+        if produto.preco is None and pagina.get("preco"):
+            produto.preco = _para_float(pagina["preco"])
+        if produto.preco_antigo is None and pagina.get("preco_antigo"):
+            produto.preco_antigo = _para_float(pagina["preco_antigo"])
+        if not produto.imagens and str(pagina.get("imagem", "")).startswith("http"):
+            produto.imagens = [str(pagina["imagem"])]
+        if pagina:
+            produto.bloqueado = False
+            status.append("• Dados lidos da página da loja pelo Google/Gemini ✅ (confira o preço)")
+
     fotos: list[Path] = []
     foto_enviada = telegram.baixar_foto_da_mensagem(mensagem, pasta / "foto_enviada.jpg")
     if foto_enviada:

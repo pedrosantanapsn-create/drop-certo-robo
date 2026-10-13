@@ -19,11 +19,10 @@ import io
 import json
 from pathlib import Path
 
-import requests
 from PIL import Image, ImageFilter, ImageOps
 
-from . import config
-from .legenda import MODELOS_RESERVA, URL_GEMINI, _limpar_json
+from . import config, gemini
+from .legenda import _limpar_json
 
 PROMPT = """Nesta imagem (print ou foto de um anúncio de loja online), encontre a FOTO PRINCIPAL do
 produto que está à venda — ignore textos, preços, botões, logos, ícones e miniaturas pequenas.
@@ -37,42 +36,18 @@ MINIMO_PX = 220         # recorte menor que isso fica feio: usa o print inteiro
 
 
 def _pedir_gemini(foto: Path) -> dict | None:
-    dados = base64.b64encode(foto.read_bytes()).decode()
-    for modelo in dict.fromkeys([config.GEMINI_MODEL, *MODELOS_RESERVA]):
-        try:
-            r = requests.post(
-                URL_GEMINI.format(modelo=modelo),
-                headers={"x-goog-api-key": config.GEMINI_API_KEY},
-                json={
-                    "contents": [{"parts": [{"text": PROMPT},
-                                            {"inline_data": {"mime_type": "image/jpeg", "data": dados}}]}],
-                    "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json",
-                                         "thinkingConfig": {"thinkingBudget": 0}},
-                },
-                timeout=90,
-            )
-            if r.status_code == 400 and "thinking" in r.text.lower():
-                # modelo sem "thinking": tenta de novo sem essa opção
-                r = requests.post(
-                    URL_GEMINI.format(modelo=modelo),
-                    headers={"x-goog-api-key": config.GEMINI_API_KEY},
-                    json={"contents": [{"parts": [{"text": PROMPT},
-                                                  {"inline_data": {"mime_type": "image/jpeg", "data": dados}}]}],
-                          "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}},
-                    timeout=90,
-                )
-            if r.status_code in (404, 429, 500, 503):
-                continue
-            if r.status_code >= 300:
-                return None
-            texto = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-            if texto.lstrip().startswith("["):
-                lista = json.loads(texto[texto.find("["): texto.rfind("]") + 1])
-                return lista[0] if lista else None
-            return _limpar_json(texto)
-        except Exception:  # noqa: BLE001
-            continue
-    return None
+    dados_img = base64.b64encode(foto.read_bytes()).decode()
+    try:
+        dados, _ = gemini.chamar([{"text": PROMPT},
+                                  {"inline_data": {"mime_type": "image/jpeg", "data": dados_img}}],
+                                 temperatura=0.1, pensar=False)
+        texto = gemini.texto(dados).strip()
+        if texto.lstrip().startswith("["):
+            lista = json.loads(texto[texto.find("["): texto.rfind("]") + 1])
+            return lista[0] if lista else None
+        return _limpar_json(texto)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _caixa_em_pixels(caixa, largura: int, altura: int) -> tuple[int, int, int, int] | None:
