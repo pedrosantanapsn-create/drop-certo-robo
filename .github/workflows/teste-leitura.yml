@@ -13,11 +13,12 @@ jobs:
       - run: |
           python - <<'PY'
           import json, time
-          from robo import legenda, gemini
-          from robo.produto import buscar_produto
+          from robo import gemini
           for link in ["https://www.amazon.com.br/dp/B09B8VGCR8", "https://s.shopee.com.br/6V78kTOWiI"]:
-              t=time.time()
-              p = buscar_produto({"link": link})
-              r = legenda.ler_pagina(p.link, p.url_final)
-              print(f"::warning title={link[:40]}::{time.time()-t:.0f}s | robo leu: {p.nome[:50]!r} preco={p.preco} bloqueado={p.bloqueado} final={p.url_final[:80]} | gemini: {json.dumps(r, ensure_ascii=False)[:400]}")
+              try:
+                  d, m = gemini.chamar([{"text": "Abra este link e diga em JSON nome e preço do produto: " + link}], ferramentas=[{"url_context": {}}], rodadas=4)
+                  c = d["candidates"][0]
+                  print(f"::warning title={link[-12:]} {m}::{gemini.texto(d)[:300]!r} | meta={json.dumps(c.get('urlContextMetadata'))[:300]}")
+              except Exception as e:
+                  print(f"::warning title={link[-12:]}::ERRO {e}")
           PY
