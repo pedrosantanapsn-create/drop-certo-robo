@@ -12,13 +12,15 @@ jobs:
       - run: pip install -q requests beautifulsoup4 Pillow
       - run: |
           python - <<'PY'
-          import json, time
-          from robo import gemini
-          for link in ["https://www.amazon.com.br/dp/B09B8VGCR8", "https://s.shopee.com.br/6V78kTOWiI"]:
+          import requests
+          from robo.produto import CABECALHOS
+          for u in ["https://images-na.ssl-images-amazon.com/images/P/B09B8VGCR8.01._SCLZZZZZZZ_.jpg",
+                    "https://m.media-amazon.com/images/P/B09B8VGCR8.01._SCLZZZZZZZ_SX1000_.jpg",
+                    "https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B09B8VGCR8&Format=_SL500_&ID=AsinImage&MarketPlace=BR&ServiceVersion=20070822&WS=1"]:
               try:
-                  d, m = gemini.chamar([{"text": "Abra este link e diga em JSON nome e preço do produto: " + link}], ferramentas=[{"url_context": {}}], rodadas=4)
-                  c = d["candidates"][0]
-                  print(f"::warning title={link[-12:]} {m}::{gemini.texto(d)[:300]!r} | meta={json.dumps(c.get('urlContextMetadata'))[:300]}")
-              except Exception as e:
-                  print(f"::warning title={link[-12:]}::ERRO {e}")
+                  r = requests.get(u, headers=CABECALHOS, timeout=20)
+                  print(f"::warning title=img::{r.status_code} {r.headers.get('content-type')} {len(r.content)} bytes {u[:70]}")
+              except Exception as e: print(f"::warning title=img::erro {e}")
+          r = requests.post("https://open-api.affiliate.shopee.com.br/graphql", json={"query":"{productOfferV2(itemId:1,shopId:1){nodes{productName}}}"}, timeout=20)
+          print(f"::warning title=shopee-api::{r.status_code} {r.text[:200]}")
           PY
