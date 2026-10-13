@@ -39,8 +39,8 @@ obs: ótimo para quem joga FPS
 
 🗓️ FILA (posta ao longo do dia):
 Mande VÁRIOS links numa mensagem, um por linha.
-O robô posta um por vez nos horários de mais movimento
-(almoço e noite primeiro), entre 8h e 22h.
+O robô posta 1 por hora e, no pico (11h30–13h30 e 18h–22h),
+3 por hora — entre 8h e 22h.
 Para agendar um link só: /agendar meli.la/abc123
 
 📷 LISTA COM FOTOS (Shopee, Amazon…): mande as fotos
@@ -54,7 +54,8 @@ Comandos:
 /agora — posta o próximo da fila agora
 /intervalo 60 — um post a cada 60 min
 /intervalo igual — espalha por igual no dia
-/intervalo auto — volta aos horários de pico
+/intervalo auto — 1 post por hora e 3 por hora no pico (padrão)
+/intervalo pico — só os melhores horários
 /limpar — apaga a fila
 /id — mostra seu ID do Telegram
 /colunas — mostra as colunas da tabela do site
@@ -344,14 +345,18 @@ def tratar(mensagem: dict) -> None:
         if valor.isdigit() and int(valor) >= 20:
             fila.definir_intervalo(int(valor))
             telegram.enviar_texto(chat_id, f"⏱️ Pronto: um post a cada {int(valor)} minutos.")
-        elif valor in ("auto", "automatico", "automático", "0", "pico"):
+        elif valor in ("auto", "automatico", "automático", "0", "hora"):
+            fila.definir_modo("hora")
+            telegram.enviar_texto(chat_id, f"⏱️ 1 post por hora; no pico ({config.HORARIOS_PICO.replace(',', ' e ')}) "
+                                           f"3 por hora.")
+        elif valor == "pico":
             fila.definir_modo("pico")
-            telegram.enviar_texto(chat_id, "⏱️ Horários de pico: a fila sai primeiro no almoço e à noite.")
+            telegram.enviar_texto(chat_id, "⏱️ Só horários de pico: a fila sai primeiro no almoço e à noite.")
         elif valor == "igual":
             fila.definir_modo("igual")
             telegram.enviar_texto(chat_id, f"⏱️ A fila vai ser espalhada por igual até as {config.POSTAR_ATE}h.")
         else:
-            telegram.enviar_texto(chat_id, "Use assim: /intervalo 60 (mínimo 20), /intervalo igual ou /intervalo auto")
+            telegram.enviar_texto(chat_id, "Use assim: /intervalo auto (1 por hora, 3 no pico), /intervalo pico, /intervalo igual ou /intervalo 60")
     elif comando == "/agendar" or len(fila.separar_ofertas(texto)) > 1:
         agendar(chat_id, texto.split(None, 1)[1] if comando == "/agendar" and " " in texto else texto)
     elif comando == "/colunas":

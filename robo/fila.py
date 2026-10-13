@@ -114,16 +114,48 @@ def _marcar_proxima(quando: datetime | None) -> None:
 
 
 def modo() -> str:
-    """"pico" (padrão: posta nos horários de mais movimento), "igual" (espalha por
-    igual no dia) ou "fixo" (intervalo em minutos definido com /intervalo N)."""
+    """Como a fila é distribuída:
+    "hora"  (padrão) 1 post por hora; nos horários de pico, 3 por hora (a cada 20 min)
+    "pico"  só os melhores horários do dia, com ~1 h entre posts
+    "igual" espalha por igual no dia
+    "fixo"  intervalo em minutos definido com /intervalo N"""
     valor = str((supabase.ler_config(CHAVE_INTERVALO) or {}).get("valor", "")).strip()
     if valor.isdigit() and int(valor) > 0:
         return "fixo"
-    return "igual" if valor == "igual" else "pico"
+    return valor if valor in ("igual", "pico") else "hora"
 
 
 def definir_modo(nome: str) -> None:
-    supabase.gravar_config(CHAVE_INTERVALO, "igual" if nome == "igual" else "")
+    supabase.gravar_config(CHAVE_INTERVALO, nome if nome in ("igual", "pico") else "")
+
+
+def _janelas_pico(dia: datetime) -> list[tuple[datetime, datetime]]:
+    janelas = []
+    for trecho in config.HORARIOS_PICO.split(","):
+        try:
+            ini, fim = (datetime.strptime(x.strip(), "%H:%M") for x in trecho.split("-"))
+        except ValueError:
+            continue
+        janelas.append((dia.replace(hour=ini.hour, minute=ini.minute, second=0, microsecond=0),
+                        dia.replace(hour=fim.hour, minute=fim.minute, second=0, microsecond=0)))
+    return janelas
+
+
+def em_pico(quando: datetime) -> bool:
+    return any(ini <= quando < fim for ini, fim in _janelas_pico(quando))
+
+
+def proximo_hora(agora: datetime) -> datetime:
+    """Modo "hora": +20 min dentro do pico, +1 h fora dele (adiantando se um pico
+    começar antes disso)."""
+    if em_pico(agora):
+        return _dentro_da_janela(agora + timedelta(minutes=config.MINUTOS_NO_PICO))
+    alvo = agora + timedelta(minutes=config.MINUTOS_FORA_PICO)
+    minimo = agora + timedelta(minutes=config.MINUTOS_NO_PICO)
+    for ini, _fim in _janelas_pico(agora):
+        if agora < ini < alvo:
+            alvo = max(ini, minimo)       # o pico começa antes: adianta o próximo post
+    return _dentro_da_janela(alvo)
 
 
 def intervalo_fixo() -> int | None:
@@ -323,6 +355,8 @@ def retirar_proximo() -> dict | None:
     agora = datetime.now(FUSO)
     if lista and modo() == "pico":
         _marcar_proxima(plano_pico(agora, len(lista)))
+    elif lista and modo() == "hora":
+        _marcar_proxima(proximo_hora(agora))
     elif lista:
         _marcar_proxima(_dentro_da_janela(agora + _passo(agora, len(lista))))
     else:
@@ -355,7 +389,10 @@ def resumo() -> str:
     linhas = [f"🗓️ Fila de postagens: {len(lista)} oferta(s)"]
     if proxima:
         linhas.append(f"⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}")
-    if jeito == "fixo":
+    if jeito == "hora":
+        linhas.append(f"⏱️ 1 post por hora · no pico ({config.HORARIOS_PICO.replace(',', ' e ')}) "
+                      f"a cada {config.MINUTOS_NO_PICO} min")
+    elif jeito == "fixo":
         linhas.append(f"⏱️ Intervalo: {fixo} min (fixo)")
     elif jeito == "igual":
         linhas.append(f"⏱️ Intervalo: espalhado por igual até as {config.POSTAR_ATE}h")
