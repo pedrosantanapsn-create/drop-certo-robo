@@ -222,7 +222,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• Story no Instagram: erro — {str(erro)[:160]}")
 
     # 4c. TikTok (pelo Zernio)
-    if caminho_video and tiktok.ativo():
+    limite_tt = config.TIKTOK_MAX_DIA
+    feitos_tt = relatorio.postados_hoje("tiktok") if (limite_tt and supabase.ativo()) else 0
+    if caminho_video and tiktok.ativo() and limite_tt and feitos_tt >= limite_tt:
+        status.append(f"• TikTok: pulado — limite de {limite_tt} vídeos por dia já atingido (protege o alcance)")
+    elif caminho_video and tiktok.ativo():
         try:
             status.append(f"• TikTok: publicado ✅ {tiktok.publicar(caminho_video, legenda_redes)}")
         except Exception as erro:  # noqa: BLE001

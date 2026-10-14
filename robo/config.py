@@ -49,6 +49,8 @@ ZERNIO_TIKTOK_ACCOUNT = _env("ZERNIO_TIKTOK_ACCOUNT")  # opcional: o robô acha 
 AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
 # Tipo de aviso comercial no TikTok: brand_content = parceria/afiliado (recomendado)
 TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
+# Máximo de vídeos por dia no TikTok (0 = sem limite). Postar demais derruba o alcance.
+TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "3"))
 # Instagram pelo Zernio (se o Instagram estiver conectado lá; senão usa o Make)
 ZERNIO_INSTAGRAM_ACCOUNT = _env("ZERNIO_INSTAGRAM_ACCOUNT")  # opcional
 AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto com o Reels

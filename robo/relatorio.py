@@ -59,6 +59,12 @@ def _historico() -> list[dict]:
         return []
 
 
+def postados_hoje(rede: str) -> int:
+    """Quantos posts saíram hoje (horário de Brasília) numa rede ("tiktok", "instagram"…)."""
+    inicio = datetime.now(FUSO).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    return sum(1 for p in _historico() if p.get("t", 0) >= inicio and p.get(rede))
+
+
 def registrar_post(nome: str, preco: float | None, link: str, status: list[str]) -> None:
     """Anota o post no histórico (chamado no fim de cada oferta processada)."""
     if not supabase.ativo():
