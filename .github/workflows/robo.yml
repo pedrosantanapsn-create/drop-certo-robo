@@ -50,6 +50,7 @@ jobs:
       AUTO_STORY_INSTAGRAM: ${{ vars.AUTO_STORY_INSTAGRAM }}
       FOTO_LIMPA: ${{ vars.FOTO_LIMPA }}
       TIKTOK_MAX_DIA: ${{ vars.TIKTOK_MAX_DIA }}
+      TIKTOK_SO_PICO: ${{ vars.TIKTOK_SO_PICO }}
       HORARIOS_PICO: ${{ vars.HORARIOS_PICO }}
       MINUTOS_FORA_PICO: ${{ vars.MINUTOS_FORA_PICO }}
       MINUTOS_NO_PICO: ${{ vars.MINUTOS_NO_PICO }}

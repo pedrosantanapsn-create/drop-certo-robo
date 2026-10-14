@@ -226,6 +226,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     feitos_tt = relatorio.postados_hoje("tiktok") if (limite_tt and supabase.ativo()) else 0
     if caminho_video and tiktok.ativo() and limite_tt and feitos_tt >= limite_tt:
         status.append(f"• TikTok: pulado — limite de {limite_tt} vídeos por dia já atingido (protege o alcance)")
+    elif caminho_video and tiktok.ativo() and config.TIKTOK_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
+        status.append("• TikTok: pulado — fora do horário de pico (vai só nos melhores horários)")
     elif caminho_video and tiktok.ativo():
         try:
             status.append(f"• TikTok: publicado ✅ {tiktok.publicar(caminho_video, legenda_redes)}")
