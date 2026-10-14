@@ -253,6 +253,17 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         telegram.enviar_video(chat_id, caminho_video, "🎬 Vídeo para Reels/TikTok/Shorts", capa=None)
     telegram.enviar_arquivo(chat_id, caminho_arte, "🖼️ Arte do feed (arquivo em qualidade máxima)")
     telegram.enviar_texto(chat_id, "📋 Legenda para Instagram/TikTok (copie e cole):\n\n" + legenda_redes)
+    if config.BOTAO_WHATSAPP:
+        try:
+            from urllib.parse import quote
+            texto_zap = legenda.montar_legenda(produto, textos, com_link=True)
+            telegram.enviar_com_botao(
+                chat_id,
+                "📲 WhatsApp: toque no botão, escolha o seu canal ou grupo e envie.\n"
+                "(Baixe a arte acima e anexe junto, se quiser a imagem.)",
+                "📲 Mandar no WhatsApp", "https://wa.me/?text=" + quote(texto_zap[:1800]))
+        except Exception as erro:  # noqa: BLE001
+            print("Botão WhatsApp:", erro, file=sys.stderr)
 
     resumo = [f"✅ {produto.nome}", formatar_preco(produto.preco) or "Preço não encontrado", "", *status]
     telegram.enviar_texto(chat_id, "\n".join(resumo))
