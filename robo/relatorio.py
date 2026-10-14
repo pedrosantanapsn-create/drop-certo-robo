@@ -65,6 +65,11 @@ def postados_hoje(rede: str) -> int:
     return sum(1 for p in _historico() if p.get("t", 0) >= inicio and p.get(rede))
 
 
+def ultimo_post(rede: str) -> float:
+    """Horário (timestamp) do último post numa rede, ou 0."""
+    return max((p.get("t", 0) for p in _historico() if p.get(rede)), default=0)
+
+
 def registrar_post(nome: str, preco: float | None, link: str, status: list[str]) -> None:
     """Anota o post no histórico (chamado no fim de cada oferta processada)."""
     if not supabase.ativo():
