@@ -211,6 +211,12 @@ def ler(link: str) -> dict:
             ativo_ = it.get("status") == "active" and (it.get("available_quantity") or 1) > 0
         except LookupError:
             ativo_ = False
+        except RuntimeError:
+            # O ML bloqueia /items de outros vendedores para apps não certificados.
+            # Para produto de catálogo já temos tudo; para anúncio avulso, sem preço.
+            if not catalogo:
+                raise RuntimeError("o Mercado Livre não libera esse anúncio pela API "
+                                   "(só produtos de catálogo) — uso a página/print")
         venda, cheio = _preco_venda(item_id)
         if venda:
             preco = venda
