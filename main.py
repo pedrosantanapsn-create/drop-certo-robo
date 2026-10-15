@@ -119,6 +119,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append("• Dados lidos pela API oficial da Shopee ✅")
         except Exception as erro:  # noqa: BLE001
             status.append(f"• API da Shopee: {str(erro)[:120]}")
+            print(f"::warning::API da Shopee: {str(erro)[:200]}")
 
     # Outras lojas que bloqueiam o robô (Magalu, KaBuM!…): o Google abre a página pelo Gemini.
     # Amazon e Shopee bloqueiam até o Google (testado), então nelas isso é pulado.
@@ -174,7 +175,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         status.append("• Nome tirado do link (mande um print da página para sair melhor)")
 
     if not produto.nome:
-        telegram.enviar_texto(chat_id, FALHA_LEITURA.format(link=produto.link))
+        motivo = "\n".join(s for s in status if "Shopee" in s or "falhou" in s)
+        telegram.enviar_texto(chat_id, FALHA_LEITURA.format(link=produto.link)
+                              + (f"\n\nMotivo:\n{motivo}" if motivo else ""))
         shutil.rmtree(pasta, ignore_errors=True)
         return
     if not fotos:
