@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Drop Certo · Autorização Mercado Livre</title>
+<style>
+  :root { --fundo:#0B1220; --cartao:#141d31; --texto:#F4F6FA; --suave:#AEB8CC; --destaque:#FFD43B; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--fundo); color:var(--texto); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; padding:16px; }
+  main { width:100%; max-width:440px; background:var(--cartao); border-radius:18px; padding:28px 24px; text-align:center; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  p { color:var(--suave); line-height:1.5; margin:0 0 18px; }
+  .botao { display:block; width:100%; padding:16px; border-radius:12px; border:0; font-size:17px; font-weight:700;
+           background:var(--destaque); color:#0B1220; text-decoration:none; cursor:pointer; margin-bottom:12px; }
+  .secundario { background:transparent; color:var(--texto); border:1px solid #33405c; font-weight:600; font-size:15px; }
+  code { display:block; background:#0B1220; border-radius:10px; padding:12px; font-size:13px; word-break:break-all; color:var(--destaque); margin-bottom:12px; }
+  .erro { color:#ff8a80; }
+</style>
+</head>
+<body>
+<main id="caixa">
+  <h1>Carregando…</h1>
+</main>
+<script>
+  var caixa = document.getElementById("caixa");
+  var q = new URLSearchParams(location.search);
+  var codigo = q.get("code") || "";
+  if (!codigo) {
+    caixa.innerHTML = '<h1 class="erro">Sem código de autorização</h1>' +
+      '<p>' + (q.get("error_description") || q.get("error") || "Abra esta página pelo link que o robô mandou (comando /ml).") + '</p>';
+  } else {
+    var comando = "/ml " + codigo;
+    var seguro = /^[A-Za-z0-9_-]{1,61}$/.test(codigo);
+    caixa.innerHTML =
+      '<h1>✅ Mercado Livre autorizado</h1>' +
+      '<p>Falta só entregar o código para o robô. Ele vale por 10 minutos.</p>' +
+      (seguro ? '<a class="botao" href="https://t.me/Dropcerto22bot?start=ml_' + codigo + '">Enviar para o robô no Telegram</a>' : '') +
+      '<p style="margin-top:8px">Ou copie e mande esta mensagem para o bot:</p>' +
+      '<code id="cmd"></code>' +
+      '<button class="botao secundario" id="copiar">Copiar mensagem</button>';
+    document.getElementById("cmd").textContent = comando;
+    document.getElementById("copiar").onclick = function () {
+      var b = this;
+      navigator.clipboard.writeText(comando).then(function () { b.textContent = "Copiado ✔"; },
+        function () { b.textContent = "Selecione o texto acima e copie"; });
+    };
+  }
+</script>
+</body>
+</html>

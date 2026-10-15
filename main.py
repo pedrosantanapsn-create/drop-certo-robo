@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, instantaneo, legenda, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import arte, config, fila, instagram, instantaneo, legenda, mercadolivre, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -65,6 +65,7 @@ Comandos:
 /conferir — confere agora preços e ofertas esgotadas do site
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
+/ml — liga/confere a API oficial do Mercado Livre
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
 /instantaneo on — o robô responde na hora (off = volta aos 10 min)
 /ajuda — mostra esta mensagem"""
@@ -122,6 +123,26 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• API da Shopee: {str(erro)[:120]}")
             print(f"::warning::API da Shopee: {str(erro)[:200]}")
 
+    # Mercado Livre com a API oficial: nome, preço com promoção e fotos sem depender da página
+    if mercadolivre.e_mercadolivre(produto.link) and not dados.get("preco"):
+        try:
+            oficial = mercadolivre.ler(produto.link)
+            if oficial.get("preco"):
+                if oficial.get("nome") and not dados.get("nome") and (
+                        not produto.nome or produto.nome_do_link or produto.bloqueado):
+                    produto.nome, produto.nome_do_link = str(oficial["nome"]).strip(), False
+                produto.preco = oficial["preco"]
+                produto.preco_antigo = oficial.get("preco_antigo")
+                if oficial.get("imagens") and (not produto.imagens or produto.bloqueado):
+                    produto.imagens = oficial["imagens"]
+                produto.bloqueado = False
+                status.append("• Dados lidos pela API oficial do Mercado Livre ✅")
+                if oficial.get("ativo") is False:
+                    status.append("• ⚠️ O Mercado Livre diz que este anúncio está pausado/esgotado")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• API do Mercado Livre: {str(erro)[:120]}")
+            print(f"::warning::API do Mercado Livre: {str(erro)[:200]}")
+
     # Outras lojas que bloqueiam o robô (Magalu, KaBuM!…): o Google abre a página pelo Gemini.
     # Amazon e Shopee bloqueiam até o Google (testado), então nelas isso é pulado.
     bloqueia_tudo = any(s in produto.link.lower() for s in ("amazon", "amzn", "shopee", "shp.ee"))
@@ -176,7 +197,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         status.append("• Nome tirado do link (mande um print da página para sair melhor)")
 
     if not produto.nome:
-        motivo = "\n".join(s for s in status if "Shopee" in s or "falhou" in s)
+        motivo = "\n".join(s for s in status if "Shopee" in s or "Mercado Livre" in s or "falhou" in s)
         telegram.enviar_texto(chat_id, FALHA_LEITURA.format(link=produto.link)
                               + (f"\n\nMotivo:\n{motivo}" if motivo else ""))
         shutil.rmtree(pasta, ignore_errors=True)
@@ -302,8 +323,22 @@ def tratar(mensagem: dict) -> None:
     if mensagem.get("photo") and (grupo or comando == "/agendar"):
         agendar_foto(mensagem, chat_id, texto, grupo)
         return
+    if comando == "/start" and len(texto.split()) > 1 and texto.split()[1].startswith("ml_"):
+        comando, texto = "/ml", "/ml " + texto.split()[1][3:]     # volta da autorização do ML
     if comando in ("/start", "/ajuda", "/help"):
         telegram.enviar_texto(chat_id, AJUDA)
+    elif comando == "/ml":
+        codigo = " ".join(texto.split()[1:]).strip()
+        if codigo:
+            try:
+                mercadolivre.trocar_codigo(codigo)
+                resposta = "✅ Mercado Livre autorizado!\n\n" + mercadolivre.estado()
+            except Exception as erro:  # noqa: BLE001
+                resposta = (f"❌ Não deu para autorizar: {str(erro)[:200]}\n"
+                            "O código vale só 10 minutos e uma vez. Mande /ml e autorize de novo.")
+        else:
+            resposta = mercadolivre.estado()
+        telegram.enviar_texto(chat_id, resposta)
     elif comando == "/id":
         telegram.enviar_texto(chat_id, f"Seu ID: {chat_id}")
     elif comando == "/instagram":

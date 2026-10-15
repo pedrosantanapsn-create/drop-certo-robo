@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from . import config, shopee, supabase
+from . import config, mercadolivre, shopee, supabase
 from .produto import (CABECALHOS, LojaBloqueou, Produto, _extrair, _json_ld_produto,
                       _link_de_produto_na_pagina, formatar_preco, titulo_generico)
 from .fila import FUSO
@@ -67,10 +67,33 @@ def _situacao_shopee(link: str) -> tuple[str, Produto]:
     return "ok", produto
 
 
+def _situacao_ml(link: str) -> tuple[str, Produto] | None:
+    """Mercado Livre pela API oficial. None = não deu, tenta pela página."""
+    produto = Produto(link=link)
+    try:
+        dados = mercadolivre.ler(link)
+    except LookupError:
+        return "fim", produto
+    except Exception:  # noqa: BLE001
+        return None
+    if dados.get("ativo") is False:
+        return "fim", produto
+    if not dados.get("preco"):
+        return None
+    produto.nome = str(dados.get("nome") or "")
+    produto.preco = dados["preco"]
+    produto.preco_antigo = dados.get("preco_antigo")
+    return "ok", produto
+
+
 def situacao(link: str) -> tuple[str, Produto]:
     """Devolve ("ok" | "fim" | "incerto", produto lido)."""
     if shopee.ativo() and shopee.e_shopee(link):
         return _situacao_shopee(link)
+    if mercadolivre.e_mercadolivre(link) and mercadolivre.ativo():
+        resultado = _situacao_ml(link)
+        if resultado:
+            return resultado
     produto = Produto(link=link)
     sessao = requests.Session()
     sessao.headers.update(CABECALHOS)

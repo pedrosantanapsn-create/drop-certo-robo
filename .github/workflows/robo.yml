@@ -33,6 +33,8 @@ jobs:
       ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
       SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
       SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+      ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+      ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
       # Ajustes opcionais (Settings > Secrets and variables > Actions > Variables)
       SUPABASE_TABELA: ${{ vars.SUPABASE_TABELA }}
       SUPABASE_BUCKET: ${{ vars.SUPABASE_BUCKET }}

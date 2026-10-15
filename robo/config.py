@@ -65,6 +65,10 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 
+# --- Mercado Livre: API oficial (DevCenter) ---------------------------------
+ML_CLIENT_ID = _env("ML_CLIENT_ID")
+ML_CLIENT_SECRET = _env("ML_CLIENT_SECRET")
+
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
