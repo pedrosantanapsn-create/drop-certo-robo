@@ -83,7 +83,7 @@ def ler(link: str) -> dict:
     loja, item = ids
     dados = _consultar(
         f"{{productOfferV2(shopId:{loja},itemId:{item},limit:1){{nodes{{"
-        "productName price priceMin priceMax priceDiscountRate imageUrl}}}}")
+        "productName price priceMin priceMax priceDiscountRate imageUrl}}}")
     nos = ((dados.get("productOfferV2") or {}).get("nodes")) or []
     if not nos:
         raise RuntimeError("a Shopee não devolveu esse produto (fora do programa de afiliados?)")
