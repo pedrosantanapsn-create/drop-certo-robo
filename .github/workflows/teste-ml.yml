@@ -16,14 +16,16 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          from robo import mercadolivre, relatorio
-          print("::warning::estado: " + mercadolivre.estado().replace("\n"," | ")[:250])
-          links = [p["link"] for p in reversed(relatorio._historico()) if mercadolivre.e_mercadolivre(p.get("link",""))][:3]
-          for l in links:
-              try:
-                  ids = mercadolivre.codigos_do_link(l)
-                  d = mercadolivre.ler(l)
-                  print("::warning::%s ids=%s nome=%s preco=%s de=%s fotos=%d ativo=%s" % (l[-14:], ids, str(d.get("nome"))[:50], d.get("preco"), d.get("preco_antigo"), len(d.get("imagens") or []), d.get("ativo")))
-              except Exception as e:
-                  print("::warning::%s ERRO %s: %s" % (l[-14:], type(e).__name__, str(e)[:200]))
+          from robo import mercadolivre as m
+          for cat in ["MLB53838786","MLB23612880"]:
+              for cam, par in [(f"/products/{cat}/items", {}), (f"/products/{cat}", {}), ("/sites/MLB/search", {"product_id": cat})]:
+                  try:
+                      d = m._get(cam, **par)
+                      if isinstance(d, dict) and "results" in d:
+                          r = d["results"][:1]
+                          print("::warning::%s %s OK n=%s primeiro=%s" % (cat, cam, len(d["results"]), json.dumps(r)[:300]))
+                      else:
+                          print("::warning::%s %s OK chaves=%s bbw=%s status=%s" % (cat, cam, list(d)[:25], json.dumps(d.get("buy_box_winner"))[:150], d.get("status")))
+                  except Exception as e:
+                      print("::warning::%s %s ERRO %s" % (cat, cam, str(e)[:200]))
           PY
