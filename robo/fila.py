@@ -260,7 +260,11 @@ def separar_ofertas(texto: str) -> list[str]:
         linha = linha.strip()
         if not linha:
             continue
-        if RE_LINK.search(linha):
+        links = RE_LINK.findall(linha)
+        if len(links) > 1:
+            # vários links na mesma linha (separados por espaço): cada um vira uma oferta
+            ofertas.extend([l.rstrip(").,;!?")] for l in links)
+        elif links:
             ofertas.append([linha])
         elif ofertas:
             ofertas[-1].append(linha)

@@ -319,6 +319,8 @@ def tratar(mensagem: dict) -> None:
         return  # ignora qualquer outra pessoa
 
     comando = texto.split()[0].lower() if texto else ""
+    print(f"::notice::Mensagem: {len(texto.splitlines())} linha(s), "
+          f"{len(fila.separar_ofertas(texto))} oferta(s) com link")
     grupo = str(mensagem.get("media_group_id") or "")
     if mensagem.get("photo") and (grupo or comando == "/agendar"):
         agendar_foto(mensagem, chat_id, texto, grupo)
