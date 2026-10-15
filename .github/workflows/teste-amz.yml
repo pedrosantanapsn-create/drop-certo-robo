@@ -1,0 +1,43 @@
+name: teste-amz
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import re, requests
+          from urllib.parse import urljoin, urlparse, parse_qs
+          from robo import fila, relatorio, gemini
+          links = [re.search(r"https?://\S+", i["texto"]).group(0) for i in fila.itens() if "amazon" in i["texto"] or "amzn" in i["texto"]]
+          links += [p["link"] for p in relatorio._historico() if "amazon" in p.get("link","") or "amzn" in p.get("link","")][-2:]
+          for l in links[:3]:
+              url=l; asin=tag=None
+              for _ in range(6):
+                  m=re.search(r"/(?:dp|gp/product|d)/([A-Z0-9]{10})", url)
+                  if m: asin=m.group(1)
+                  q=parse_qs(urlparse(url).query); tag=tag or (q.get("tag") or [None])[0]
+                  try: r=requests.get(url,allow_redirects=False,timeout=15,headers={"User-Agent":"Mozilla/5.0"})
+                  except Exception as e: print("::warning::erro %s"%e); break
+                  loc=r.headers.get("Location")
+                  if not loc: break
+                  url=urljoin(url,loc)
+              print("::warning::%s -> asin=%s tag=%s final=%s" % (l[-12:], asin, tag, url[:90]))
+              if asin:
+                  for img in [f"https://images-na.ssl-images-amazon.com/images/P/{asin}.01._SCLZZZZZZZ_.jpg", f"https://m.media-amazon.com/images/P/{asin}.01._SCLZZZZZZZ_.jpg"]:
+                      try:
+                          ri=requests.get(img,timeout=15); print("::warning::img %s %s bytes" % (ri.status_code, len(ri.content)))
+                      except Exception as e: print("::warning::img erro %s"%e)
+                  try:
+                      d,mod=gemini.chamar([{"text": f"Qual é o nome exato do produto da Amazon Brasil com ASIN {asin} (amazon.com.br/dp/{asin})? Responda só o nome."}], json_saida=False, temperatura=0.1, ferramentas=[{"google_search": {}}])
+                      print("::warning::gemini: %s" % gemini.texto(d)[:150].replace("\n"," "))
+                  except Exception as e: print("::warning::gemini erro %s"%str(e)[:150])
+          PY
