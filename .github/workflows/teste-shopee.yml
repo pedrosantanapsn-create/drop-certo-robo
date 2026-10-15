@@ -15,10 +15,7 @@ jobs:
           python - <<'PY'
           from robo import sugestoes, verificador
           try:
-              ps = sugestoes.buscar_shopee(["mouse gamer", "headset gamer"], 3, marcar=False)
-              msg = sugestoes.mensagem_shopee(ps)
-              for linha in msg.split("\n"):
-                  if linha.strip(): print("::warning::" + linha[:200])
+              ps = []
           except Exception as e:
               print("::warning::ERRO busca %s: %s" % (type(e).__name__, str(e)[:300]))
           try:
