@@ -65,6 +65,9 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 
+# --- Amazon: sua tag de associado (o robô confere se cada link tem ela) ----
+AMAZON_TAG = _env("AMAZON_TAG", "certodrop-20")
+
 # --- Mercado Livre: API oficial (DevCenter) ---------------------------------
 ML_CLIENT_ID = _env("ML_CLIENT_ID")
 ML_CLIENT_SECRET = _env("ML_CLIENT_SECRET")

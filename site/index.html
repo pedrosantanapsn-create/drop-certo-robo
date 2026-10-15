@@ -78,6 +78,8 @@
   .card .comprar:hover{background:var(--laranja-esc)}
   .vazio-msg{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--texto-2)}
 
+  .visto{font-size:11px;opacity:.7;margin-top:2px}
+  .valor.confira{font-size:15px}
   footer{background:var(--azul);color:#cfd9e3;padding:28px 0;font-size:13px;text-align:center;line-height:1.7}
   footer strong{color:#fff}
 
@@ -127,7 +129,8 @@
     <strong>Drop Certo</strong> · Achados de tecnologia com preço bom<br>
     <span class="redes-rodape"><a href="https://www.instagram.com/certodrop/" target="_blank" rel="noopener">Instagram</a>·<a href="https://www.tiktok.com/@certo.drop" target="_blank" rel="noopener">TikTok</a>·<a href="https://t.me/DropCerto22" target="_blank" rel="noopener">Telegram</a></span><br>
     Os links desta página são <strong>links de afiliado</strong>: ao comprar por eles, o Drop Certo recebe uma comissão sem custo extra para você. #publi<br>
-    Preços e disponibilidade são definidos pelos vendedores nas lojas (Mercado Livre, Amazon, Shopee e outras) e podem mudar sem aviso.
+    Preços e disponibilidade são definidos pelos vendedores nas lojas (Mercado Livre, Amazon, Shopee e outras) e podem mudar sem aviso.<br>
+    Como Associado da Amazon, eu ganho com compras qualificadas. Preços da Amazon mostram a data e a hora em que foram vistos; o valor que vale é o da Amazon no momento da compra.
   </div>
 </footer>
 
@@ -178,6 +181,17 @@
 
   // ---------- Banner (novidades) ----------
   let slideAtual = 0, timer;
+  // Amazon: o robô não consegue reconferir o preço todo dia (sem API), então o site
+  // mostra quando o preço foi visto e, depois de 24 h, esconde o valor.
+  const DIA = 24*3600*1000;
+  function ehAmazon(link){ return /amzn\.|amazon\.|link\.amazon|a\.co\//.test(link||''); }
+  function precoVencido(p){ return ehAmazon(p.link) && (Date.now() - new Date(p.criado_em).getTime() > DIA); }
+  function vistoEm(p){
+    if (!ehAmazon(p.link)) return '';
+    const d = new Date(p.criado_em);
+    return `<div class="visto">Preço visto em ${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} às ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  }
+
   function montarBanner(){
     const novos = produtos.filter(p => p.destaque).slice(0,5);
     const lista = novos.length ? novos : produtos.slice(0,3);
@@ -188,7 +202,8 @@
         <div>
           <span class="tag">${p.destaque ? 'NOVO NA LOJA' : 'DESTAQUE'}</span>
           <h2>${esc(p.nome)}</h2>
-          <div class="preco">${p.preco_anterior ? `<s>${brl(p.preco_anterior)}</s>` : ''}${brl(p.preco)}</div>
+          ${precoVencido(p) ? '<div class="preco">Confira o preço na Amazon</div>'
+            : `<div class="preco">${p.preco_anterior ? `<s>${brl(p.preco_anterior)}</s>` : ''}${brl(p.preco)}</div>${vistoEm(p)}`}
           <a class="btn" data-id="${esc(p.id)}" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)} →</a>
         </div>
         <img src="${esc(p.imagem_url)}" alt="${esc(p.nome)}" loading="eager">
@@ -225,7 +240,8 @@
     $('#contador').textContent = `${lista.length} ${lista.length===1?'produto':'produtos'}`;
     if (!lista.length){ $('#grid').innerHTML = '<div class="vazio-msg">Nenhum produto encontrado.</div>'; return; }
     $('#grid').innerHTML = lista.map(p => {
-      const desc = p.preco_anterior && p.preco ? Math.round((1 - p.preco/p.preco_anterior)*100) : 0;
+      const vencido = precoVencido(p);
+      const desc = !vencido && p.preco_anterior && p.preco ? Math.round((1 - p.preco/p.preco_anterior)*100) : 0;
       const novo = p.destaque || (agora - new Date(p.criado_em).getTime() < seteDias);
       return `
       <article class="card">
@@ -235,9 +251,11 @@
         </div>
         <div class="info">
           <div class="nome">${esc(p.nome)}</div>
+          ${vencido ? '<div class="valor confira">Confira o preço na Amazon</div>' : `
           ${p.preco_anterior ? `<div class="antes">${brl(p.preco_anterior)}</div>` : ''}
           <div class="valor">${brl(p.preco)}</div>
           ${desc>0 ? `<div class="desc">Economize ${brl(p.preco_anterior - p.preco)}</div>` : ''}
+          ${vistoEm(p)}`}
           <a class="comprar" data-id="${esc(p.id)}" href="${esc(p.link)}" target="_blank" rel="nofollow sponsored noopener">Ver ${loja(p.link)}</a>
         </div>
       </article>`;

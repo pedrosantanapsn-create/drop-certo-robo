@@ -10,7 +10,7 @@ import re
 
 import requests
 
-from . import config, gemini
+from . import amazon, config, gemini
 from .produto import Produto, formatar_preco
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
@@ -175,5 +175,8 @@ def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:
         partes.append(f"🛒 {p.link}")
     else:
         partes.append(f"🛒 Link na bio · {config.ARROBA}")
-    partes += ["", config.AVISO_LEGAL, " ".join(t["hashtags"])]
+    aviso = config.AVISO_LEGAL
+    if amazon.e_amazon(p.link):
+        aviso += "\n" + amazon.AVISO          # exigência do Programa de Associados da Amazon
+    partes += ["", aviso, " ".join(t["hashtags"])]
     return "\n".join(partes).strip()

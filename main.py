@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import arte, config, fila, instagram, instantaneo, legenda, mercadolivre, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -122,6 +122,22 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• API da Shopee: {str(erro)[:120]}")
             print(f"::warning::API da Shopee: {str(erro)[:200]}")
+
+    # Amazon: confere se o link tem a SUA tag de associado (sem ela, não há comissão)
+    if amazon.e_amazon(produto.link):
+        certo, texto_tag = amazon.conferir_tag(produto.link)
+        status.append(f"• Amazon: {texto_tag}")
+        if certo is False:
+            # Post sem comissão não vale a pena: para aqui e pede o link certo
+            telegram.enviar_texto(chat_id, texto_tag + "\n\n🛑 Não postei. Mande de novo com o link "
+                                  "gerado na sua conta de associado.")
+            shutil.rmtree(pasta, ignore_errors=True)
+            return
+        if not produto.url_final:
+            try:
+                produto.url_final = amazon.resolver(produto.link)[0]
+            except Exception:  # noqa: BLE001
+                pass
 
     # Mercado Livre com a API oficial: nome, preço com promoção e fotos sem depender da página
     if mercadolivre.e_mercadolivre(produto.link) and not dados.get("preco"):
@@ -450,6 +466,12 @@ def agendar(chat_id, texto: str) -> None:
     total, proxima, ignorados = fila.adicionar(ofertas)
     novas = len(ofertas) - ignorados
     aviso = f"\n♻️ {ignorados} link(s) repetido(s) ignorado(s)." if ignorados else ""
+    for oferta in ofertas:
+        link = (fila.RE_LINK.search(oferta) or [""])[0]
+        if amazon.e_amazon(link):
+            certo, texto_tag = amazon.conferir_tag(link)
+            if certo is False:
+                aviso += f"\n\n{link}\n{texto_tag}\n(na hora dele o robô pula esse link — mande o link certo separado)"
     telegram.enviar_texto(
         chat_id,
         f"🗓️ {novas} oferta(s) na fila (total: {total}).{aviso}\n"
