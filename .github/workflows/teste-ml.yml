@@ -1,0 +1,29 @@
+name: teste-ml
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          from robo import mercadolivre, relatorio
+          print("::warning::estado: " + mercadolivre.estado().replace("\n"," | ")[:250])
+          links = [p["link"] for p in reversed(relatorio._historico()) if mercadolivre.e_mercadolivre(p.get("link",""))][:3]
+          for l in links:
+              try:
+                  ids = mercadolivre.codigos_do_link(l)
+                  d = mercadolivre.ler(l)
+                  print("::warning::%s ids=%s nome=%s preco=%s de=%s fotos=%d ativo=%s" % (l[-14:], ids, str(d.get("nome"))[:50], d.get("preco"), d.get("preco_antigo"), len(d.get("imagens") or []), d.get("ativo")))
+              except Exception as e:
+                  print("::warning::%s ERRO %s: %s" % (l[-14:], type(e).__name__, str(e)[:200]))
+          PY
