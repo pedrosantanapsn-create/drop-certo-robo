@@ -190,9 +190,17 @@ def ler(link: str) -> dict:
         nome = p.get("name", "")
         imagens = [f.get("url") for f in p.get("pictures") or [] if f.get("url")]
         ganhador = p.get("buy_box_winner") or {}
+        if not ganhador:
+            # O ML quase não preenche mais o buy_box_winner: o 1º vendedor da lista de
+            # anúncios do catálogo é o que aparece na página (o "ganhador").
+            try:
+                lista = _get(f"/products/{catalogo}/items").get("results") or []
+            except LookupError:
+                lista = []
+            ganhador = lista[0] if lista else {}
         preco, antigo = ganhador.get("price"), ganhador.get("original_price")
         item_id = item_id or ganhador.get("item_id")
-        ativo_ = p.get("status", "active") == "active" and bool(ganhador or item_id)
+        ativo_ = p.get("status", "active") == "active" and bool(ganhador)
     if item_id:
         try:
             it = _get(f"/items/{item_id}")
