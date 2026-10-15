@@ -57,6 +57,7 @@ jobs:
       MINUTOS_NO_PICO: ${{ vars.MINUTOS_NO_PICO }}
       SUGERIR_OFERTAS: ${{ vars.SUGERIR_OFERTAS }}
       LOJAS_OFERTAS: ${{ vars.LOJAS_OFERTAS }}
+      PALAVRAS_SHOPEE: ${{ vars.PALAVRAS_SHOPEE }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
       VELOCIDADE_VOZ: ${{ vars.VELOCIDADE_VOZ }}
       ARROBA: ${{ vars.ARROBA }}

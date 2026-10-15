@@ -7,7 +7,8 @@ ativo do site e:
 
 Para não tirar nada por engano, uma oferta só sai do site se aparecer como
 indisponível em DUAS conferências seguidas. Quando a loja bloqueia o robô
-(Amazon, Shopee às vezes), a oferta fica como está.
+(Amazon), a oferta fica como está. A Shopee é conferida pela API oficial de
+afiliados (preço, desconto e se o produto ainda existe).
 
 Mostrar preço errado pode ser considerado publicidade enganosa (CDC, art. 37),
 por isso o "de R$ X" também é apagado quando deixa de ser verdade.
@@ -21,7 +22,7 @@ from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from . import config, supabase
+from . import config, shopee, supabase
 from .produto import (CABECALHOS, LojaBloqueou, Produto, _extrair, _json_ld_produto,
                       _link_de_produto_na_pagina, formatar_preco, titulo_generico)
 from .fila import FUSO
@@ -47,8 +48,29 @@ def _proxima_hora(agora: datetime) -> datetime:
 # ---------------------------------------------------------------------------
 # Leitura de uma oferta
 # ---------------------------------------------------------------------------
+def _situacao_shopee(link: str) -> tuple[str, Produto]:
+    """Shopee pela API oficial de afiliados (a página bloqueia robôs)."""
+    produto = Produto(link=link)
+    try:
+        dados = shopee.ler(link)
+    except RuntimeError as erro:
+        # Produto sumiu da Shopee/do programa de afiliados: conta como "acabou"
+        # (só sai do site se repetir na conferência do dia seguinte).
+        return ("fim" if "não devolveu" in str(erro) else "incerto"), produto
+    except Exception:  # noqa: BLE001 — rede, timeout etc.
+        return "incerto", produto
+    if not dados.get("preco"):
+        return "incerto", produto
+    produto.nome = str(dados.get("nome") or "")
+    produto.preco = dados["preco"]
+    produto.preco_antigo = dados.get("preco_antigo")
+    return "ok", produto
+
+
 def situacao(link: str) -> tuple[str, Produto]:
     """Devolve ("ok" | "fim" | "incerto", produto lido)."""
+    if shopee.ativo() and shopee.e_shopee(link):
+        return _situacao_shopee(link)
     produto = Produto(link=link)
     sessao = requests.Session()
     sessao.headers.update(CABECALHOS)

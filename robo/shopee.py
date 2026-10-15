@@ -92,3 +92,37 @@ def ler(link: str) -> dict:
     desconto = _preco(no.get("priceDiscountRate")) or 0
     antigo = round(preco / (1 - desconto / 100), 2) if preco and 0 < desconto < 95 else None
     return {"nome": no.get("productName"), "preco": preco, "preco_antigo": antigo, "imagem": no.get("imageUrl")}
+
+
+# ---------------------------------------------------------------------------
+# Busca de ofertas e link de afiliada (usados nas sugestões diárias)
+# ---------------------------------------------------------------------------
+ORDEM_MAIS_VENDIDOS = 2
+ORDEM_MAIOR_COMISSAO = 5
+CAMPOS_BUSCA = ("itemId shopId productName priceMin priceDiscountRate commissionRate commission "
+                "sales ratingStar shopName productLink offerLink imageUrl")
+
+
+def _texto(valor: str) -> str:
+    return json.dumps(str(valor), ensure_ascii=False)   # aspas e acentos seguros na consulta
+
+
+def buscar(palavra: str, ordem: int = ORDEM_MAIS_VENDIDOS, limite: int = 20) -> list[dict]:
+    """Produtos do programa de afiliados para uma palavra-chave."""
+    if not ativo():
+        return []
+    dados = _consultar(
+        f"{{productOfferV2(keyword:{_texto(palavra)},sortType:{ordem},page:1,limit:{limite})"
+        f"{{nodes{{{CAMPOS_BUSCA}}}}}}}")
+    return [n for n in ((dados.get("productOfferV2") or {}).get("nodes") or []) if isinstance(n, dict)]
+
+
+def link_afiliado(url: str, sub_id: str = "dropcerto") -> str:
+    """Gera o SEU link curto de afiliada (comissão vai para a sua conta)."""
+    dados = _consultar(
+        f"mutation{{generateShortLink(input:{{originUrl:{_texto(url)},subIds:[{_texto(sub_id)}]}})"
+        "{shortLink}}")
+    link = (dados.get("generateShortLink") or {}).get("shortLink")
+    if not link:
+        raise RuntimeError("a Shopee não gerou o link de afiliada")
+    return link

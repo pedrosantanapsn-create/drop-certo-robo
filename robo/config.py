@@ -68,6 +68,9 @@ SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
+# Palavras que o robô busca na Shopee (separe por vírgula)
+PALAVRAS_SHOPEE = _env("PALAVRAS_SHOPEE", "mouse gamer,teclado mecanico,headset gamer,fone bluetooth,"
+                       "ssd,smartwatch,carregador turbo,webcam,suporte notebook,hub usb")
 
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "10"))          # primeiro post do dia

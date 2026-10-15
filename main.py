@@ -65,6 +65,7 @@ Comandos:
 /conferir — confere agora preços e ofertas esgotadas do site
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
+/shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
 /instantaneo on — o robô responde na hora (off = volta aos 10 min)
 /ajuda — mostra esta mensagem"""
 
@@ -333,6 +334,18 @@ def tratar(mensagem: dict) -> None:
     elif comando == "/ofertas":
         telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
         telegram.enviar_texto(chat_id, sugestoes.sugerir())
+        extra = sugestoes.sugerir_shopee()
+        if extra:
+            telegram.enviar_texto(chat_id, extra)
+    elif comando == "/shopee":
+        palavra = " ".join(texto.split()[1:]).strip()
+        telegram.enviar_texto(chat_id, f"🛍️ Buscando na Shopee{f': {palavra}' if palavra else ''}…")
+        try:
+            resposta = sugestoes.sugerir_shopee([palavra] if palavra else None) or \
+                "❌ A API da Shopee não está configurada (faltam SHOPEE_APP_ID/SHOPEE_APP_SECRET)."
+        except Exception as erro:  # noqa: BLE001
+            resposta = f"❌ Shopee: {str(erro)[:200]}"
+        telegram.enviar_texto(chat_id, resposta)
     elif comando == "/voz":
         pasta = nova_pasta()
         audio, _ = video.narrar("Olá! Este é um teste da narração do Drop Certo.", pasta / "teste_voz.mp3")

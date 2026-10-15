@@ -10,7 +10,13 @@ o preço e um link de BUSCA na loja. Você acha o produto, gera o SEU link de
 afiliado no painel da loja e manda para o bot — aí ele posta como sempre.
 Também não copia fotos nem textos de lá; o post é montado da página da loja.
 
-Envio automático: todo dia às 10h (horário de Brasília). Comando: /ofertas
+Shopee (API oficial de afiliados): o robô também busca direto na Shopee por
+palavras-chave de tecnologia, escolhe os produtos que vendem bem, têm boa nota
+e pagam mais comissão, e já manda o SEU link de afiliada pronto — é só
+encaminhar o link para o bot.
+
+Envio automático: todo dia às 10h (horário de Brasília). Comandos: /ofertas e
+/shopee [palavra]
 """
 from __future__ import annotations
 
@@ -21,7 +27,9 @@ from urllib.parse import quote_plus
 
 import requests
 
-from . import config, supabase
+import math
+
+from . import config, shopee, supabase
 from .fila import FUSO
 from .produto import CABECALHOS, formatar_preco
 
@@ -142,6 +150,113 @@ def sugerir() -> str:
     return mensagem(ofertas)
 
 
+# ---------------------------------------------------------------------------
+# Shopee: busca pela API oficial, com o seu link de afiliada pronto
+# ---------------------------------------------------------------------------
+SHOPEE_QUANTAS = 5
+SHOPEE_DESCONTO_MINIMO = 15     # %
+SHOPEE_NOTA_MINIMA = 4.5
+SHOPEE_VENDAS_MINIMAS = 50
+
+
+def _palavras_shopee() -> list[str]:
+    texto = getattr(config, "PALAVRAS_SHOPEE", "") or ""
+    return [p.strip() for p in texto.split(",") if p.strip()]
+
+
+def _num(valor, padrao: float = 0.0) -> float:
+    try:
+        return float(str(valor).replace(",", "."))
+    except (TypeError, ValueError):
+        return padrao
+
+
+def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANTAS,
+                  marcar: bool = True) -> list[dict]:
+    """Melhores produtos da Shopee: vendem bem, nota alta, desconto e boa comissão."""
+    if not shopee.ativo():
+        return []
+    vistas = set(_vistas()) if marcar else set()
+    achados: dict[str, dict] = {}
+    for palavra in palavras or _palavras_shopee():
+        for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
+            try:
+                nos = shopee.buscar(palavra, ordem, 20)
+            except Exception as erro:  # noqa: BLE001
+                print(f"::warning::Shopee busca '{palavra}': {str(erro)[:150]}")
+                continue
+            for n in nos:
+                ident = f"shopee:{n.get('itemId')}"
+                if ident in vistas or ident in achados:
+                    continue
+                desconto = _num(n.get("priceDiscountRate"))
+                nota = _num(n.get("ratingStar"))
+                vendas = _num(n.get("sales"))
+                comissao = _num(n.get("commissionRate"))      # 0.07 = 7%
+                preco = _num(n.get("priceMin"), None)
+                if not preco or desconto < SHOPEE_DESCONTO_MINIMO or vendas < SHOPEE_VENDAS_MINIMAS:
+                    continue
+                if nota and nota < SHOPEE_NOTA_MINIMA:
+                    continue
+                n["_id"] = ident
+                n["_palavra"] = palavra
+                n["_nota"] = comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
+                achados[ident] = n
+    melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
+    # no máximo 2 por palavra, para variar os produtos
+    escolhidos, por_palavra = [], {}
+    for n in melhores:
+        if por_palavra.get(n["_palavra"], 0) >= 2:
+            continue
+        por_palavra[n["_palavra"]] = por_palavra.get(n["_palavra"], 0) + 1
+        escolhidos.append(n)
+        if len(escolhidos) >= quantas:
+            break
+    for n in escolhidos:
+        try:
+            n["_link"] = shopee.link_afiliado(str(n.get("productLink") or n.get("offerLink")))
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Shopee link: {str(erro)[:150]}")
+            n["_link"] = n.get("offerLink") or n.get("productLink")
+    if escolhidos and marcar and supabase.ativo():
+        lista = (_vistas() + [n["_id"] for n in escolhidos])[-400:]
+        supabase.gravar_config(CHAVE_VISTAS, json.dumps(lista))
+    return escolhidos
+
+
+def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — sugestões com o SEU link") -> str:
+    if not shopee.ativo():
+        return ""
+    if not produtos:
+        return "🛍️ Shopee: não achei produtos novos com bom desconto e boa nota agora."
+    linhas = [titulo, ""]
+    for i, n in enumerate(produtos, 1):
+        preco = _num(n.get("priceMin"), None)
+        desconto = _num(n.get("priceDiscountRate"))
+        antes = round(preco / (1 - desconto / 100), 2) if preco and 0 < desconto < 95 else None
+        comissao = _num(n.get("commissionRate")) * 100
+        ganho = _num(n.get("commission"), None)
+        vendas = int(_num(n.get("sales")))
+        nota = _num(n.get("ratingStar"))
+        linhas += [
+            f"{i}. 🔥 -{round(desconto)}% · ⭐ {nota:.1f} · {vendas:,} vendidos".replace(",", "."),
+            str(n.get("productName", ""))[:90],
+            f"💰 {formatar_preco(preco)}" + (f" (antes ~{formatar_preco(antes)})" if antes else ""),
+            f"💸 Comissão: {comissao:.0f}%".replace(".", ",")
+            + (f" (~{formatar_preco(ganho)} por venda)" if ganho else ""),
+            f"🔗 {n.get('_link')}",
+            "",
+        ]
+    linhas += ["👉 Para postar: copie o link 🔗 e mande para mim (ou /agendar link).",
+               "O robô lê nome, preço e foto pela API da Shopee — sem print.",
+               "ℹ️ Preço e comissão de agora: podem mudar até o post sair."]
+    return "\n".join(linhas)
+
+
+def sugerir_shopee(palavras: list[str] | None = None) -> str:
+    return mensagem_shopee(buscar_shopee(palavras))
+
+
 def _proxima_hora(agora: datetime) -> datetime:
     alvo = agora.replace(hour=HORA, minute=0, second=0, microsecond=0)
     return alvo if alvo > agora else alvo + timedelta(days=1)
@@ -158,4 +273,7 @@ def sugerir_se_for_hora(enviar) -> bool:
     if not valor.isdigit():
         return False                    # primeira vez: só marca o horário
     enviar(sugerir())
+    extra = sugerir_shopee()
+    if extra:
+        enviar(extra)
     return True
