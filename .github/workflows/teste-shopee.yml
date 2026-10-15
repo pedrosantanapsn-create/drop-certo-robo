@@ -1,0 +1,23 @@
+name: teste-shopee
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.parse, re
+          class NoRedir(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *a, **k): return None
+          op = urllib.request.build_opener(NoRedir)
+          for cod in ["30omr6GdpU","9KiqOjsjkx","9APQCQtN64","7VHCDMzVhj","6L5EnaIkwG","9pf6x8Iuzd"]:
+              url = "https://s.shopee.com.br/" + cod
+              try:
+                  op.open(urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"}))
+                  loc = ""
+              except urllib.error.HTTPError as e:
+                  loc = e.headers.get("Location","")
+              q = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query)
+              chaves = {k: v[0][:40] for k, v in q.items() if k.startswith(("utm_", "mmp_", "uls", "smtt", "aff"))}
+              print("::warning::%s -> %s" % (cod, chaves))
+          PY
