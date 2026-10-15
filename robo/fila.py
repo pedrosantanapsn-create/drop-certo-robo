@@ -115,7 +115,7 @@ def _marcar_proxima(quando: datetime | None) -> None:
 
 def modo() -> str:
     """Como a fila é distribuída:
-    "hora"  (padrão) 1 post por hora; nos horários de pico, 3 por hora (a cada 20 min)
+    "hora"  (padrão) 1 post por hora; nos horários de pico, 2 por hora (a cada 30 min)
     "pico"  só os melhores horários do dia, com ~1 h entre posts
     "igual" espalha por igual no dia
     "fixo"  intervalo em minutos definido com /intervalo N"""
@@ -397,7 +397,7 @@ def resumo() -> str:
     elif jeito == "igual":
         linhas.append(f"⏱️ Intervalo: espalhado por igual até as {config.POSTAR_ATE}h")
     else:
-        linhas.append("⏱️ Horários de pico: almoço (11h30–13h30) e noite (18h–22h) primeiro")
+        linhas.append("⏱️ Horários de pico: almoço (11h30–13h30) e noite (19h–23h) primeiro")
     linhas.append(f"🕗 Posta das {config.POSTAR_DAS}h às {config.POSTAR_ATE}h\n")
     for i, item in enumerate(lista[:15], 1):
         primeira = item["texto"].splitlines()[0]

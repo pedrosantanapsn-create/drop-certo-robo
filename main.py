@@ -39,8 +39,8 @@ obs: ótimo para quem joga FPS
 
 🗓️ FILA (posta ao longo do dia):
 Mande VÁRIOS links numa mensagem, um por linha.
-O robô posta 1 por hora e, no pico (11h30–13h30 e 18h–22h),
-3 por hora — entre 8h e 22h.
+O robô posta 1 por hora e, no pico (11h30–13h30 e 19h–23h),
+2 por hora — entre 10h e 23h.
 Para agendar um link só: /agendar meli.la/abc123
 
 📷 LISTA COM FOTOS (Shopee, Amazon…): mande as fotos
@@ -54,7 +54,7 @@ Comandos:
 /agora — posta o próximo da fila agora
 /intervalo 60 — um post a cada 60 min
 /intervalo igual — espalha por igual no dia
-/intervalo auto — 1 post por hora e 3 por hora no pico (padrão)
+/intervalo auto — 1 post por hora e 2 por hora no pico (padrão)
 /intervalo pico — só os melhores horários
 /limpar — apaga a fila
 /id — mostra seu ID do Telegram
@@ -368,7 +368,7 @@ def tratar(mensagem: dict) -> None:
         elif valor in ("auto", "automatico", "automático", "0", "hora"):
             fila.definir_modo("hora")
             telegram.enviar_texto(chat_id, f"⏱️ 1 post por hora; no pico ({config.HORARIOS_PICO.replace(',', ' e ')}) "
-                                           f"3 por hora.")
+                                           f"2 por hora.")
         elif valor == "pico":
             fila.definir_modo("pico")
             telegram.enviar_texto(chat_id, "⏱️ Só horários de pico: a fila sai primeiro no almoço e à noite.")
@@ -376,7 +376,7 @@ def tratar(mensagem: dict) -> None:
             fila.definir_modo("igual")
             telegram.enviar_texto(chat_id, f"⏱️ A fila vai ser espalhada por igual até as {config.POSTAR_ATE}h.")
         else:
-            telegram.enviar_texto(chat_id, "Use assim: /intervalo auto (1 por hora, 3 no pico), /intervalo pico, /intervalo igual ou /intervalo 60")
+            telegram.enviar_texto(chat_id, "Use assim: /intervalo auto (1 por hora, 2 no pico), /intervalo pico, /intervalo igual ou /intervalo 60")
     elif comando == "/agendar" or len(fila.separar_ofertas(texto)) > 1:
         agendar(chat_id, texto.split(None, 1)[1] if comando == "/agendar" and " " in texto else texto)
     elif comando == "/colunas":

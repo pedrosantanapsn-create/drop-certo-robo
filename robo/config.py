@@ -70,12 +70,12 @@ SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
 
 # --- Fila de postagens (horário de Brasília) ------------------------------
-POSTAR_DAS = int(_env("POSTAR_DAS", "8"))          # primeiro post do dia
-POSTAR_ATE = int(_env("POSTAR_ATE", "22"))         # depois disso, só no dia seguinte
-# Modo "hora" (padrão da fila): 1 post por hora; no pico, um a cada 20 min (3 por hora)
-HORARIOS_PICO = _env("HORARIOS_PICO", "11:30-13:30,18:00-22:00")
+POSTAR_DAS = int(_env("POSTAR_DAS", "10"))          # primeiro post do dia
+POSTAR_ATE = int(_env("POSTAR_ATE", "23"))         # depois disso, só no dia seguinte
+# Modo "hora" (padrão da fila): 1 post por hora; no pico, um a cada 30 min (2 por hora)
+HORARIOS_PICO = _env("HORARIOS_PICO", "11:30-13:30,19:00-23:00")
 MINUTOS_FORA_PICO = int(_env("MINUTOS_FORA_PICO", "60"))
-MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "20"))
+MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "30"))
 
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
