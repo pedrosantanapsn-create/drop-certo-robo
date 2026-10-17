@@ -1,0 +1,44 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 pillow
+      - env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import io, requests
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+          from robo import recorte, legenda
+          prod = Image.open(io.BytesIO(requests.get("https://cf.shopee.com.br/file/sg-11134201-7rfig-m3ar41583ul96c", timeout=30).content)).convert("RGB")
+          W, H = 923, 1400
+          pg = Image.new("RGB", (W, H), "white"); d = ImageDraw.Draw(pg)
+          f = lambda s: ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", s)
+          d.rectangle((0,0,W,70), fill=(19,25,33)); d.text((10,20), "amazon.com.br   Todos | Controlador...", fill="white", font=f(22))
+          d.rectangle((0,80,W,120), fill=(240,240,240)); d.text((260,88), "Oster Torradeira Inox -23% R$137,66", fill="black", font=f(18))
+          for i in range(5):
+              d.rectangle((16,180+i*60,54,230+i*60), outline=(120,140,200)); pg.paste(prod.resize((36,36)), (17,185+i*60))
+          pg.paste(prod.resize((340,340)), (70,180)); box_real = (70,180,410,520)
+          d.text((430,180), "GameSir G7 SE Controle", fill="black", font=f(22)); d.text((430,210), "com Fio para PC, Xbox", fill="black", font=f(22))
+          d.text((430,300), "R$", fill="black", font=f(16)); d.text((455,290), "251", fill="black", font=f(40)); d.text((530,292), "78", fill="black", font=f(16))
+          d.text((430,345), "De: R$324,00", fill=(110,110,110), font=f(16)); d.text((430,380), "ou em até 6x de R$ 44,19 sem juros", fill="green", font=f(16))
+          d.text((700,180), "Preço sem oferta R$379,05", fill="black", font=f(14))
+          pg.save("pagina.jpg", quality=90)
+          lido = legenda.ler_imagem("pagina.jpg")
+          print("::warning::leitura: %s" % lido)
+          saida, como = recorte.foto_limpa(Path("pagina.jpg"), Path("limpa.jpg"))
+          print("::warning::recorte: %s (%s)" % (como, saida))
+          achado = recorte._pedir_gemini(Path("pagina.jpg"), recorte.PROMPT_CAIXA)
+          cx = recorte._caixa_em_pixels((achado or {}).get("box_2d"), W, H)
+          print("::warning::caixa gemini=%s real=%s" % (cx, box_real))
+          if saida:
+              im = Image.open(saida); g = im.convert("L")
+              bb = g.point(lambda v: 255 if v < 236 else 0).getbbox()
+              print("::warning::final %s, conteudo em %s (quadrado 1200, produto ocupa %.0f%%)" % (im.size, bb, (bb[2]-bb[0])*(bb[3]-bb[1])/1200/1200*100 if bb else 0))
+          PY

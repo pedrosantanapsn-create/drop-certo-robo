@@ -102,7 +102,11 @@ Leia o que estiver VISÍVEL e responda só com JSON:
 {"nome": "nome do produto como aparece no anúncio", "preco": "preço atual", "preco_antigo": "preço riscado/antes, se houver"}
 Se for só uma FOTO do produto (sem nome escrito), em "nome" descreva o produto em até 8 palavras
 (ex.: "Fone de ouvido Bluetooth sem fio preto"), sem inventar marca.
-Use null no que não aparecer. Não invente preços. Preços no formato 1.299,90."""
+Use null no que não aparecer. Não invente preços. Preços no formato 1.299,90.
+Dicas de leitura:
+- Na Amazon os centavos aparecem pequenos e no alto: "R$ 251 ⁷⁸" = 251,78 (NÃO 25178).
+- Preço atual = o preço grande da oferta (ou "Preço da oferta"); preço antigo = o que vem depois de "De:" ou riscado.
+- Ignore preços de OUTROS produtos (anúncios patrocinados, "Preço sem oferta", parcelas "6x de", cupons e cashback)."""
 
 
 def ler_imagem(foto) -> dict:
@@ -116,9 +120,23 @@ def ler_imagem(foto) -> dict:
                                   {"inline_data": {"mime_type": "image/jpeg", "data": dados_img}}],
                                  temperatura=0.1)
         resposta = _limpar_json(gemini.texto(dados))
-        return {k: v for k, v in resposta.items() if v not in (None, "", "null")}
+        resposta = {k: v for k, v in resposta.items() if v not in (None, "", "null")}
+        return _conferir_precos(resposta)
     except Exception:  # noqa: BLE001
         return {}
+
+
+def _conferir_precos(lido: dict) -> dict:
+    """Corrige leituras impossíveis (centavos colados, preços trocados)."""
+    from .produto import _para_float
+    preco, antigo = _para_float(lido.get("preco")), _para_float(lido.get("preco_antigo"))
+    if preco and antigo:
+        if preco > antigo * 20 and preco / 100 < antigo:      # "25178" lido no lugar de 251,78
+            preco = round(preco / 100, 2)
+            lido["preco"] = f"{preco:.2f}".replace(".", ",")
+        if preco > antigo:                                    # vieram trocados
+            lido["preco"], lido["preco_antigo"] = lido["preco_antigo"], lido["preco"]
+    return lido
 
 
 PROMPT_PAGINA = """Abra a página do produto à venda neste link de loja online{extra}:

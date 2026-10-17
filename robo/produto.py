@@ -93,6 +93,8 @@ def ler_mensagem(texto: str) -> dict:
       obs: ótimo para home office
     """
     texto = texto or ""
+    # "mercadolivre.com.br/p /MLB123" (o Telegram às vezes quebra o link no /p/): junta de novo
+    texto = re.sub(r"(\.com\.br/p)\s+/(MLB)", r"\1/\2", texto, flags=re.I)
     achados = RE_URL.findall(texto)
     if not achados:
         m = re.search(r"\b(meli\.la/\S+|mercadolivre\.com\.br/\S+)", texto, re.I)

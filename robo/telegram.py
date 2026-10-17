@@ -45,6 +45,12 @@ def enviar_texto(chat_id, texto: str) -> None:
     _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], disable_web_page_preview="true")
 
 
+def enviar_html(chat_id, texto: str) -> None:
+    """Mensagem com links clicáveis em <a href> (não quebram no meio, como /p/ do ML)."""
+    _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], parse_mode="HTML",
+            disable_web_page_preview="true")
+
+
 def enviar_com_botao(chat_id, texto: str, rotulo: str, url: str) -> None:
     """Mensagem com um botão que abre um link (ex.: compartilhar no WhatsApp)."""
     import json as _json

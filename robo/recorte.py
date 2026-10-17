@@ -30,15 +30,19 @@ Responda só com uma lista JSON com UM item:
 [{"label": "nome curto do produto", "box_2d": [ymin, xmin, ymax, xmax], "mask": "máscara de segmentação PNG em base64"}]
 As coordenadas de box_2d vão de 0 a 1000. A máscara cobre só o produto, dentro do box_2d."""
 
+PROMPT_CAIXA = """Nesta imagem (print de um anúncio de loja online), onde está a FOTO PRINCIPAL e grande do
+produto à venda? Ignore textos, preços, botões, selos, logos, a coluna de miniaturas e anúncios patrocinados.
+Responda só com JSON: {"label": "nome curto do produto", "box_2d": [ymin, xmin, ymax, xmax]} (coordenadas de 0 a 1000)."""
+
 TAMANHO = 1200          # imagem final quadrada
 MARGEM = 0.08           # respiro em volta do produto
 MINIMO_PX = 220         # recorte menor que isso fica feio: usa o print inteiro
 
 
-def _pedir_gemini(foto: Path) -> dict | None:
+def _pedir_gemini(foto: Path, prompt: str = PROMPT) -> dict | None:
     dados_img = base64.b64encode(foto.read_bytes()).decode()
     try:
-        dados, _ = gemini.chamar([{"text": PROMPT},
+        dados, _ = gemini.chamar([{"text": prompt},
                                   {"inline_data": {"mime_type": "image/jpeg", "data": dados_img}}],
                                  temperatura=0.1, pensar=False)
         texto = gemini.texto(dados).strip()
@@ -86,15 +90,32 @@ def _no_fundo_branco(produto: Image.Image) -> Image.Image:
     return fundo
 
 
+def _aparar_branco(img: Image.Image, limite: int = 236) -> Image.Image:
+    """Tira as bordas brancas/claras em volta do produto (fotos de loja têm fundo branco)."""
+    cinza = img.convert("L")
+    marcado = cinza.point(lambda v: 255 if v < limite else 0).filter(ImageFilter.MaxFilter(5))
+    caixa = marcado.getbbox()
+    if not caixa:
+        return img
+    l, t, r, b = caixa
+    if (r - l) < img.width * 0.25 or (b - t) < img.height * 0.25:
+        return img                      # sobrou pouco: melhor não arriscar
+    return img.crop(caixa)
+
+
 def foto_limpa(foto: Path, destino: Path) -> tuple[Path | None, str]:
     """Devolve (imagem nova só do produto, como foi feita) ou (None, motivo)."""
     if not config.GEMINI_API_KEY:
         return None, "sem chave do Gemini"
     original = ImageOps.exif_transpose(Image.open(foto)).convert("RGB")
     achado = _pedir_gemini(foto)
+    caixa = _caixa_em_pixels((achado or {}).get("box_2d"), original.width, original.height)
+    if not caixa:
+        # 2ª tentativa: pede só o retângulo (mais simples e mais confiável em print de página)
+        achado = _pedir_gemini(foto, PROMPT_CAIXA)
+        caixa = _caixa_em_pixels((achado or {}).get("box_2d"), original.width, original.height)
     if not achado:
         return None, "o Gemini não achou o produto no print"
-    caixa = _caixa_em_pixels(achado.get("box_2d"), original.width, original.height)
     if not caixa:
         return None, "produto pequeno demais no print"
     recorte = original.crop(caixa)
@@ -105,6 +126,7 @@ def foto_limpa(foto: Path, destino: Path) -> tuple[Path | None, str]:
         recorte = recorte.crop(mascara.getbbox() or (0, 0, *recorte.size))
         como = "recortado e sem fundo"
     else:
-        como = "recortado (fundo original)"
+        recorte = _aparar_branco(recorte)
+        como = "recortado do print"
     _no_fundo_branco(recorte).save(destino, "JPEG", quality=93)
     return destino, como

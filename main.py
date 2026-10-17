@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import os
 import shutil
 import sys
@@ -141,6 +142,15 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 produto.url_final = amazon.resolver(produto.link)[0]
             except Exception:  # noqa: BLE001
                 pass
+
+    if re.search(r"mercadolivre\.com\.br/(p/|MLB)", produto.link, re.I) and "meli.la" not in produto.link \
+            and not re.search(r"matt_|forceInApp|social/", produto.link):
+        telegram.enviar_texto(chat_id, "⚠️ Esse é o link normal do Mercado Livre, sem o seu afiliado — "
+                              "vendas por ele NÃO pagam comissão.\n\nAbra o produto, toque em "
+                              "\"Compartilhar\" na barra de afiliados, copie o link meli.la e mande de novo.\n"
+                              "🛑 Não postei.")
+        shutil.rmtree(pasta, ignore_errors=True)
+        return
 
     # Mercado Livre com a API oficial: nome, preço com promoção e fotos sem depender da página
     if mercadolivre.e_mercadolivre(produto.link) and not dados.get("preco"):
@@ -326,6 +336,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
 def tratar(mensagem: dict) -> None:
     chat_id = mensagem["chat"]["id"]
     texto = (mensagem.get("text") or mensagem.get("caption") or "").strip()
+    texto = re.sub(r"(\.com\.br/p)\s+/(MLB)", r"\1/\2", texto, flags=re.I)   # link do ML quebrado no /p/
 
     if not config.ADMIN_CHAT_ID:
         telegram.enviar_texto(
@@ -416,10 +427,9 @@ def tratar(mensagem: dict) -> None:
         palavra = " ".join(palavras).strip()
         telegram.enviar_texto(chat_id, f"🛒 Buscando os mais vendidos do Mercado Livre{f': {palavra}' if palavra else ''}…")
         try:
-            resposta = sugestoes.sugerir_ml([palavra] if palavra else None)
+            telegram.enviar_html(chat_id, sugestoes.sugerir_ml([palavra] if palavra else None, html=True))
         except Exception as erro:  # noqa: BLE001
-            resposta = f"❌ Mercado Livre: {str(erro)[:200]}"
-        telegram.enviar_texto(chat_id, resposta)
+            telegram.enviar_texto(chat_id, f"❌ Mercado Livre: {str(erro)[:200]}")
     elif comando == "/ofertas":
         telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
         telegram.enviar_texto(chat_id, sugestoes.sugerir())

@@ -331,19 +331,23 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS) -> l
     return escolhidos
 
 
-def mensagem_ml(produtos: list[dict]) -> str:
+def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
     if not mercadolivre.ativo():
         return "🟡 A API do Mercado Livre não está ligada. Mande /ml para autorizar."
     if not produtos:
         return ("🛒 Mercado Livre: não achei produtos novos com desconto entre os mais vendidos agora.\n"
                 "Tente /ofertas_ml com outra palavra (ex.: /ofertas_ml monitor).")
+    from html import escape
+    e = escape if html else (lambda x: x)
     linhas = ["🛒 Mercado Livre — mais vendidos com desconto", ""]
     for i, n in enumerate(produtos, 1):
+        link = (f'🔗 <a href="{e(n["link"])}">Abrir no Mercado Livre ({e(n["id"])})</a>' if html
+                else f"🔗 {n['link']}")
         linhas += [
-            f"{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {n['categoria']}",
-            str(n["nome"])[:90],
+            f"{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {e(n['categoria'])}",
+            e(str(n["nome"])[:90]),
             f"💰 {formatar_preco(n['preco'])} (antes {formatar_preco(n['antes'])})",
-            f"🔗 {n['link']}",
+            link,
             "",
         ]
     linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",
@@ -353,8 +357,8 @@ def mensagem_ml(produtos: list[dict]) -> str:
     return "\n".join(linhas)
 
 
-def sugerir_ml(palavras: list[str] | None = None) -> str:
-    return mensagem_ml(buscar_ml(palavras))
+def sugerir_ml(palavras: list[str] | None = None, html: bool = False) -> str:
+    return mensagem_ml(buscar_ml(palavras), html=html)
 
 
 # ---------------------------------------------------------------------------
