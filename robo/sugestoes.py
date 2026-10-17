@@ -369,7 +369,12 @@ def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: 
     vistas = set(_vistas())
     limite = datetime.now(FUSO) - timedelta(days=3)
     achados: dict[str, dict] = {}
-    for url in (AMZ_PAGINA, AMZ_PAGINA + "?page=2"):
+    paginas = [AMZ_PAGINA, AMZ_PAGINA + "?page=2", AMZ_PAGINA + "?page=3"]
+    if so_tecnologia and not palavra:
+        paginas += [p for p in PAGINAS if "/promocoes/" in p] + [
+            "https://www.promobit.com.br/promocoes/eletronicos/",
+            "https://www.promobit.com.br/promocoes/celulares/"]
+    for url in paginas:
         for o in _ler_pagina(url):
             ident = f"amz:{o.get('offerId')}"
             titulo = str(o.get("offerTitle", ""))
@@ -378,7 +383,7 @@ def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: 
             if palavra and palavra.lower() not in titulo.lower():
                 continue
             if not palavra and so_tecnologia and not (
-                    RE_TECNOLOGIA.search(titulo) or o.get("categorySlug") in ("informatica", "games", "eletronicos", "celular")):
+                    RE_TECNOLOGIA.search(titulo) or o.get("categorySlug") in ("informatica", "games", "eletronicos", "celulares")):
                 continue
             desconto = float(o.get("offerDiscontPercentage") or 0)
             if desconto < AMZ_DESCONTO_MINIMO or not o.get("offerPrice") or str(o.get("offerStatusName", "APPROVED")) != "APPROVED":
