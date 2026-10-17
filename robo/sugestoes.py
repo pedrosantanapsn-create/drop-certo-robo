@@ -29,7 +29,7 @@ import requests
 
 import math
 
-from . import config, shopee, supabase
+from . import config, mercadolivre, shopee, supabase
 from .fila import FUSO
 from .produto import CABECALHOS, formatar_preco
 
@@ -255,6 +255,104 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
 
 def sugerir_shopee(palavras: list[str] | None = None) -> str:
     return mensagem_shopee(buscar_shopee(palavras))
+
+
+# ---------------------------------------------------------------------------
+# Mercado Livre: mais vendidos de cada categoria (API oficial), com desconto
+# ---------------------------------------------------------------------------
+ML_QUANTAS = 8
+ML_POR_CATEGORIA = 6
+ML_DESCONTO_MINIMO = 10      # %
+
+
+def _palavras_ml() -> list[str]:
+    texto = getattr(config, "PALAVRAS_ML", "") or getattr(config, "PALAVRAS_SHOPEE", "") or ""
+    return [p.strip() for p in texto.split(",") if p.strip()]
+
+
+def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS) -> list[dict]:
+    """Mais vendidos do ML nas categorias das palavras, com desconto real agora."""
+    if not mercadolivre.ativo():
+        return []
+    vistas = set(_vistas())
+    achados: dict[str, dict] = {}
+    categorias_vistas: set[str] = set()
+    for palavra in palavras or _palavras_ml():
+        try:
+            dominio = (mercadolivre._get("/sites/MLB/domain_discovery/search", q=palavra, limit=1) or [{}])[0]
+            categoria = dominio.get("category_id")
+            if not categoria or categoria in categorias_vistas:
+                continue
+            categorias_vistas.add(categoria)
+            ranking = mercadolivre._get(f"/highlights/MLB/category/{categoria}").get("content") or []
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::ML mais vendidos '{palavra}': {str(erro)[:150]}")
+            continue
+        for pos in ranking[:ML_POR_CATEGORIA]:
+            ident = str(pos.get("id") or "")
+            if pos.get("type") != "PRODUCT" or not ident or f"ml:{ident}" in vistas or f"ml:{ident}" in achados:
+                continue
+            try:
+                lista = mercadolivre._get(f"/products/{ident}/items").get("results") or []
+                if not lista:
+                    continue
+                vendedor = lista[0]
+                preco, antes = vendedor.get("price"), vendedor.get("original_price")
+                if not preco or not antes or antes <= preco:
+                    continue
+                desconto = (1 - preco / antes) * 100
+                if desconto < ML_DESCONTO_MINIMO:
+                    continue
+                produto = mercadolivre._get(f"/products/{ident}")
+            except Exception:  # noqa: BLE001
+                continue
+            achados[f"ml:{ident}"] = {
+                "_id": f"ml:{ident}", "_palavra": palavra, "id": ident,
+                "nome": produto.get("name", ""), "preco": preco, "antes": antes,
+                "desconto": desconto, "posicao": pos.get("position") or 99,
+                "categoria": dominio.get("category_name", ""),
+                "link": f"https://www.mercadolivre.com.br/p/{ident}",
+                "_nota": desconto - (pos.get("position") or 99) * 1.5,
+            }
+    melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
+    escolhidos, por_palavra = [], {}
+    for n in melhores:
+        if por_palavra.get(n["_palavra"], 0) >= 2:
+            continue
+        por_palavra[n["_palavra"]] = por_palavra.get(n["_palavra"], 0) + 1
+        escolhidos.append(n)
+        if len(escolhidos) >= quantas:
+            break
+    if escolhidos and supabase.ativo():
+        lista = (_vistas() + [n["_id"] for n in escolhidos])[-400:]
+        supabase.gravar_config(CHAVE_VISTAS, json.dumps(lista))
+    return escolhidos
+
+
+def mensagem_ml(produtos: list[dict]) -> str:
+    if not mercadolivre.ativo():
+        return "🟡 A API do Mercado Livre não está ligada. Mande /ml para autorizar."
+    if not produtos:
+        return ("🛒 Mercado Livre: não achei produtos novos com desconto entre os mais vendidos agora.\n"
+                "Tente /ofertas_ml com outra palavra (ex.: /ofertas_ml monitor).")
+    linhas = ["🛒 Mercado Livre — mais vendidos com desconto", ""]
+    for i, n in enumerate(produtos, 1):
+        linhas += [
+            f"{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {n['categoria']}",
+            str(n["nome"])[:90],
+            f"💰 {formatar_preco(n['preco'])} (antes {formatar_preco(n['antes'])})",
+            f"🔗 {n['link']}",
+            "",
+        ]
+    linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",
+               "de afiliados do Mercado Livre e mande para mim (ou /agendar link).",
+               "ℹ️ O ML não tem API para gerar link de afiliado — esse passo é seu.",
+               "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
+    return "\n".join(linhas)
+
+
+def sugerir_ml(palavras: list[str] | None = None) -> str:
+    return mensagem_ml(buscar_ml(palavras))
 
 
 def _proxima_hora(agora: datetime) -> datetime:

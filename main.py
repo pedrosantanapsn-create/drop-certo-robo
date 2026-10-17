@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -66,6 +66,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
 /instantaneo on — o robô responde na hora (off = volta aos 10 min)
 /ajuda — mostra esta mensagem"""
@@ -384,6 +385,16 @@ def tratar(mensagem: dict) -> None:
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Modo instantâneo: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
+    elif comando in ("/ofertas_ml", "/ofertasml", "/ml_ofertas") or (
+            comando == "/ofertas" and texto.split()[1:2] in (["ml"], ["ML"], ["mercadolivre"])):
+        palavras = [p for p in texto.split()[1:] if p.lower() not in ("ml", "mercadolivre")]
+        palavra = " ".join(palavras).strip()
+        telegram.enviar_texto(chat_id, f"🛒 Buscando os mais vendidos do Mercado Livre{f': {palavra}' if palavra else ''}…")
+        try:
+            resposta = sugestoes.sugerir_ml([palavra] if palavra else None)
+        except Exception as erro:  # noqa: BLE001
+            resposta = f"❌ Mercado Livre: {str(erro)[:200]}"
+        telegram.enviar_texto(chat_id, resposta)
     elif comando == "/ofertas":
         telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
         telegram.enviar_texto(chat_id, sugestoes.sugerir())
@@ -517,6 +528,8 @@ def postar_da_fila() -> bool:
     try:
         if item.get("foto_id"):
             mensagem = {"caption": item["texto"], "photo": [{"file_id": item["foto_id"], "file_size": 1}]}
+        elif item.get("foto_url"):
+            mensagem = {"text": item["texto"], "_foto_url": item["foto_url"]}
         else:
             mensagem = {"text": item["texto"]}
         processar_oferta(mensagem, config.ADMIN_CHAT_ID)
@@ -568,6 +581,10 @@ def rodar_uma_vez() -> int:
         # conferência ficam com a rodada de 10 min (evita post repetido quando
         # várias fotos chegam juntas e o robô roda várias vezes ao mesmo tempo).
         return len(atualizacoes)
+    try:
+        quadro.importar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Quadro:", erro, file=sys.stderr)
     try:
         postar_da_fila()
     except Exception as erro:  # noqa: BLE001

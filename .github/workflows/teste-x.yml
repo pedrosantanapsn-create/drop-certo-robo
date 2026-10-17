@@ -16,16 +16,23 @@ jobs:
         run: |
           python - <<'PY'
           import json, requests, os
-          from robo import mercadolivre as m, supabase
+          from robo import sugestoes, quadro, fila, supabase
+          # 1) ML (sem marcar como vistas)
+          sugestoes._vistas = lambda: []
+          supabase_gravar = supabase.gravar_config
+          supabase.gravar_config = lambda *a, **k: None
+          ps = sugestoes.buscar_ml(["mouse gamer", "monitor"], 4)
+          for n in ps:
+              print("::warning::ML -%d%% %s | %s -> %s | %s" % (n["desconto"], n["nome"][:40], n["antes"], n["preco"], n["link"]))
+          if not ps: print("::warning::ML vazio")
+          # 2) Quadro: sobe uma lista de teste e importa sem mexer na fila real
           u=os.environ["SUPABASE_URL"]; k=os.environ["SUPABASE_SERVICE_KEY"]
-          r=requests.get(f"{u}/storage/v1/bucket/produtos",headers={"apikey":k,"Authorization":f"Bearer {k}"})
-          print("::warning::bucket %s %s" % (r.status_code, r.text[:250]))
-          for cam, par in [("/products/search", {"site_id":"MLB","q":"mouse gamer","status":"active","limit":3}),
-                           ("/highlights/MLB/category/MLB1648", {}),
-                           ("/sites/MLB/domain_discovery/search", {"q":"mouse gamer","limit":1})]:
-              try:
-                  d=m._get(cam, **par)
-                  print("::warning::%s OK %s" % (cam, json.dumps(d)[:300]))
-              except Exception as e:
-                  print("::warning::%s ERRO %s" % (cam, str(e)[:150]))
+          h={"apikey":k,"Authorization":f"Bearer {k}","Content-Type":"application/json","x-upsert":"true"}
+          r=requests.post(f"{u}/storage/v1/object/produtos/quadro/teste-claude.json",headers=h,data=json.dumps({"itens":[{"link":"https://amzn.to/4B2ujM5","preco":"99,90","foto":"https://exemplo/1.jpg"},{"link":"https://www.amazon.com.br/dp/B0G4MD9ZBL","foto":""}]}))
+          print("::warning::upload %s" % r.status_code)
+          print("::warning::pendentes %s" % quadro.pendentes())
+          fila.ativa = lambda: True
+          fila.adicionar = lambda t, f: (print("::warning::FILA " + json.dumps(list(zip(t, f)))) or (len(t), __import__("datetime").datetime.now(), 0))
+          quadro.importar(lambda texto: print("::warning::MSG " + texto.replace("\n"," | ")[:300]))
+          print("::warning::depois pendentes %s" % quadro.pendentes())
           PY

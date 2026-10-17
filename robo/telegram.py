@@ -71,6 +71,11 @@ def enviar_arquivo(chat_id, arquivo: Path, legenda: str = "") -> dict:
 
 def baixar_foto_da_mensagem(mensagem: dict, destino: Path) -> Path | None:
     """Se você mandar uma foto junto com o link, ela vira a foto do post."""
+    if mensagem.get("_foto_url"):          # foto que veio do quadro do site (Supabase Storage)
+        r = requests.get(mensagem["_foto_url"], timeout=60)
+        r.raise_for_status()
+        destino.write_bytes(r.content)
+        return destino
     fotos = mensagem.get("photo") or []
     if not fotos:
         return None

@@ -65,6 +65,9 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 
+# Palavras dos mais vendidos do Mercado Livre (/ofertas_ml). Vazio = as mesmas da Shopee
+PALAVRAS_ML = _env("PALAVRAS_ML", "")
+
 # --- Amazon: sua tag de associado (o robô confere se cada link tem ela) ----
 AMAZON_TAG = _env("AMAZON_TAG", "certodrop-20")
 

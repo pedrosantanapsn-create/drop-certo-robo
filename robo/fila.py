@@ -284,7 +284,7 @@ def chave_link(texto: str) -> str:
     return f"{dominio.lower()}/{caminho}".rstrip("/")
 
 
-def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
+def adicionar(ofertas: list[str], fotos: list[str | None] | None = None) -> tuple[int, datetime, int]:
     """Coloca as ofertas no fim da fila, sem repetir links.
 
     Devolve (total na fila, horário do próximo post, quantos repetidos foram ignorados).
@@ -293,13 +293,16 @@ def adicionar(ofertas: list[str]) -> tuple[int, datetime, int]:
     agora = datetime.now(FUSO)
     ja_tem = {chave_link(i.get("texto", "")) for i in lista}
     ignorados = 0
-    for texto in ofertas:
+    for n, texto in enumerate(ofertas):
         chave = chave_link(texto)
         if chave and chave in ja_tem:
             ignorados += 1
             continue
         ja_tem.add(chave)
-        lista.append({"texto": texto, "adicionado": agora.isoformat(timespec="seconds")})
+        item = {"texto": texto, "adicionado": agora.isoformat(timespec="seconds")}
+        if fotos and n < len(fotos) and fotos[n]:
+            item["foto_url"] = fotos[n]        # foto enviada pelo quadro do site
+        lista.append(item)
     _salvar(lista)
     proxima = _proxima()
     if lista and modo() == "pico":
@@ -405,7 +408,7 @@ def resumo() -> str:
     linhas.append(f"🕗 Posta das {config.POSTAR_DAS}h às {config.POSTAR_ATE}h\n")
     for i, item in enumerate(lista[:15], 1):
         primeira = item["texto"].splitlines()[0]
-        linhas.append(f"{i}. {'📷 ' if item.get('foto_id') else ''}{primeira[:60]}")
+        linhas.append(f"{i}. {'📷 ' if item.get('foto_id') or item.get('foto_url') else ''}{primeira[:60]}")
     if len(lista) > 15:
         linhas.append(f"… e mais {len(lista) - 15}")
     orfas = fotos_sem_link()

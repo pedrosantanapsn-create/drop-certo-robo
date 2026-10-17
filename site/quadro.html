@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Drop Certo — Quadro de ofertas</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--laranja:#F26A21;--azul:#0E3A5D;--teal:#1BA39C;--fundo:#F3F5F8;--borda:#dfe4ea;--texto:#1c2430;--texto-2:#5b6572;--erro:#c62828;--ok:#2e7d32}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Poppins,system-ui,sans-serif;background:var(--fundo);color:var(--texto);line-height:1.45}
+  button{font:inherit;cursor:pointer}
+  input{font:inherit;width:100%;padding:9px 11px;border:1.5px solid var(--borda);border-radius:10px;background:#fff;outline:none;font-size:14px}
+  input:focus{border-color:var(--teal)}
+  .btn{background:var(--laranja);color:#fff;border:0;padding:12px 20px;border-radius:12px;font-weight:700}
+  .btn.sec{background:#fff;color:var(--azul);border:1.5px solid var(--borda)}
+  .btn:disabled{opacity:.55;cursor:wait}
+  .logo{font-weight:800;font-size:22px;color:var(--azul)} .logo span{color:var(--laranja)}
+  .msg{padding:10px 14px;border-radius:10px;font-size:14px;margin-top:12px;display:none;white-space:pre-line}
+  .msg.ok{display:block;background:#e8f5e9;color:var(--ok)} .msg.erro{display:block;background:#fdecea;color:var(--erro)} .msg.info{display:block;background:#e9f1f8;color:var(--azul)}
+
+  #login{min-height:100vh;display:grid;place-items:center;padding:16px}
+  #login form{background:#fff;padding:30px;border-radius:18px;width:min(380px,100%);box-shadow:0 10px 30px rgba(14,58,93,.1)}
+  #login label{display:block;font-size:13px;font-weight:600;color:var(--texto-2);margin:12px 0 4px}
+
+  #app{display:none;min-height:100vh;padding-bottom:110px}
+  .topo{background:#fff;border-bottom:1px solid var(--borda)}
+  .container{width:min(1100px,100% - 32px);margin-inline:auto}
+  .topo .container{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;flex-wrap:wrap}
+  .topo a,.topo button.link{color:var(--texto-2);font-size:13px;background:none;border:0;text-decoration:underline}
+  .intro{padding:18px 0 6px}
+  .intro h1{font-size:20px;color:var(--azul)}
+  .intro p{font-size:14px;color:var(--texto-2);margin-top:4px;max-width:720px}
+  .ferramentas{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .quadro{background:#fff;border-radius:14px;padding:10px;box-shadow:0 3px 14px rgba(14,58,93,.07);display:flex;flex-direction:column;gap:8px;position:relative}
+  .quadro .num{position:absolute;top:16px;left:16px;background:var(--azul);color:#fff;font-size:12px;font-weight:700;border-radius:999px;width:24px;height:24px;display:grid;place-items:center;z-index:1}
+  .quadro .tirar{position:absolute;top:14px;right:14px;z-index:1;background:#fff;border:1.5px solid var(--borda);border-radius:999px;width:30px;height:30px;font-size:16px;line-height:1;color:var(--erro)}
+  .foto{aspect-ratio:1/1;border:2px dashed var(--borda);border-radius:10px;display:grid;place-items:center;text-align:center;color:var(--texto-2);font-size:13px;overflow:hidden;background:#fafbfc;cursor:pointer;padding:8px}
+  .foto.cheia{border-style:solid;padding:0;background:#fff}
+  .foto.arrastando{border-color:var(--teal);background:#e0f5f3}
+  .foto img{width:100%;height:100%;object-fit:contain}
+  .foto .icone{font-size:30px;display:block;margin-bottom:4px}
+  .quadro.erro .foto, .quadro.erro input.link{border-color:var(--erro)}
+  .quadro .aviso{font-size:12px;color:var(--erro);min-height:0}
+  .quadro .ok{font-size:12px;color:var(--ok)}
+  .mais{border:2px dashed var(--borda);border-radius:14px;background:transparent;color:var(--azul);font-weight:700;font-size:15px;min-height:260px;display:grid;place-items:center}
+  .mais span{font-size:40px;display:block;line-height:1}
+
+  .rodape{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--borda);padding:12px 0;box-shadow:0 -6px 20px rgba(14,58,93,.06)}
+  .rodape .container{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .rodape .resumo{font-size:14px;color:var(--texto-2)}
+  .barra-prog{height:6px;background:var(--borda);border-radius:999px;overflow:hidden;margin-top:6px;display:none}
+  .barra-prog div{height:100%;width:0;background:var(--teal);transition:width .2s}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form id="formLogin">
+    <div class="logo">Drop <span>Certo</span> · Quadro</div>
+    <label for="email">E-mail</label><input id="email" type="email" required autocomplete="username">
+    <label for="senha">Senha</label><input id="senha" type="password" required autocomplete="current-password">
+    <button class="btn" style="width:100%;margin-top:18px" type="submit">Entrar</button>
+    <div class="msg" id="msgLogin"></div>
+  </form>
+</section>
+
+<section id="app">
+  <div class="topo"><div class="container">
+    <div class="logo">Drop <span>Certo</span> · Quadro de ofertas</div>
+    <div><a href="admin.html">Admin</a> · <button class="link" id="sair">Sair</button></div>
+  </div></div>
+
+  <main class="container">
+    <div class="intro">
+      <h1>Imagem em cima, link embaixo</h1>
+      <p>Coloque o print do produto (com nome e preço aparecendo) e o seu link de afiliado. Toque em <strong>+</strong> para mais quadros.
+         Ao enviar, o robô põe tudo na fila em até 10 minutos e avisa no Telegram. Serve para Amazon e qualquer loja.</p>
+    </div>
+    <div class="ferramentas">
+      <button class="btn sec" id="variasFotos">🖼️ Escolher várias imagens de uma vez</button>
+      <input type="file" id="arquivoVarios" accept="image/*" multiple hidden>
+    </div>
+    <div class="grade" id="grade"></div>
+  </main>
+
+  <div class="rodape"><div class="container">
+    <div style="flex:1;min-width:180px">
+      <div class="resumo" id="resumo">0 quadros</div>
+      <div class="barra-prog" id="prog"><div></div></div>
+    </div>
+    <button class="btn" id="enviar">Enviar para a fila</button>
+  </div>
+  <div class="container"><div class="msg" id="msgEnvio"></div></div></div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  const cfg = window.LOJAML_CONFIG;
+  const sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const $ = s => document.querySelector(s);
+  const grade = $('#grade');
+  let quadros = [];          // { id, arquivo, previa, link, preco }
+  let seq = 0;
+
+  function aviso(el, texto, tipo){ el.textContent = texto; el.className = 'msg ' + tipo; }
+
+  // ---------- Login (mesmo do admin) ----------
+  async function iniciar(){
+    const { data:{ session } } = await sb.auth.getSession();
+    mostrar(!!session);
+    sb.auth.onAuthStateChange((_e, s) => mostrar(!!s));
+  }
+  function mostrar(logado){
+    $('#login').style.display = logado ? 'none' : 'grid';
+    $('#app').style.display = logado ? 'block' : 'none';
+    if (logado && !quadros.length){ for (let i = 0; i < 3; i++) novoQuadro(); }
+  }
+  $('#formLogin').addEventListener('submit', async e => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email:$('#email').value, password:$('#senha').value });
+    if (error) aviso($('#msgLogin'), 'E-mail ou senha inválidos.', 'erro');
+  });
+  $('#sair').onclick = () => sb.auth.signOut();
+
+  // ---------- Quadros ----------
+  function novoQuadro(arquivo){
+    const q = { id: ++seq, arquivo: null, previa: '', link: '', preco: '' };
+    quadros.push(q);
+    if (arquivo) definirFoto(q, arquivo);
+    desenhar();
+    return q;
+  }
+  function definirFoto(q, arquivo){
+    if (!arquivo || !arquivo.type.startsWith('image/')) return;
+    if (q.previa) URL.revokeObjectURL(q.previa);
+    q.arquivo = arquivo;
+    q.previa = URL.createObjectURL(arquivo);
+  }
+  function tirar(id){
+    const q = quadros.find(x => x.id === id);
+    if (q && q.previa) URL.revokeObjectURL(q.previa);
+    quadros = quadros.filter(x => x.id !== id);
+    desenhar();
+  }
+
+  function desenhar(){
+    grade.innerHTML = '';
+    quadros.forEach((q, i) => {
+      const el = document.createElement('div');
+      el.className = 'quadro';
+      el.dataset.id = q.id;
+      el.innerHTML = `
+        <span class="num">${i + 1}</span>
+        <button class="tirar" title="Tirar este quadro" aria-label="Tirar quadro ${i + 1}">×</button>
+        <div class="foto ${q.previa ? 'cheia' : ''}" tabindex="0" role="button" aria-label="Escolher imagem do quadro ${i + 1}">
+          ${q.previa ? `<img alt="Imagem do quadro ${i + 1}">` : '<div><span class="icone">📷</span>Toque para escolher<br>ou arraste / cole (Ctrl+V) a imagem</div>'}
+        </div>
+        <input type="file" accept="image/*" hidden>
+        <input class="link" type="url" inputmode="url" placeholder="Link de afiliado (amzn.to, meli.la…)" aria-label="Link do quadro ${i + 1}">
+        <input class="preco" type="text" inputmode="decimal" placeholder="Preço (opcional, ex.: 129,90)" aria-label="Preço do quadro ${i + 1}">
+        <div class="aviso"></div>`;
+      if (q.previa) el.querySelector('img').src = q.previa;
+      const foto = el.querySelector('.foto'), arquivo = el.querySelector('input[type=file]');
+      const link = el.querySelector('.link'), preco = el.querySelector('.preco');
+      link.value = q.link; preco.value = q.preco;
+      foto.onclick = () => arquivo.click();
+      foto.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); arquivo.click(); } };
+      arquivo.onchange = () => { definirFoto(q, arquivo.files[0]); desenhar(); };
+      foto.ondragover = e => { e.preventDefault(); foto.classList.add('arrastando'); };
+      foto.ondragleave = () => foto.classList.remove('arrastando');
+      foto.ondrop = e => { e.preventDefault(); definirFoto(q, e.dataTransfer.files[0]); desenhar(); };
+      foto.onpaste = e => colar(e, q);
+      link.oninput = () => { q.link = link.value.trim(); conferir(); };
+      link.onpaste = e => colar(e, q);
+      preco.oninput = () => { q.preco = preco.value.trim(); };
+      el.querySelector('.tirar').onclick = () => tirar(q.id);
+      grade.appendChild(el);
+    });
+    const mais = document.createElement('button');
+    mais.className = 'mais';
+    mais.innerHTML = '<div><span>+</span>Adicionar quadro</div>';
+    mais.onclick = () => { const q = novoQuadro(); const ultimo = grade.querySelector(`[data-id="${q.id}"] .foto`); if (ultimo) ultimo.scrollIntoView({behavior:'smooth', block:'center'}); };
+    grade.appendChild(mais);
+    conferir();
+  }
+
+  // Colar imagem (print) direto no quadro
+  function colar(e, q){
+    const item = [...(e.clipboardData || {}).items || []].find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    definirFoto(q, item.getAsFile());
+    desenhar();
+  }
+
+  const RE_LINK = /^https?:\/\/\S+$|^(meli\.la|amzn\.to|s\.shopee\.com\.br)\/\S+$/i;
+  function conferir(){
+    const preenchidos = quadros.filter(q => q.link || q.arquivo);
+    $('#resumo').textContent = `${quadros.length} quadro(s) · ${preenchidos.filter(q => q.link && q.arquivo).length} pronto(s)`;
+    document.querySelectorAll('.quadro').forEach(el => {
+      const q = quadros.find(x => x.id === +el.dataset.id);
+      const av = el.querySelector('.aviso');
+      let txt = '';
+      if (q.link && !RE_LINK.test(q.link)) txt = 'Esse link não parece um endereço válido.';
+      else if (q.link && /amazon\.|amzn\.|link\.amazon/i.test(q.link) && !q.arquivo) txt = 'Amazon precisa da imagem (o robô lê nome e preço dela).';
+      else if (q.arquivo && !q.link) txt = 'Falta o link embaixo da imagem.';
+      av.textContent = txt;
+    });
+  }
+
+  // Várias imagens de uma vez: cada uma vira um quadro (preenche os vazios primeiro)
+  $('#variasFotos').onclick = () => $('#arquivoVarios').click();
+  $('#arquivoVarios').onchange = e => {
+    const arquivos = [...e.target.files];
+    for (const a of arquivos){
+      const vazio = quadros.find(q => !q.arquivo);
+      if (vazio) definirFoto(vazio, a); else { const q = { id: ++seq, arquivo: null, previa: '', link: '', preco: '' }; quadros.push(q); definirFoto(q, a); }
+    }
+    e.target.value = '';
+    desenhar();
+  };
+
+  // Reduz a imagem antes de subir (mais rápido no celular)
+  function reduzir(arquivo){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1600, esc = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => resolve(b || arquivo), 'image/jpeg', 0.9);
+      };
+      img.onerror = () => resolve(arquivo);
+      img.src = URL.createObjectURL(arquivo);
+    });
+  }
+
+  // ---------- Enviar ----------
+  $('#enviar').onclick = async () => {
+    const msg = $('#msgEnvio');
+    const usar = quadros.filter(q => q.link || q.arquivo);
+    const problemas = usar.filter(q => !q.link || !RE_LINK.test(q.link));
+    if (!usar.length) return aviso(msg, 'Coloque pelo menos um link.', 'erro');
+    if (problemas.length) return aviso(msg, `Confira os quadros ${problemas.map(q => quadros.indexOf(q) + 1).join(', ')}: falta link ou o link está errado.`, 'erro');
+
+    const botao = $('#enviar'), prog = $('#prog'), barra = prog.querySelector('div');
+    botao.disabled = true; prog.style.display = 'block'; barra.style.width = '0';
+    aviso(msg, 'Enviando imagens…', 'info');
+    const lote = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14) + '-' + Math.random().toString(36).slice(2, 7);
+    try {
+      const itens = [];
+      for (let i = 0; i < usar.length; i++){
+        const q = usar[i];
+        let foto = '';
+        if (q.arquivo){
+          const blob = await reduzir(q.arquivo);
+          const caminho = `quadro/${lote}/${String(i + 1).padStart(2, '0')}.jpg`;
+          const { error } = await sb.storage.from('produtos').upload(caminho, blob, { upsert: true, contentType: 'image/jpeg' });
+          if (error) throw new Error('Falha ao subir a imagem ' + (i + 1) + ': ' + error.message);
+          foto = sb.storage.from('produtos').getPublicUrl(caminho).data.publicUrl;
+        }
+        itens.push({ link: q.link, preco: q.preco, foto });
+        barra.style.width = Math.round((i + 1) / (usar.length + 1) * 100) + '%';
+      }
+      // Por último a lista: é ela que avisa o robô que o lote está completo
+      const lista = new Blob([JSON.stringify({ criado: new Date().toISOString(), itens })], { type: 'application/json' });
+      const { error } = await sb.storage.from('produtos').upload(`quadro/${lote}.json`, lista, { upsert: true, contentType: 'application/json' });
+      if (error) throw new Error('Falha ao enviar a lista: ' + error.message);
+      barra.style.width = '100%';
+      aviso(msg, `✅ ${itens.length} oferta(s) enviada(s)! O robô coloca na fila em até 10 minutos e avisa no Telegram.`, 'ok');
+      quadros.forEach(q => q.previa && URL.revokeObjectURL(q.previa));
+      quadros = []; seq = 0;
+      for (let i = 0; i < 3; i++) novoQuadro();
+    } catch (err) {
+      aviso(msg, '❌ ' + err.message + '\nNada foi para a fila. Tente de novo.', 'erro');
+    } finally {
+      botao.disabled = false;
+      setTimeout(() => { prog.style.display = 'none'; }, 1200);
+    }
+  };
+
+  iniciar();
+})();
+</script>
+</body>
+</html>
