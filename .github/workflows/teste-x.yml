@@ -1,0 +1,31 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+        run: |
+          python - <<'PY'
+          import json, requests, os
+          from robo import mercadolivre as m, supabase
+          u=os.environ["SUPABASE_URL"]; k=os.environ["SUPABASE_SERVICE_KEY"]
+          r=requests.get(f"{u}/storage/v1/bucket/produtos",headers={"apikey":k,"Authorization":f"Bearer {k}"})
+          print("::warning::bucket %s %s" % (r.status_code, r.text[:250]))
+          for cam, par in [("/products/search", {"site_id":"MLB","q":"mouse gamer","status":"active","limit":3}),
+                           ("/highlights/MLB/category/MLB1648", {}),
+                           ("/sites/MLB/domain_discovery/search", {"q":"mouse gamer","limit":1})]:
+              try:
+                  d=m._get(cam, **par)
+                  print("::warning::%s OK %s" % (cam, json.dumps(d)[:300]))
+              except Exception as e:
+                  print("::warning::%s ERRO %s" % (cam, str(e)[:150]))
+          PY
