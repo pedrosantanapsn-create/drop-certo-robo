@@ -335,6 +335,19 @@ def tratar(mensagem: dict) -> None:
     if str(chat_id) != config.ADMIN_CHAT_ID:
         return  # ignora qualquer outra pessoa
 
+    # Mensagem de sugestões copiada inteira e reenviada: usa só os links (um por linha)
+    if any(marca in texto for marca in ("sugestões com o SEU link", "Todos os links (copie",
+                                        "mais vendidos com desconto", "Ofertas sugeridas para o Drop Certo")):
+        links = list(dict.fromkeys(l.rstrip(").,;!?") for l in fila.RE_LINK.findall(texto)
+                                   if "google.com/search" not in l and "/search?" not in l
+                                   and "mercadolivre.com.br/p/" not in l))   # link do ML sem afiliado: não posta
+        texto = "\n".join(links)
+        if not links:
+            telegram.enviar_texto(chat_id, "Essa lista não tem links de afiliado seus. No Mercado Livre, "
+                                  "gere o meli.la de cada produto e mande esses links.")
+            return
+        if len(links) > 1:
+            texto = "/agendar " + texto
     comando = texto.split()[0].lower() if texto else ""
     print(f"::notice::Mensagem: {len(texto.splitlines())} linha(s), "
           f"{len(fila.separar_ofertas(texto))} oferta(s) com link")

@@ -247,7 +247,9 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
             f"🔗 {n.get('_link')}",
             "",
         ]
-    linhas += ["👉 Para postar: copie o link 🔗 e mande para mim (ou /agendar link).",
+    linhas += ["📋 Todos os links (copie este bloco e mande para mim — vão direto para a fila):",
+               *[str(n.get("_link")) for n in produtos], ""]
+    linhas += ["👉 Para postar só um: copie o link 🔗 dele e mande para mim.",
                "O robô lê nome, preço e foto pela API da Shopee — sem print.",
                "ℹ️ Preço e comissão de agora: podem mudar até o post sair."]
     return "\n".join(linhas)
