@@ -66,6 +66,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
 /instantaneo on — o robô responde na hora (off = volta aos 10 min)
@@ -126,14 +127,15 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
 
     # Amazon: confere se o link tem a SUA tag de associado (sem ela, não há comissão)
     if amazon.e_amazon(produto.link):
-        certo, texto_tag = amazon.conferir_tag(produto.link)
+        novo_link, texto_tag = amazon.link_com_minha_tag(produto.link)
         status.append(f"• Amazon: {texto_tag}")
-        if certo is False:
+        if not novo_link:
             # Post sem comissão não vale a pena: para aqui e pede o link certo
             telegram.enviar_texto(chat_id, texto_tag + "\n\n🛑 Não postei. Mande de novo com o link "
-                                  "gerado na sua conta de associado.")
+                                  "da página do produto.")
             shutil.rmtree(pasta, ignore_errors=True)
             return
+        produto.link = novo_link
         if not produto.url_final:
             try:
                 produto.url_final = amazon.resolver(produto.link)[0]
@@ -337,10 +339,11 @@ def tratar(mensagem: dict) -> None:
 
     # Mensagem de sugestões copiada inteira e reenviada: usa só os links (um por linha)
     if any(marca in texto for marca in ("sugestões com o SEU link", "Todos os links (copie",
-                                        "mais vendidos com desconto", "Ofertas sugeridas para o Drop Certo")):
+                                        "mais vendidos com desconto", "Ofertas sugeridas para o Drop Certo",
+                                        "Amazon — promoções para o Drop Certo")):
         links = list(dict.fromkeys(l.rstrip(").,;!?") for l in fila.RE_LINK.findall(texto)
-                                   if "google.com/search" not in l and "/search?" not in l
-                                   and "mercadolivre.com.br/p/" not in l))   # link do ML sem afiliado: não posta
+                                   if "google.com/search" not in l and "/search?" not in l and "/s?k=" not in l
+                                   and "mercadolivre.com.br/p/" not in l and "netlify.app/quadro" not in l))   # link do ML sem afiliado: não posta
         texto = "\n".join(links)
         if not links:
             telegram.enviar_texto(chat_id, "Essa lista não tem links de afiliado seus. No Mercado Livre, "
@@ -397,6 +400,15 @@ def tratar(mensagem: dict) -> None:
                         else instantaneo.estado())
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Modo instantâneo: {str(erro)[:200]}"
+        telegram.enviar_texto(chat_id, resposta)
+    elif comando in ("/ofertas_amazon", "/ofertasamazon", "/amazon") or (
+            comando == "/ofertas" and [p.lower() for p in texto.split()[1:2]] in (["amazon"], ["amz"])):
+        palavra = " ".join(p for p in texto.split()[1:] if p.lower() not in ("amazon", "amz")).strip()
+        telegram.enviar_texto(chat_id, f"📦 Buscando promoções da Amazon{f': {palavra}' if palavra else ''}…")
+        try:
+            resposta = sugestoes.sugerir_amazon(palavra)
+        except Exception as erro:  # noqa: BLE001
+            resposta = f"❌ Amazon: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
     elif comando in ("/ofertas_ml", "/ofertasml", "/ml_ofertas") or (
             comando == "/ofertas" and texto.split()[1:2] in (["ml"], ["ML"], ["mercadolivre"])):
@@ -493,9 +505,11 @@ def agendar(chat_id, texto: str) -> None:
     for oferta in ofertas:
         link = (fila.RE_LINK.search(oferta) or [""])[0]
         if amazon.e_amazon(link):
-            certo, texto_tag = amazon.conferir_tag(link)
-            if certo is False:
-                aviso += f"\n\n{link}\n{texto_tag}\n(na hora dele o robô pula esse link — mande o link certo separado)"
+            novo_link, texto_tag = amazon.link_com_minha_tag(link)
+            if not novo_link:
+                aviso += f"\n\n{link}\n{texto_tag}\n(na hora dele o robô pula esse link)"
+            elif novo_link != link:
+                aviso += f"\n\n🔧 {link}\n{texto_tag} (o robô ajusta na hora do post)"
     telegram.enviar_texto(
         chat_id,
         f"🗓️ {novas} oferta(s) na fila (total: {total}).{aviso}\n"

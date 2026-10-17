@@ -29,7 +29,7 @@ import requests
 
 import math
 
-from . import config, mercadolivre, shopee, supabase
+from . import amazon, config, mercadolivre, shopee, supabase
 from .fila import FUSO
 from .produto import CABECALHOS, formatar_preco
 
@@ -355,6 +355,76 @@ def mensagem_ml(produtos: list[dict]) -> str:
 
 def sugerir_ml(palavras: list[str] | None = None) -> str:
     return mensagem_ml(buscar_ml(palavras))
+
+
+# ---------------------------------------------------------------------------
+# Amazon: promoções da Amazon publicadas no Promobit (sem API da Amazon)
+# ---------------------------------------------------------------------------
+AMZ_PAGINA = "https://www.promobit.com.br/promocoes/loja/amazon/"
+AMZ_QUANTAS = 8
+AMZ_DESCONTO_MINIMO = 15
+
+
+def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: bool = True) -> list[dict]:
+    vistas = set(_vistas())
+    limite = datetime.now(FUSO) - timedelta(days=3)
+    achados: dict[str, dict] = {}
+    for url in (AMZ_PAGINA, AMZ_PAGINA + "?page=2"):
+        for o in _ler_pagina(url):
+            ident = f"amz:{o.get('offerId')}"
+            titulo = str(o.get("offerTitle", ""))
+            if ident in vistas or ident in achados or "amazon" not in str(o.get("storeName", "")).lower():
+                continue
+            if palavra and palavra.lower() not in titulo.lower():
+                continue
+            if not palavra and so_tecnologia and not (
+                    RE_TECNOLOGIA.search(titulo) or o.get("categorySlug") in ("informatica", "games", "eletronicos", "celular")):
+                continue
+            desconto = float(o.get("offerDiscontPercentage") or 0)
+            if desconto < AMZ_DESCONTO_MINIMO or not o.get("offerPrice") or str(o.get("offerStatusName", "APPROVED")) != "APPROVED":
+                continue
+            try:
+                publicada = datetime.strptime(str(o.get("offerPublished"))[:19], "%Y-%m-%dT%H:%M:%S")
+                if publicada.replace(tzinfo=FUSO) < limite:
+                    continue
+            except ValueError:
+                pass
+            o["_id"] = ident
+            o["_nota"] = desconto + min(int(o.get("offerLikes") or 0), 60) / 2
+            achados[ident] = o
+    escolhidos = sorted(achados.values(), key=lambda o: -o["_nota"])[:quantas]
+    if escolhidos and supabase.ativo():
+        lista = (_vistas() + [o["_id"] for o in escolhidos])[-400:]
+        supabase.gravar_config(CHAVE_VISTAS, json.dumps(lista))
+    return escolhidos
+
+
+def mensagem_amazon(ofertas: list[dict]) -> str:
+    if not ofertas:
+        return ("📦 Amazon: não achei promoções novas de tecnologia com bom desconto agora.\n"
+                "Tente /ofertas_amazon com uma palavra (ex.: /ofertas_amazon ssd) ou /ofertas_amazon tudo.")
+    tag = config.AMAZON_TAG or ""
+    linhas = ["📦 Amazon — promoções para o Drop Certo", ""]
+    for i, o in enumerate(ofertas, 1):
+        titulo = str(o.get("offerTitle", ""))[:90]
+        preco = formatar_preco(float(o["offerPrice"]))
+        antes = f" (antes {formatar_preco(float(o['offerOldPrice']))})" if o.get("offerOldPrice") else ""
+        busca = f"https://www.amazon.com.br/s?k={quote_plus(' '.join(titulo.split()[:8]))}" + (f"&tag={tag}" if tag else "")
+        linhas += [f"{i}. 🔥 -{round(float(o.get('offerDiscontPercentage', 0)))}% · {titulo}",
+                   f"💰 {preco}{antes}", f"🔎 {busca}", ""]
+    linhas += ["👉 Como postar:",
+               "1. Toque no 🔎 (abre a busca da Amazon já com a sua tag) e abra o produto;",
+               "2. Tire um print da página (nome e preço aparecendo) e copie o link do produto;",
+               "3. Coloque print + link no quadro: https://certodrop.netlify.app/quadro.html",
+               "   (ou mande o print com o link na legenda aqui).",
+               f"🔧 Pode copiar o link direto do navegador/app: o robô coloca a sua tag ({tag}) sozinho.",
+               "ℹ️ Preços vistos agora: confira na Amazon antes de postar."]
+    return "\n".join(linhas)
+
+
+def sugerir_amazon(palavra: str = "") -> str:
+    tudo = palavra.lower() in ("tudo", "todas", "todos")
+    return mensagem_amazon(buscar_amazon("" if tudo else palavra, so_tecnologia=not tudo))
 
 
 def _proxima_hora(agora: datetime) -> datetime:

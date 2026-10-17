@@ -82,9 +82,11 @@ def importar(enviar) -> int:
         avisos = []
         for i in itens:
             if amazon.e_amazon(i["link"]):
-                certo, texto_tag = amazon.conferir_tag(i["link"])
-                if certo is False:
+                novo_link, texto_tag = amazon.link_com_minha_tag(i["link"])
+                if not novo_link:
                     avisos.append(f"{i['link']}\n{texto_tag}\n(na hora dele o robô pula esse link)")
+                elif novo_link != i["link"]:
+                    avisos.append(f"🔧 {i['link']}\n{texto_tag} (o robô ajusta na hora do post)")
         sem_foto = sum(1 for f in fotos if not f)
         linhas = [f"🗓️🖼️ Quadro do site: {novas} oferta(s) na fila (total: {total})."]
         if ignorados:

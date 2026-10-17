@@ -10,21 +10,13 @@ jobs:
       - run: pip install -q requests beautifulsoup4
       - run: |
           python - <<'PY'
-          import json, re, requests
-          from robo import sugestoes
-          from robo.produto import CABECALHOS
-          ofs = sugestoes._ler_pagina("https://www.promobit.com.br/promocoes/loja/amazon/")
-          for o in ofs[:3]:
-              url = f"https://www.promobit.com.br/oferta/{o['offerSlug']}/"
-              r = requests.get(url, headers=CABECALHOS, timeout=25)
-              asins = set(re.findall(r"(?:/dp/|/gp/product/|%2Fdp%2F|asin[\"':=]+)([A-Z0-9]{10})", r.text))
-              links = set(re.findall(r"https?:[\\/]+(?:www\.)?amazon\.com\.br[^\"'\s<>]{0,120}", r.text))
-              print("::warning::%s %s asins=%s" % (r.status_code, o['offerTitle'][:40], list(asins)[:3]))
-              print("::warning::links=%s" % [l[:120] for l in list(links)[:2]])
-              m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text, re.S)
-              if m:
-                  t = m.group(1)
-                  for chave in ("offerLink","link","url","redirect","Url"):
-                      for x in re.findall(r'"([A-Za-z]*%s[A-Za-z]*)":"([^"]{0,150})"' % chave, t)[:4]:
-                          print("::warning::  %s=%s" % x)
+          from robo import sugestoes, amazon
+          sugestoes._vistas = lambda: []
+          for p in ["", "tudo"]:
+              os_ = sugestoes.buscar_amazon("" if p == "tudo" else p, 4, so_tecnologia=(p != "tudo"))
+              print("::warning::[%s] %d ofertas" % (p or "tecnologia", len(os_)))
+              for o in os_[:3]:
+                  print("::warning::  -%s%% %s R$%s" % (o.get("offerDiscontPercentage"), o["offerTitle"][:50], o["offerPrice"]))
+          for l in ["https://amzn.to/4B2ujM5", "https://www.amazon.com.br/Monitor-Gamer/dp/B0G4MD9ZBL/ref=xyz?th=1", "https://www.amazon.com.br/dp/B0G4MD9ZBL?tag=outro-20", "https://www.amazon.com.br/s?k=mouse"]:
+              print("::warning::%s -> %s" % (l[-30:], amazon.link_com_minha_tag(l)))
           PY

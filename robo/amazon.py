@@ -47,6 +47,30 @@ def resolver(link: str) -> tuple[str, str | None, str | None]:
     return url, asin, tag
 
 
+def link_com_minha_tag(link: str) -> tuple[str | None, str]:
+    """Monta o SEU link de associado a partir de qualquer link de produto da Amazon.
+
+    Link de produto copiado do navegador/app (sem tag) ou com a tag de outra pessoa
+    vira  https://www.amazon.com.br/dp/<ASIN>?tag=<sua tag>  — é assim que funciona
+    o link de texto do Programa de Associados (a comissão vai para a tag do link).
+    Devolve (link novo ou None se não deu, explicação).
+    """
+    minha = (config.AMAZON_TAG or "").strip()
+    try:
+        final, asin, tag = resolver(link)
+    except Exception:  # noqa: BLE001
+        return None, "não consegui abrir o link"
+    if tag == minha:
+        return link, f"tag de associado {minha} ✅"
+    if not (asin and minha):
+        return None, ("⚠️ não achei o código do produto (ASIN) nesse link da Amazon — "
+                      "abra a página do produto e copie o link dela.")
+    novo = f"https://www.amazon.com.br/dp/{asin}?tag={minha}"
+    if tag:
+        return novo, f"o link tinha a tag de outra pessoa ({tag}) — troquei pela sua ({minha}) ✅"
+    return novo, f"o link estava sem tag — coloquei a sua ({minha}) ✅"
+
+
 def conferir_tag(link: str) -> tuple[bool | None, str]:
     """(True = tag certa, False = sem tag/tag de outra pessoa, None = não deu para saber, texto)."""
     minha = (config.AMAZON_TAG or "").strip()
