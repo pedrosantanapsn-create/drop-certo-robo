@@ -36,6 +36,7 @@ LOJAS = [
     (("magazineluiza", "magalu"), "Magalu"),
     (("aliexpress", "a.aliexpress"), "AliExpress"),
     (("kabum",), "KaBuM!"),
+    (("tiktok.com",), "TikTok Shop"),
 ]
 
 

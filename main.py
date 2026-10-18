@@ -227,6 +227,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if produto.nome_do_link:
         status.append("• Nome tirado do link (mande um print da página para sair melhor)")
 
+    if "tiktok.com" in produto.link.lower() and produto.preco is None:
+        # O TikTok Shop mostra nome e foto para o robô, mas não o preço
+        status.append("• TikTok Shop: o preço não aparece para o robô — mande o link com "
+                      "\"preco: 89,90\" (e \"de: 129,90\") ou um print da página para sair com preço")
     if not produto.nome:
         motivo = "\n".join(s for s in status if "Shopee" in s or "Mercado Livre" in s or "falhou" in s)
         telegram.enviar_texto(chat_id, FALHA_LEITURA.format(link=produto.link)
