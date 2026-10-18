@@ -67,6 +67,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
@@ -307,6 +308,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 status.append(f"• Site: erro — {str(erro)[:160]}\n  (mande /colunas para conferir os nomes)")
         else:
             status.append("• Site: não cadastrado (sem foto)")
+    if supabase.ativo() and produto.preco is None:
+        status.append("  👉 Para pôr no site depois, sem postar de novo: /site link + linha  preco: 89,90")
 
     # 6. Entrega para você publicar no TikTok (e no Instagram, se não for automático)
     if caminho_video:
@@ -436,6 +439,8 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_html(chat_id, sugestoes.sugerir_ml([palavra] if palavra else None, html=True))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Mercado Livre: {str(erro)[:200]}")
+    elif comando == "/site":
+        so_site(mensagem, chat_id, texto.split(None, 1)[1] if len(texto.split(None, 1)) > 1 else "")
     elif comando == "/cupom":
         postar_cupom(chat_id, texto)
     elif comando == "/ofertas":
@@ -507,6 +512,49 @@ def tratar(mensagem: dict) -> None:
                               else "Supabase não configurado.")
     else:
         processar_oferta(mensagem, chat_id)
+
+
+def so_site(mensagem: dict, chat_id, texto: str) -> None:
+    """/site link + preco: — cadastra SÓ no site (sem postar de novo no canal/Instagram/TikTok).
+    Serve para quando o post saiu sem preço e o site recusou."""
+    dados = ler_mensagem(texto)
+    if not dados.get("link") or not dados.get("preco"):
+        telegram.enviar_texto(chat_id, "Para colocar só no site, mande assim:\n\n/site https://link-do-produto\n"
+                              "preco: 89,90\nde: 129,90\n\n(pode mandar junto um print/foto como legenda, "
+                              "se quiser outra imagem)")
+        return
+    pasta = nova_pasta()
+    try:
+        try:
+            produto = buscar_produto(dados)
+        except Exception:  # noqa: BLE001
+            produto = Produto(link=dados["link"], nome=dados.get("nome", ""))
+        produto.preco = dados["preco"]
+        produto.preco_antigo = dados.get("preco_antigo") or produto.preco_antigo
+        if dados.get("nome"):
+            produto.nome = dados["nome"]
+        if amazon.e_amazon(produto.link):
+            novo, _ = amazon.link_com_minha_tag(produto.link)
+            produto.link = novo or produto.link
+        fotos = []
+        enviada = telegram.baixar_foto_da_mensagem(mensagem, pasta / "foto_enviada.jpg")
+        if enviada:
+            limpa, _ = recorte.foto_limpa(enviada, pasta / "foto_produto.jpg") if config.FOTO_LIMPA else (None, "")
+            fotos.append(limpa or enviada)
+            if not produto.nome:
+                produto.nome = str(legenda.ler_imagem(enviada).get("nome") or "")
+        fotos += baixar_imagens(produto, pasta)
+        if not produto.nome or not fotos:
+            telegram.enviar_texto(chat_id, "❌ Não consegui o nome ou a foto do produto. Mande de novo com "
+                                  "\"nome: ...\" e um print/foto com o /site na legenda.")
+            return
+        supabase.cadastrar_produto(produto, fotos[0], "")
+        telegram.enviar_texto(chat_id, f"✅ No site: {produto.nome[:70]} — {formatar_preco(produto.preco)}\n"
+                              "(não postei de novo nas redes)")
+    except Exception as erro:  # noqa: BLE001
+        telegram.enviar_texto(chat_id, f"❌ Site: {str(erro)[:200]}")
+    finally:
+        shutil.rmtree(pasta, ignore_errors=True)
 
 
 MODELO_CUPOM = """🎟️ Para divulgar um cupom no canal, mande assim:
