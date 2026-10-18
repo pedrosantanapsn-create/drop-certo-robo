@@ -161,6 +161,24 @@ def bloco_preco(draw, x, y, p: Produto, tam: int, centro_largura: int | None = N
     return y
 
 
+def selo_cupom(draw, x, y, p: Produto, tam: int = 40, centro_largura: int | None = None) -> int:
+    """Tíquete tracejado "CUPOM: CODIGO". Devolve o y final."""
+    if not p.cupom:
+        return y
+    f = fonte("black", tam)
+    txt = f"CUPOM: {p.cupom}"
+    larg = draw.textlength(txt, font=f) + tam * 1.4
+    alt = tam * 1.9
+    x0 = x + (centro_largura - larg) / 2 if centro_largura else x
+    draw.rounded_rectangle((x0, y, x0 + larg, y + alt), int(alt / 3), fill=config.COR_DESTAQUE)
+    passo = 18
+    for xi in range(int(x0 + 14), int(x0 + larg - 14), passo):       # tracejado de tíquete
+        draw.line((xi, y + 7, xi + passo / 2, y + 7), fill=config.COR_FUNDO, width=3)
+        draw.line((xi, y + alt - 7, xi + passo / 2, y + alt - 7), fill=config.COR_FUNDO, width=3)
+    draw.text((x0 + larg / 2, y + alt / 2), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
+    return int(y + alt)
+
+
 # ---------------------------------------------------------------------------
 # Arte do feed (1080 x 1350)
 # ---------------------------------------------------------------------------
@@ -179,7 +197,9 @@ def arte_feed(p: Produto, t: dict, fotos: list[Path], destino: Path) -> Path:
 
     y = texto_bloco(d, (M, 880), t.get("titulo_curto") or p.nome, fonte("bold", 54),
                     config.COR_TEXTO, W - 2 * M, 2)
-    bloco_preco(d, M, y + 14, p, 118)
+    fim = bloco_preco(d, M, y + 14, p, 118 if not p.cupom else 96)
+    if p.cupom:
+        selo_cupom(d, M, min(fim + 20, H - 120 - 90), p, 38)
 
     d.rectangle((0, H - 120, W, H), fill=config.COR_DESTAQUE)
     d.text((M, H - 74), f"LINK NA BIO  •  {config.ARROBA}", font=fonte("black", 38),
@@ -244,7 +264,9 @@ def cena_preco(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     if p.desconto:
         selo_desconto(d, (VW - VM - 100, 270), p.desconto, raio=110)
     d.text((VW / 2, 945), "SAINDO POR", font=fonte("black", 54), fill=config.COR_TEXTO, anchor="mm")
-    bloco_preco(d, 0, 1000, p, 160, centro_largura=VW)
+    fim = bloco_preco(d, 0, 1000, p, 160 if not p.cupom else 140, centro_largura=VW)
+    if p.cupom:
+        selo_cupom(d, 0, min(fim + 34, LEGENDA_Y - 110), p, 46, centro_largura=VW)
     _rodape_video(d)
     img.save(destino)
     return destino

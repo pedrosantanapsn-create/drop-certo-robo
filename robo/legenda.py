@@ -76,7 +76,9 @@ def gerar_textos(p: Produto) -> tuple[dict, str]:
         nome=p.nome,
         preco=formatar_preco(p.preco) or "não informado",
         antigo=formatar_preco(p.preco_antigo) or "não informado",
-        obs=p.observacao or "nenhuma",
+        obs=(p.observacao or "nenhuma") + (
+            f". TEM CUPOM DE DESCONTO: código {p.cupom}" + (f" ({p.cupom_info})" if p.cupom_info else "")
+            + " — fale o código do cupom na narração e cite na legenda" if p.cupom else ""),
     )
     gerado, ultimo_erro, modelo = None, "", ""
     try:
@@ -189,6 +191,9 @@ def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:
         if p.desconto:
             linha += f" (antes {formatar_preco(p.preco_antigo)} · -{p.desconto}%)"
         partes.append(linha)
+    if p.cupom:
+        partes.append(f"🎟️ Cupom: {p.cupom}" + (f" ({p.cupom_info})" if p.cupom_info else ""))
+        partes.append("   Regras e validade do cupom na loja.")
     if com_link:
         partes.append(f"🛒 {p.link}")
     else:

@@ -67,6 +67,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
@@ -106,7 +107,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         produto = buscar_produto(dados)
     except Exception as erro:  # noqa: BLE001
         produto = Produto(link=dados["link"], nome=dados.get("nome", ""), preco=dados.get("preco"),
-                          preco_antigo=dados.get("preco_antigo"), observacao=dados.get("observacao", ""))
+                          preco_antigo=dados.get("preco_antigo"), observacao=dados.get("observacao", ""),
+                          cupom=dados.get("cupom", ""), cupom_info=dados.get("cupom_info", ""))
         status.append(f"• Leitura do anúncio falhou ({str(erro)[:60]})")
 
     # Shopee com a API oficial de afiliados: nome, preço e foto sem precisar de print
@@ -430,6 +432,8 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_html(chat_id, sugestoes.sugerir_ml([palavra] if palavra else None, html=True))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Mercado Livre: {str(erro)[:200]}")
+    elif comando == "/cupom":
+        postar_cupom(chat_id, texto)
     elif comando == "/ofertas":
         telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
         telegram.enviar_texto(chat_id, sugestoes.sugerir())
@@ -499,6 +503,55 @@ def tratar(mensagem: dict) -> None:
                               else "Supabase não configurado.")
     else:
         processar_oferta(mensagem, chat_id)
+
+
+MODELO_CUPOM = """🎟️ Para divulgar um cupom no canal, mande assim:
+
+/cupom DROP10 10% off em eletrônicos
+https://s.shopee.com.br/seu-link
+validade: 20/10
+
+• 1ª linha: o código e o que ele dá
+• link de afiliado da loja/produto (opcional, mas recomendado)
+• validade (recomendado — cupom vencido gera reclamação)
+
+Para usar cupom num produto, coloque a linha "cupom: CODIGO o que dá" embaixo do link:
+https://meli.la/abc123
+cupom: DROP10 10% off"""
+
+
+def postar_cupom(chat_id, texto: str) -> None:
+    """/cupom CODIGO descrição [link] [validade: dd/mm] → post de texto no canal do Telegram."""
+    linhas = [l.strip() for l in texto.splitlines() if l.strip()]
+    primeira = linhas[0].split(None, 2) if linhas else []
+    if len(primeira) < 2:
+        telegram.enviar_texto(chat_id, MODELO_CUPOM)
+        return
+    codigo = primeira[1].upper()
+    descricao = primeira[2] if len(primeira) > 2 else ""
+    link = next((m.group(0).rstrip(").,") for l in linhas for m in [fila.RE_LINK.search(l)] if m), "")
+    validade = next((l.split(":", 1)[1].strip() for l in linhas[1:]
+                     if l.lower().startswith(("validade", "valido", "válido", "ate", "até"))), "")
+    if link and amazon.e_amazon(link):
+        novo, _ = amazon.link_com_minha_tag(link)
+        link = novo or link
+    partes = [f"🎟️ CUPOM: {codigo}"]
+    if descricao:
+        partes.append(f"✅ {descricao}")
+    if validade:
+        partes.append(f"⏰ Válido até {validade}")
+    if link:
+        partes.append(f"🛒 {link}")
+    partes += ["", "Copie o código e use no carrinho/finalização da compra.",
+               "Regras e validade conforme a loja; o cupom pode acabar antes do prazo.", "",
+               config.AVISO_LEGAL + (f"\n{amazon.AVISO}" if link and amazon.e_amazon(link) else "")]
+    post = "\n".join(partes)
+    if not (config.AUTO_POSTAR_CANAL and config.CANAL_ID):
+        telegram.enviar_texto(chat_id, "Canal não configurado. Veja como ficaria:\n\n" + post)
+        return
+    telegram.enviar_texto(config.CANAL_ID, post)
+    aviso = "" if validade else "\n\n💡 Dica: coloque \"validade: dd/mm\" para o seguidor saber até quando vale."
+    telegram.enviar_texto(chat_id, f"✅ Cupom {codigo} publicado no canal {config.CANAL_ID}.{aviso}")
 
 
 def agendar(chat_id, texto: str) -> None:

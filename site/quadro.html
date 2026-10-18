@@ -164,11 +164,12 @@
         <input type="file" accept="image/*" hidden>
         <input class="link" type="url" inputmode="url" placeholder="Link de afiliado (amzn.to, meli.la…)" aria-label="Link do quadro ${i + 1}">
         <input class="preco" type="text" inputmode="decimal" placeholder="Preço (opcional, ex.: 129,90)" aria-label="Preço do quadro ${i + 1}">
+        <input class="cupom" type="text" autocapitalize="characters" placeholder="Cupom (opcional, ex.: DROP10 10% off)" aria-label="Cupom do quadro ${i + 1}">
         <div class="aviso"></div>`;
       if (q.previa) el.querySelector('img').src = q.previa;
       const foto = el.querySelector('.foto'), arquivo = el.querySelector('input[type=file]');
-      const link = el.querySelector('.link'), preco = el.querySelector('.preco');
-      link.value = q.link; preco.value = q.preco;
+      const link = el.querySelector('.link'), preco = el.querySelector('.preco'), cupom = el.querySelector('.cupom');
+      link.value = q.link; preco.value = q.preco; cupom.value = q.cupom || '';
       foto.onclick = () => arquivo.click();
       foto.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); arquivo.click(); } };
       arquivo.onchange = () => { definirFoto(q, arquivo.files[0]); desenhar(); };
@@ -179,6 +180,7 @@
       link.oninput = () => { q.link = link.value.trim(); conferir(); };
       link.onpaste = e => colar(e, q);
       preco.oninput = () => { q.preco = preco.value.trim(); };
+      cupom.oninput = () => { q.cupom = cupom.value.trim(); };
       el.querySelector('.tirar').onclick = () => tirar(q.id);
       grade.appendChild(el);
     });
@@ -266,7 +268,7 @@
           if (error) throw new Error('Falha ao subir a imagem ' + (i + 1) + ': ' + error.message);
           foto = sb.storage.from('produtos').getPublicUrl(caminho).data.publicUrl;
         }
-        itens.push({ link: q.link, preco: q.preco, foto });
+        itens.push({ link: q.link, preco: q.preco, cupom: q.cupom || '', foto });
         barra.style.width = Math.round((i + 1) / (usar.length + 1) * 100) + '%';
       }
       // Por último a lista: é ela que avisa o robô que o lote está completo

@@ -43,6 +43,8 @@ class Produto:
     imagens: list[str] = field(default_factory=list)
     url_final: str = ""
     observacao: str = ""            # texto extra que você escreveu na mensagem
+    cupom: str = ""                 # código do cupom (linha "cupom: CODIGO ...")
+    cupom_info: str = ""            # o que o cupom dá / regras (ex.: "10% off", "válido até 20/10")
     imagens_extra: list[str] = field(default_factory=list)  # achadas por regra de cada loja
     bloqueado: bool = False          # a loja pediu verificação de robô
     nome_do_link: bool = False       # o nome veio do endereço (pode estar incompleto)
@@ -114,6 +116,11 @@ def ler_mensagem(texto: str) -> dict:
             dados["preco_antigo"] = _para_float(valor)
         elif chave in ("obs", "observacao", "observação", "texto"):
             dados["observacao"] = valor
+        elif chave in ("cupom", "cupon", "codigo", "código", "cupom de desconto"):
+            partes = valor.split(None, 1)
+            if partes:
+                dados["cupom"] = partes[0].strip(" -–:").upper()
+                dados["cupom_info"] = (partes[1] if len(partes) > 1 else "").strip(" -–()")
 
     if "preco" not in dados:
         precos = RE_PRECO.findall(texto)
@@ -319,6 +326,8 @@ def buscar_produto(dados: dict) -> Produto:
         preco=dados.get("preco"),
         preco_antigo=dados.get("preco_antigo"),
         observacao=dados.get("observacao", ""),
+        cupom=dados.get("cupom", ""),
+        cupom_info=dados.get("cupom_info", ""),
     )
     if not produto.link:
         raise ValueError("Não encontrei nenhum link na mensagem.")

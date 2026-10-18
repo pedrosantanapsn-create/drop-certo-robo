@@ -52,6 +52,8 @@ def _texto(item: dict) -> str:
     linhas = [str(item.get("link", "")).strip()]
     if str(item.get("preco") or "").strip():
         linhas.append(f"preco: {str(item['preco']).strip()}")
+    if str(item.get("cupom") or "").strip():
+        linhas.append(f"cupom: {str(item['cupom']).strip()}")
     if str(item.get("nome") or "").strip():
         linhas.append(f"nome: {str(item['nome']).strip()}")
     return "\n".join(linhas)
