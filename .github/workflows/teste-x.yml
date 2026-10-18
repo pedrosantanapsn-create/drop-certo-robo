@@ -1,0 +1,30 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - run: |
+          python - <<'PY'
+          import re, json, requests
+          from urllib.parse import urljoin, urlparse, parse_qs
+          url = "https://vt.tiktok.com/ZS9U9t6ufeDqp-ulX00/"
+          ua = {"User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36", "Accept-Language": "pt-BR"}
+          for i in range(6):
+              r = requests.get(url, allow_redirects=False, timeout=20, headers=ua)
+              loc = r.headers.get("Location")
+              q = {k: v[0][:30] for k, v in parse_qs(urlparse(url).query).items()}
+              print("::warning::passo %d %s %s chaves=%s" % (i, r.status_code, urlparse(url).netloc + urlparse(url).path[:80], list(q)[:25]))
+              if not loc: break
+              url = urljoin(url, loc)
+          r = requests.get(url, timeout=25, headers=ua)
+          t = r.text
+          print("::warning::final %s tam=%d titulo=%s" % (r.status_code, len(t), (re.search(r"<title>(.*?)</title>", t, re.S) or [None,""])[1][:100]))
+          for chave in ["sale_price", "real_price", "min_price", "original_price", "\"price\"", "product_name", "og:title", "og:image"]:
+              m = re.search(re.escape(chave) + r".{0,120}", t)
+              print("::warning::%s -> %s" % (chave, m.group(0)[:150] if m else None))
+          PY
