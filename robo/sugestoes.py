@@ -48,7 +48,16 @@ RE_TECNOLOGIA = re.compile(
     r"notebook|laptop|tablet|ipad|monitor|tv|smart ?tv|mouse|teclado|ssd|hd externo|pendrive|"
     r"mem[oó]ria|placa de v[ií]deo|processador|roteador|wi-?fi|smartwatch|rel[oó]gio inteligente|"
     r"caixa de som|soundbar|echo|alexa|kindle|carregador|power ?bank|cabo usb|webcam|"
-    r"c[aâ]mera|drone|console|playstation|ps5|xbox|nintendo|controle|gamer)\b", re.I)
+    r"c[aâ]mera|drone|console|playstation|ps5|xbox|nintendo|controle|gamer|placa[- ]m[aã]e|"
+    r"gabinete|cooler|water ?cooler|fonte|nvme|ddr[45]|ryzen|geforce|radeon|rtx|gtx)\b", re.I)
+# Peças de PC: entram nas sugestões com prioridade (pedido do Drop Certo)
+RE_HARDWARE = re.compile(
+    r"\b(placa[- ]de[- ]v[ií]deo|placa[- ]m[aã]e|motherboard|processador|ryzen|intel core|core i[3579]|"
+    r"rtx ?\d{3,4}|gtx ?\d{3,4}|radeon|rx ?\d{4}|geforce|mem[oó]ria ram|ddr[45]|ssd|nvme|m\.2|"
+    r"fonte (?:atx|\d{3,4} ?w)|fonte modular|\d{3,4} ?w 80 ?plus|80 ?plus|gabinete|water ?cooler|cooler|"
+    r"air cooler|pasta t[eé]rmica|fan rgb|ventoinha|kit upgrade|b[456]50m?|[abhxz]\d{3}m?\b)", re.I)
+BONUS_HARDWARE = 15
+
 BUSCA = {
     "Mercado Livre": "https://lista.mercadolivre.com.br/{q}",
     "Amazon": "https://www.amazon.com.br/s?k={q}",
@@ -116,7 +125,8 @@ def buscar(quantas: int = QUANTAS) -> list[dict]:
             except ValueError:
                 pass
             curtidas = int(o.get("offerLikes") or 0)
-            o["_nota"] = desconto + min(curtidas, 60) / 2
+            o["_nota"] = desconto + min(curtidas, 60) / 2 + (
+                BONUS_HARDWARE if RE_HARDWARE.search(str(o.get("offerTitle", ""))) else 0)
             todas[ident] = o
     return sorted(todas.values(), key=lambda o: -o["_nota"])[:quantas]
 
@@ -153,7 +163,7 @@ def sugerir() -> str:
 # ---------------------------------------------------------------------------
 # Shopee: busca pela API oficial, com o seu link de afiliada pronto
 # ---------------------------------------------------------------------------
-SHOPEE_QUANTAS = 5
+SHOPEE_QUANTAS = 6
 SHOPEE_DESCONTO_MINIMO = 15     # %
 SHOPEE_NOTA_MINIMA = 4.5
 SHOPEE_VENDAS_MINIMAS = 50
@@ -200,7 +210,8 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
                     continue
                 n["_id"] = ident
                 n["_palavra"] = palavra
-                n["_nota"] = comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
+                n["_nota"] = (comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
+                              + (BONUS_HARDWARE / 2 if RE_HARDWARE.search(str(n.get("productName", ""))) else 0))
                 achados[ident] = n
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
     # no máximo 2 por palavra, para variar os produtos
@@ -369,7 +380,8 @@ AMZ_QUANTAS = 8
 AMZ_DESCONTO_MINIMO = 15
 
 
-def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: bool = True) -> list[dict]:
+def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: bool = True,
+                  so_pc: bool = False) -> list[dict]:
     vistas = set(_vistas())
     limite = datetime.now(FUSO) - timedelta(days=3)
     achados: dict[str, dict] = {}
@@ -399,7 +411,10 @@ def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: 
             except ValueError:
                 pass
             o["_id"] = ident
-            o["_nota"] = desconto + min(int(o.get("offerLikes") or 0), 60) / 2
+            o["_nota"] = desconto + min(int(o.get("offerLikes") or 0), 60) / 2 + (
+                BONUS_HARDWARE if RE_HARDWARE.search(titulo) else 0)
+            if so_pc and not RE_HARDWARE.search(titulo):
+                continue
             achados[ident] = o
     escolhidos = sorted(achados.values(), key=lambda o: -o["_nota"])[:quantas]
     if escolhidos and supabase.ativo():
@@ -434,6 +449,27 @@ def mensagem_amazon(ofertas: list[dict]) -> str:
 def sugerir_amazon(palavra: str = "") -> str:
     tudo = palavra.lower() in ("tudo", "todas", "todos")
     return mensagem_amazon(buscar_amazon("" if tudo else palavra, so_tecnologia=not tudo))
+
+
+def _palavras_pc() -> list[str]:
+    return [p.strip() for p in (getattr(config, "PALAVRAS_PC", "") or "").split(",") if p.strip()]
+
+
+def sugerir_pc() -> list[tuple[str, bool]]:
+    """/ofertas_pc: peças de PC nas 3 lojas. Devolve [(texto, é_html)]."""
+    saida: list[tuple[str, bool]] = []
+    if shopee.ativo():
+        saida.append((mensagem_shopee(buscar_shopee(_palavras_pc(), 8),
+                                      "🖥️ Shopee — peças de PC com o SEU link"), False))
+    if mercadolivre.ativo():
+        saida.append((mensagem_ml(buscar_ml(_palavras_pc(), 8), html=True)
+                      .replace("🛒 Mercado Livre — mais vendidos com desconto",
+                               "🖥️ Mercado Livre — peças de PC mais vendidas com desconto"), True))
+    amz = buscar_amazon(so_pc=True)
+    saida.append((mensagem_amazon(amz).replace("📦 Amazon — promoções para o Drop Certo",
+                                               "🖥️ Amazon — peças de PC em promoção")
+                  if amz else "🖥️ Amazon: nenhuma peça de PC em promoção agora.", False))
+    return saida
 
 
 def _proxima_hora(agora: datetime) -> datetime:

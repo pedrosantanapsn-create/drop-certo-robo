@@ -69,6 +69,7 @@ Comandos:
 /ml — liga/confere a API oficial do Mercado Livre
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
+/ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
@@ -421,6 +422,15 @@ def tratar(mensagem: dict) -> None:
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Modo instantâneo: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
+    elif comando in ("/ofertas_pc", "/ofertaspc", "/pc") or (
+            comando == "/ofertas" and [p.lower() for p in texto.split()[1:2]] == ["pc"]):
+        telegram.enviar_texto(chat_id, "🖥️ Buscando peças de PC (placa de vídeo, placa-mãe, processador, "
+                              "memória, SSD, fonte, gabinete, cooler)…")
+        try:
+            for msg_pc, eh_html in sugestoes.sugerir_pc():
+                (telegram.enviar_html if eh_html else telegram.enviar_texto)(chat_id, msg_pc)
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Peças de PC: {str(erro)[:200]}")
     elif comando in ("/ofertas_amazon", "/ofertasamazon", "/amazon") or (
             comando == "/ofertas" and [p.lower() for p in texto.split()[1:2]] in (["amazon"], ["amz"])):
         palavra = " ".join(p for p in texto.split()[1:] if p.lower() not in ("amazon", "amz")).strip()

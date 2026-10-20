@@ -79,8 +79,12 @@ ML_CLIENT_SECRET = _env("ML_CLIENT_SECRET")
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
 # Palavras que o robô busca na Shopee (separe por vírgula)
+# Peças de PC (prioridade nas sugestões e no comando /ofertas_pc)
+PALAVRAS_PC = _env("PALAVRAS_PC", "placa de video,placa mae,processador,memoria ram ddr4,memoria ram ddr5,"
+                   "ssd nvme,fonte 650w,gabinete gamer,water cooler,cooler processador")
 PALAVRAS_SHOPEE = _env("PALAVRAS_SHOPEE", "mouse gamer,teclado mecanico,headset gamer,fone bluetooth,"
-                       "ssd,smartwatch,carregador turbo,webcam,suporte notebook,hub usb")
+                       "ssd,smartwatch,carregador turbo,webcam,suporte notebook,hub usb,"
+                       + PALAVRAS_PC)
 
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "10"))          # primeiro post do dia

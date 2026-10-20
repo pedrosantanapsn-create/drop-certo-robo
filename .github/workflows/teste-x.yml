@@ -1,0 +1,28 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+          SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+          SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+        run: |
+          python - <<'PY'
+          import re
+          from robo import sugestoes, supabase
+          sugestoes._vistas = lambda: []
+          supabase.gravar_config = lambda *a, **k: None
+          for txt, html in sugestoes.sugerir_pc():
+              itens = [l for l in txt.split("\n") if re.match(r"^\d+\. ", l)]
+              nomes = [txt.split("\n")[i+1][:45] for i, l in enumerate(txt.split("\n")) if re.match(r"^\d+\. ", l)]
+              print("::warning::%s | %d itens | %s" % (txt.split("\n")[0][:50], len(itens), " ; ".join(nomes)[:400]))
+          PY

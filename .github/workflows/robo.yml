@@ -62,6 +62,7 @@ jobs:
       PALAVRAS_SHOPEE: ${{ vars.PALAVRAS_SHOPEE }}
       AMAZON_TAG: ${{ vars.AMAZON_TAG }}
       PALAVRAS_ML: ${{ vars.PALAVRAS_ML }}
+      PALAVRAS_PC: ${{ vars.PALAVRAS_PC }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
       VELOCIDADE_VOZ: ${{ vars.VELOCIDADE_VOZ }}
       ARROBA: ${{ vars.ARROBA }}
