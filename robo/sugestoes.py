@@ -57,6 +57,15 @@ RE_HARDWARE = re.compile(
     r"fonte (?:atx|\d{3,4} ?w)|fonte modular|\d{3,4} ?w 80 ?plus|80 ?plus|gabinete|water ?cooler|cooler|"
     r"air cooler|pasta t[eé]rmica|fan rgb|ventoinha|kit upgrade|b[456]50m?|[abhxz]\d{3}m?\b)", re.I)
 BONUS_HARDWARE = 15
+# Falsos amigos: "processador de alimentos", "cooler de bebidas", "bomba d'água"...
+RE_NAO_PC = re.compile(
+    r"alimento|triturador|multiprocessador|cozinha|liquidificador|mixer|picador|filtro|torneira|"
+    r"bomba|bebida|caixa t[eé]rmica|cooler t[eé]rmico|garrafa|ventilador de (teto|mesa|coluna)|"
+    r"fonte de (?:bancada|alimenta[cç][aã]o \d+v)|testador|mult[ií]metro|ferro de solda", re.I)
+
+
+def eh_pc(nome: str) -> bool:
+    return bool(RE_HARDWARE.search(nome or "")) and not RE_NAO_PC.search(nome or "")
 
 BUSCA = {
     "Mercado Livre": "https://lista.mercadolivre.com.br/{q}",
@@ -126,7 +135,7 @@ def buscar(quantas: int = QUANTAS) -> list[dict]:
                 pass
             curtidas = int(o.get("offerLikes") or 0)
             o["_nota"] = desconto + min(curtidas, 60) / 2 + (
-                BONUS_HARDWARE if RE_HARDWARE.search(str(o.get("offerTitle", ""))) else 0)
+                BONUS_HARDWARE if eh_pc(str(o.get("offerTitle", ""))) else 0)
             todas[ident] = o
     return sorted(todas.values(), key=lambda o: -o["_nota"])[:quantas]
 
@@ -182,7 +191,7 @@ def _num(valor, padrao: float = 0.0) -> float:
 
 
 def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANTAS,
-                  marcar: bool = True) -> list[dict]:
+                  marcar: bool = True, so_pc: bool = False) -> list[dict]:
     """Melhores produtos da Shopee: vendem bem, nota alta, desconto e boa comissão."""
     if not shopee.ativo():
         return []
@@ -208,10 +217,12 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
                     continue
                 if nota and nota < SHOPEE_NOTA_MINIMA:
                     continue
+                if so_pc and not eh_pc(str(n.get("productName", ""))):
+                    continue
                 n["_id"] = ident
                 n["_palavra"] = palavra
                 n["_nota"] = (comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
-                              + (BONUS_HARDWARE / 2 if RE_HARDWARE.search(str(n.get("productName", ""))) else 0))
+                              + (BONUS_HARDWARE / 2 if eh_pc(str(n.get("productName", ""))) else 0))
                 achados[ident] = n
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
     # no máximo 2 por palavra, para variar os produtos
@@ -283,7 +294,7 @@ def _palavras_ml() -> list[str]:
     return [p.strip() for p in texto.split(",") if p.strip()]
 
 
-def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS) -> list[dict]:
+def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_pc: bool = False) -> list[dict]:
     """Mais vendidos do ML nas categorias das palavras, com desconto real agora."""
     if not mercadolivre.ativo():
         return []
@@ -318,6 +329,8 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS) -> l
                     continue
                 produto = mercadolivre._get(f"/products/{ident}")
             except Exception:  # noqa: BLE001
+                continue
+            if so_pc and not eh_pc(produto.get("name", "")):
                 continue
             achados[f"ml:{ident}"] = {
                 "_id": f"ml:{ident}", "_palavra": palavra, "id": ident,
@@ -412,8 +425,8 @@ def buscar_amazon(palavra: str = "", quantas: int = AMZ_QUANTAS, so_tecnologia: 
                 pass
             o["_id"] = ident
             o["_nota"] = desconto + min(int(o.get("offerLikes") or 0), 60) / 2 + (
-                BONUS_HARDWARE if RE_HARDWARE.search(titulo) else 0)
-            if so_pc and not RE_HARDWARE.search(titulo):
+                BONUS_HARDWARE if eh_pc(titulo) else 0)
+            if so_pc and not eh_pc(titulo):
                 continue
             achados[ident] = o
     escolhidos = sorted(achados.values(), key=lambda o: -o["_nota"])[:quantas]
@@ -459,10 +472,10 @@ def sugerir_pc() -> list[tuple[str, bool]]:
     """/ofertas_pc: peças de PC nas 3 lojas. Devolve [(texto, é_html)]."""
     saida: list[tuple[str, bool]] = []
     if shopee.ativo():
-        saida.append((mensagem_shopee(buscar_shopee(_palavras_pc(), 8),
+        saida.append((mensagem_shopee(buscar_shopee(_palavras_pc(), 8, so_pc=True),
                                       "🖥️ Shopee — peças de PC com o SEU link"), False))
     if mercadolivre.ativo():
-        saida.append((mensagem_ml(buscar_ml(_palavras_pc(), 8), html=True)
+        saida.append((mensagem_ml(buscar_ml(_palavras_pc(), 8, so_pc=True), html=True)
                       .replace("🛒 Mercado Livre — mais vendidos com desconto",
                                "🖥️ Mercado Livre — peças de PC mais vendidas com desconto"), True))
     amz = buscar_amazon(so_pc=True)
