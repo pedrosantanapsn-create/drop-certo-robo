@@ -269,7 +269,16 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
 
     # 4b. Instagram (Reels automático)
     legenda_redes = legenda.montar_legenda(produto, textos, com_link=False)
-    if caminho_video and instagram.ativo():
+    limite_ig = config.INSTAGRAM_MAX_DIA
+    feitos_ig = relatorio.postados_hoje("instagram") if (limite_ig and supabase.ativo()) else 0
+    if caminho_video and instagram.ativo() and limite_ig and feitos_ig >= limite_ig:
+        status.append(f"• Reels: pulado — limite de {limite_ig} Reels por dia já atingido (vai só no Story)")
+    elif caminho_video and instagram.ativo() and config.INSTAGRAM_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
+        status.append("• Reels: pulado — fora do horário de pico (vai só no Story)")
+    elif (caminho_video and instagram.ativo() and limite_ig and supabase.ativo()
+          and time.time() - relatorio.ultimo_post("instagram") < config.INSTAGRAM_INTERVALO_H * 3600):
+        status.append(f"• Reels: pulado — o último Reels saiu há menos de {config.INSTAGRAM_INTERVALO_H}h (vai só no Story)")
+    elif caminho_video and instagram.ativo():
         try:
             link_post = instagram.publicar_reels(caminho_video, legenda_redes, capa=caminho_arte)
             status.append(f"• Instagram: Reels publicado ✅ {link_post}")

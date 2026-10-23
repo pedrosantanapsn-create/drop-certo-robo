@@ -51,6 +51,10 @@ AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
 # Tipo de aviso comercial no TikTok: brand_content = parceria/afiliado (recomendado)
 TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
 # Máximo de vídeos por dia no TikTok (0 = sem limite). Postar demais derruba o alcance.
+# Instagram: Reels no feed limitados (o resto vai só no Story, canal e site)
+INSTAGRAM_MAX_DIA = int(_env("INSTAGRAM_MAX_DIA", "4") or 4)
+INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", True)
+INSTAGRAM_INTERVALO_H = float(_env("INSTAGRAM_INTERVALO_H", "1") or 1)
 TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "3"))
 TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", True)   # TikTok só nos horários de pico
 TIKTOK_INTERVALO_H = int(_env("TIKTOK_INTERVALO_H", "2"))  # horas mínimas entre vídeos no TikTok

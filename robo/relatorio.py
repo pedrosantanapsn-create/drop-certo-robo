@@ -126,13 +126,11 @@ def montar(dias: int = 7) -> str:
     # Posts
     linhas.append(f"📦 Ofertas postadas: {len(posts)}")
     if posts:
-        for rede, nome in (("canal", "Canal"), ("instagram", "Instagram"), ("tiktok", "TikTok"), ("site", "Site")):
+        for rede, nome in (("canal", "Canal"), ("instagram", "Reels"), ("tiktok", "TikTok"), ("site", "Site")):
             linhas.append(f"   • {nome}: {sum(1 for p in posts if p.get(rede))}")
         por_loja = Counter(p.get("loja", "?") for p in posts)
         linhas.append("   • Por loja: " + ", ".join(f"{l} {n}" for l, n in por_loja.most_common()))
-        falhas = [p for p in posts if not (p.get("instagram") and p.get("tiktok"))]
-        if falhas:
-            linhas.append(f"   ⚠️ {len(falhas)} post(s) não saíram em alguma rede — confira os resumos no chat")
+        linhas.append(f"   (Reels e TikTok têm limite por dia de propósito — o resto vai no Story, canal e site)")
     linhas.append("")
 
     # Cliques
