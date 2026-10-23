@@ -63,6 +63,8 @@ jobs:
       AMAZON_TAG: ${{ vars.AMAZON_TAG }}
       PALAVRAS_ML: ${{ vars.PALAVRAS_ML }}
       PALAVRAS_PC: ${{ vars.PALAVRAS_PC }}
+      AVISAR_QUEDAS: ${{ vars.AVISAR_QUEDAS }}
+      QUEDA_MINIMA: ${{ vars.QUEDA_MINIMA }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
       VELOCIDADE_VOZ: ${{ vars.VELOCIDADE_VOZ }}
       ARROBA: ${{ vars.ARROBA }}
@@ -88,6 +90,10 @@ jobs:
           SUGERIR=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.ofertas_proxima&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Avisos de queda de preço esperando a hora de ir para o canal
+          QUEDAS=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.quedas_proxima&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           # Quadro de ofertas do site: lote novo esperando (arquivo quadro/*.json no Storage)
           QUADRO=$(curl -s -X POST "${SUPABASE_URL}/storage/v1/object/list/produtos" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -97,6 +103,9 @@ jobs:
             echo "Mensagem recebida pelo modo instantâneo."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif echo "$RESPOSTA" | grep -q '"update_id"'; then
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$QUEDAS" ] && [ "$(date +%s)" -ge "$QUEDAS" ]; then
+            echo "Hora de um aviso de queda de preço."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$QUADRO" ]; then
             echo "Quadro novo do site para colocar na fila."

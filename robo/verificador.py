@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from . import config, mercadolivre, shopee, supabase
+from . import config, mercadolivre, quedas, shopee, supabase
 from .produto import (CABECALHOS, LojaBloqueou, Produto, _extrair, _json_ld_produto,
                       _link_de_produto_na_pagina, formatar_preco, titulo_generico)
 from .fila import FUSO
@@ -137,7 +137,7 @@ def situacao(link: str) -> tuple[str, Produto]:
 # ---------------------------------------------------------------------------
 def _ativos() -> list[dict]:
     colunas = ",".join(c for c in ("id", config.COL_NOME, config.COL_PRECO,
-                                   config.COL_PRECO_ANTIGO, config.COL_LINK) if c)
+                                   config.COL_PRECO_ANTIGO, config.COL_LINK, config.COL_IMAGEM) if c)
     r = requests.get(
         f"{config.SUPABASE_URL}/rest/v1/{config.SUPABASE_TABELA}",
         headers=supabase._cabecalhos(),
@@ -176,6 +176,7 @@ def conferir() -> str:
     suspeitos_antes = _suspeitos()
     suspeitos: dict = {}
     precos, tirados, incertos, ok = [], [], 0, 0
+    quedas_novas: list[str] = []
 
     for p in produtos:
         ident = str(p.get("id"))
@@ -210,6 +211,16 @@ def conferir() -> str:
                 campos[config.COL_PRECO_ANTIGO] = None   # o "de" deixou de ser verdade
         if campos:
             _alterar(ident, campos)
+            # Queda de preço confirmada pela API oficial (ML/Shopee) vira aviso no canal
+            link = str(p.get(config.COL_LINK) or "")
+            pela_api = (shopee.ativo() and shopee.e_shopee(link)) or (
+                mercadolivre.e_mercadolivre(link) and mercadolivre.ativo())
+            if pela_api and antigo_site and novo < float(antigo_site):
+                try:
+                    if quedas.registrar(p, float(antigo_site), novo, lido.preco_antigo):
+                        quedas_novas.append(nome)
+                except Exception as erro:  # noqa: BLE001
+                    print(f"::warning::Queda: {str(erro)[:120]}")
             if config.COL_PRECO in campos:
                 precos.append(f"{nome}: {formatar_preco(float(antigo_site)) if antigo_site else '?'} → "
                               f"{formatar_preco(novo)}")
@@ -221,6 +232,9 @@ def conferir() -> str:
               f"✅ Conferidas: {ok}   ❔ Sem resposta da loja: {incertos}"]
     if precos:
         linhas += ["", f"💲 Preço atualizado ({len(precos)}):", *[f"• {x}" for x in precos[:15]]]
+    if quedas_novas:
+        linhas += ["", f"⬇️ {len(quedas_novas)} aviso(s) de queda de preço vão para o canal a partir das "
+                   f"{config.POSTAR_DAS}h (um a cada 30 min):", *[f"• {x}" for x in quedas_novas[:10]]]
     if tirados:
         linhas += ["", f"🚫 Tiradas do site — acabaram/esgotaram ({len(tirados)}):",
                    *[f"• {x}" for x in tirados[:15]],

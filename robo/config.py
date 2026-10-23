@@ -68,6 +68,10 @@ SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 # Palavras dos mais vendidos do Mercado Livre (/ofertas_ml). Vazio = as mesmas da Shopee
 PALAVRAS_ML = _env("PALAVRAS_ML", "")
 
+# --- Aviso de queda de preço no canal (ML e Shopee, conferência das 6h) ----
+AVISAR_QUEDAS = _env_bool("AVISAR_QUEDAS", True)
+QUEDA_MINIMA = float(_env("QUEDA_MINIMA", "10") or 10)
+
 # --- Amazon: sua tag de associado (o robô confere se cada link tem ela) ----
 AMAZON_TAG = _env("AMAZON_TAG", "certodrop-20")
 

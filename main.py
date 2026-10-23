@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -741,6 +741,10 @@ def rodar_uma_vez() -> int:
         postar_da_fila()
     except Exception as erro:  # noqa: BLE001
         print("Fila:", erro, file=sys.stderr)
+    try:
+        quedas.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Quedas:", erro, file=sys.stderr)
     try:
         relatorio.enviar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
