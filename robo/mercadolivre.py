@@ -226,3 +226,11 @@ def ler(link: str) -> dict:
         antigo = None
     return {"nome": nome, "preco": preco, "preco_antigo": antigo,
             "imagens": [i for i in imagens if i][:4], "ativo": ativo_}
+
+
+def link_afiliado(produto_id: str) -> str:
+    """SEU link de afiliada para um produto de catálogo (mesmos códigos dos seus meli.la)."""
+    base = f"https://www.mercadolivre.com.br/p/{produto_id}"
+    if config.ML_MATT_WORD and config.ML_MATT_TOOL:
+        return f"{base}?matt_word={config.ML_MATT_WORD}&matt_tool={config.ML_MATT_TOOL}"
+    return base

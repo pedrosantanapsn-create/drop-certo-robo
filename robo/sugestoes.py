@@ -337,7 +337,7 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_p
                 "nome": produto.get("name", ""), "preco": preco, "antes": antes,
                 "desconto": desconto, "posicao": pos.get("position") or 99,
                 "categoria": dominio.get("category_name", ""),
-                "link": f"https://www.mercadolivre.com.br/p/{ident}",
+                "link": mercadolivre.link_afiliado(ident),
                 "_nota": desconto - (pos.get("position") or 99) * 1.5,
             }
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
@@ -374,10 +374,16 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
             link,
             "",
         ]
-    linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",
-               "de afiliados do Mercado Livre e mande para mim (ou /agendar link).",
-               "ℹ️ O ML não tem API para gerar link de afiliado — esse passo é seu.",
-               "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
+    afiliado = bool(config.ML_MATT_WORD and config.ML_MATT_TOOL)
+    if afiliado:
+        linhas += ["📋 Todos os links (já com o SEU código de afiliada — copie e mande para mim):",
+                   *[e(n["link"]) for n in produtos], "",
+                   "👉 Para postar só um: copie o link dele e mande para mim.",
+                   "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
+    else:
+        linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",
+                   "de afiliados do Mercado Livre e mande para mim (ou /agendar link).",
+                   "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
     return "\n".join(linhas)
 
 

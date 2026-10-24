@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -373,7 +373,8 @@ def tratar(mensagem: dict) -> None:
                                         "Amazon — promoções para o Drop Certo")):
         links = list(dict.fromkeys(l.rstrip(").,;!?") for l in fila.RE_LINK.findall(texto)
                                    if "google.com/search" not in l and "/search?" not in l and "/s?k=" not in l
-                                   and "mercadolivre.com.br/p/" not in l and "netlify.app/quadro" not in l))   # link do ML sem afiliado: não posta
+                                   and ("mercadolivre.com.br/p/" not in l or "matt_" in l)
+                                   and "netlify.app/quadro" not in l))   # link do ML sem afiliado: não posta
         texto = "\n".join(links)
         if not links:
             telegram.enviar_texto(chat_id, "Essa lista não tem links de afiliado seus. No Mercado Livre, "
@@ -497,7 +498,11 @@ def tratar(mensagem: dict) -> None:
         telegram.enviar_texto(chat_id, relatorio.montar(max(1, min(dias, 365))) if supabase.ativo()
                               else "Supabase não configurado.")
     elif comando == "/fila":
-        telegram.enviar_texto(chat_id, fila.resumo())
+        texto_fila = fila.resumo()
+        if not fila.itens() and config.FILA_AUTOMATICA:
+            reabastecer.agendar(5)
+            texto_fila += "\n\n🤖 Fila automática ligada: em até 15 min eu coloco ofertas novas (Shopee + Mercado Livre)."
+        telegram.enviar_texto(chat_id, texto_fila)
     elif comando == "/limpar":
         telegram.enviar_texto(chat_id, f"🗑️ Fila apagada ({fila.limpar()} oferta(s) removida(s)).")
     elif comando == "/agora":
@@ -698,6 +703,8 @@ def postar_da_fila() -> bool:
         detalhe = traceback.format_exc()[-700:]
         print(detalhe, file=sys.stderr)
         telegram.enviar_texto(config.ADMIN_CHAT_ID, "❌ Erro no post da fila:\n" + detalhe)
+    if restantes == 0:
+        reabastecer.agendar()        # fila acabou: daqui a pouco entram ofertas novas
     return True
 
 
@@ -750,6 +757,10 @@ def rodar_uma_vez() -> int:
         postar_da_fila()
     except Exception as erro:  # noqa: BLE001
         print("Fila:", erro, file=sys.stderr)
+    try:
+        reabastecer.se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Fila automática:", erro, file=sys.stderr)
     try:
         quedas.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001

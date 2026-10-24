@@ -11,19 +11,27 @@ jobs:
       - env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+          SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+          SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
         run: |
           python - <<'PY'
-          import requests
-          from urllib.parse import urljoin, urlparse, parse_qs
-          from robo import relatorio
-          links = list(dict.fromkeys(p["link"] for p in relatorio._historico() if "meli.la" in p.get("link","")))[-4:]
-          for l in links:
-              url = l
-              for _ in range(6):
-                  r = requests.get(url, allow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
-                  loc = r.headers.get("Location")
-                  if not loc: break
-                  url = urljoin(url, loc)
-              u = urlparse(url); q = {k: v[0][:40] for k, v in parse_qs(u.query).items()}
-              print("::warning::%s -> %s%s %s" % (l[-8:], u.netloc, u.path[:60], q))
+          import time, requests
+          from urllib.parse import urljoin
+          from robo import reabastecer, fila, supabase, sugestoes, mercadolivre
+          # simulação: fila vazia, sem gravar nada de verdade
+          gravado = {}
+          sugestoes._vistas = lambda: []
+          supabase.gravar_config = lambda k, v: gravado.__setitem__(k, v)
+          ler = supabase.ler_config
+          supabase.ler_config = lambda k: {"valor": str(int(time.time()) - 1)} if k == reabastecer.CHAVE else ler(k)
+          fila.itens = lambda: []
+          fila.adicionar = lambda t, f=None: (print("::warning::FILA " + " | ".join(x[:70] for x in t)) or (len(t), __import__("datetime").datetime.now(), 0))
+          import robo.config as c; c.POSTAR_DAS, c.POSTAR_ATE = 0, 25
+          reabastecer.se_for_hora(lambda t: print("::warning::MSG " + t.replace("\n", " | ")[:600]))
+          # o link do ML montado leva para o produto com os seus códigos?
+          l = mercadolivre.link_afiliado("MLB16211422")
+          r = requests.get(l, allow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+          print("::warning::link ML %s -> %s %s" % (l[-60:], r.status_code, (r.headers.get("Location") or "")[:120]))
           PY

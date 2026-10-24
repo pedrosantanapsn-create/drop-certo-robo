@@ -83,6 +83,16 @@ AMAZON_TAG = _env("AMAZON_TAG", "certodrop-20")
 ML_CLIENT_ID = _env("ML_CLIENT_ID")
 ML_CLIENT_SECRET = _env("ML_CLIENT_SECRET")
 
+# Seus códigos de afiliada do ML (estão em todo link meli.la seu: matt_word e matt_tool).
+# Com eles o robô monta o SEU link de afiliada para produtos sugeridos.
+ML_MATT_WORD = _env("ML_MATT_WORD", "heafhbgcd94458")
+ML_MATT_TOOL = _env("ML_MATT_TOOL", "66102052")
+
+# --- Fila automática: quando a fila acaba, o robô coloca ofertas novas sozinho ---
+FILA_AUTOMATICA = _env_bool("FILA_AUTOMATICA", True)
+FILA_AUTO_SHOPEE = int(_env("FILA_AUTO_SHOPEE", "3") or 3)
+FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "3") or 3)
+
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
 LOJAS_OFERTAS = _env("LOJAS_OFERTAS", "Mercado Livre,Amazon,Shopee")
