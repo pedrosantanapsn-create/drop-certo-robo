@@ -1,0 +1,29 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python - <<'PY'
+          import requests
+          from urllib.parse import urljoin, urlparse, parse_qs
+          from robo import relatorio
+          links = list(dict.fromkeys(p["link"] for p in relatorio._historico() if "meli.la" in p.get("link","")))[-4:]
+          for l in links:
+              url = l
+              for _ in range(6):
+                  r = requests.get(url, allow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+                  loc = r.headers.get("Location")
+                  if not loc: break
+                  url = urljoin(url, loc)
+              u = urlparse(url); q = {k: v[0][:40] for k, v in parse_qs(u.query).items()}
+              print("::warning::%s -> %s%s %s" % (l[-8:], u.netloc, u.path[:60], q))
+          PY
