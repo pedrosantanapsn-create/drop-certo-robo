@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -327,6 +327,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         telegram.enviar_video(chat_id, caminho_video, "🎬 Vídeo para Reels/TikTok/Shorts", capa=None)
     telegram.enviar_arquivo(chat_id, caminho_arte, "🖼️ Arte do feed (arquivo em qualidade máxima)")
     telegram.enviar_texto(chat_id, "📋 Legenda para Instagram/TikTok (copie e cole):\n\n" + legenda_redes)
+    try:
+        alertas.depois_do_post(status)
+    except Exception as erro:  # noqa: BLE001
+        print("Alertas:", erro, file=sys.stderr)
     resumo = [f"✅ {produto.nome}", formatar_preco(produto.preco) or "Preço não encontrado", "", *status]
     telegram.enviar_texto(chat_id, "\n".join(resumo))
     shutil.rmtree(pasta, ignore_errors=True)

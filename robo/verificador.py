@@ -255,6 +255,11 @@ def conferir_se_for_hora(enviar) -> bool:
     supabase.gravar_config(CHAVE_PROXIMA, str(int(_proxima_hora(agora).timestamp())))
     if not valor.isdigit():
         return False                       # primeira vez: só marca o horário
+    try:
+        from . import alertas
+        alertas.checar_saude()
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Saúde: {str(erro)[:150]}")
     resumo = conferir()
     if "Preço atualizado" in resumo or "Tiradas do site" in resumo:
         enviar(resumo)
