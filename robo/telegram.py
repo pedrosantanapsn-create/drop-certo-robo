@@ -51,8 +51,11 @@ def enviar_html(chat_id, texto: str) -> None:
             disable_web_page_preview="true")
 
 
-def enviar_foto(chat_id, foto: Path, legenda: str = "") -> dict:
-    return _chamar("sendPhoto", arquivos={"photo": foto}, chat_id=chat_id, caption=legenda[:1024])
+def enviar_foto(chat_id, foto: Path, legenda: str = "", html: bool = False) -> dict:
+    extra = {"parse_mode": "HTML"} if html else {}
+    # Em HTML o limite de 1024 vale para o texto visível; cortar o HTML quebraria as tags
+    return _chamar("sendPhoto", arquivos={"photo": foto}, chat_id=chat_id,
+                   caption=legenda if html else legenda[:1024], **extra)
 
 
 def enviar_video(chat_id, video: Path, legenda: str = "", capa: Path | None = None) -> dict:

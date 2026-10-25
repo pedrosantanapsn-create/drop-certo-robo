@@ -135,9 +135,12 @@ def montar(dias: int = 7) -> str:
 
     # Cliques
     if cliques is None:
-        linhas.append("🖱️ Cliques no site: ainda não ligado (falta criar a tabela \"cliques\" no Supabase)")
+        linhas.append("🖱️ Cliques: ainda não ligado (falta criar a tabela \"cliques\" no Supabase)")
     else:
-        linhas.append(f"🖱️ Cliques no site: {len(cliques)}")
+        do_canal = [c for c in cliques if str(c.get("loja") or "").endswith("(canal)")]
+        linhas.append(f"🖱️ Cliques: {len(cliques)}  (canal do Telegram {len(do_canal)} · site {len(cliques) - len(do_canal)})")
+        for c in cliques:
+            c["loja"] = str(c.get("loja") or "").replace(" (canal)", "")
         if cliques:
             por_produto = Counter((c.get("nome") or c.get("link") or "?")[:60] for c in cliques)
             linhas.append("   🏆 Mais clicados:")

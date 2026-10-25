@@ -20,7 +20,7 @@ from pathlib import Path
 
 import requests
 
-from . import config, supabase, telegram
+from . import config, rastreio, supabase, telegram
 from .fila import FUSO
 from .produto import formatar_preco
 
@@ -117,9 +117,10 @@ def postar_se_for_hora(avisar_admin=None) -> bool:
                 r = requests.get(aviso["imagem"], timeout=30)
                 r.raise_for_status()
                 foto.write_bytes(r.content)
-                telegram.enviar_foto(config.CANAL_ID, foto, texto)
+                telegram.enviar_foto(config.CANAL_ID, foto, rastreio.legenda_html(
+                    texto, aviso["link"], aviso["id"], aviso["nome"]), html=True)
         else:
-            telegram.enviar_texto(config.CANAL_ID, texto)
+            telegram.enviar_html(config.CANAL_ID, rastreio.legenda_html(texto, aviso["link"], aviso["id"], aviso["nome"]))
         if avisar_admin:
             avisar_admin(f"⬇️ Aviso de queda publicado no canal: {aviso['nome'][:60]} "
                          f"({formatar_preco(aviso['antes'])} → {formatar_preco(aviso['agora'])})")

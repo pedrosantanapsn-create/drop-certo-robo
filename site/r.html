@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer-when-downgrade">
+<title>Drop Certo · indo para a loja…</title>
+<style>
+  :root{--fundo:#0B1220;--texto:#F4F6FA;--suave:#AEB8CC;--destaque:#FFD43B}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--fundo);color:var(--texto);
+       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;text-align:center}
+  a{color:var(--destaque)} p{color:var(--suave)}
+</style>
+</head>
+<body>
+<main><h1 style="font-size:20px">Indo para a loja…</h1><p id="msg">Se não abrir sozinho, <a id="ir" href="https://certodrop.netlify.app/">toque aqui</a>.</p></main>
+<script src="config.js"></script>
+<script>
+(function(){
+  // Só leva para lojas conhecidas (evita que alguém use a página para mandar para golpes)
+  var PERMITIDOS = /(^|\.)(meli\.la|mercadolivre\.com\.br|mercadolibre\.com|amazon\.com\.br|amzn\.to|link\.amazon|a\.co|shopee\.com\.br|s\.shopee\.com\.br|shp\.ee|tiktok\.com|magazineluiza\.com\.br|magalu\.com|aliexpress\.com|s\.click\.aliexpress\.com|kabum\.com\.br)$/i;
+  var q = new URLSearchParams(location.search);
+  function de64(t){ try{ t=(t||'').replace(/-/g,'+').replace(/_/g,'/'); while(t.length%4) t+='='; return decodeURIComponent(escape(atob(t))); }catch(e){ return ''; } }
+  var destino = de64(q.get('u')), nome = de64(q.get('n')), pid = q.get('p');
+  var host = ''; try{ host = new URL(destino).hostname; }catch(e){}
+  if (!destino || !PERMITIDOS.test(host)) { document.getElementById('msg').textContent = 'Link inválido.'; return; }
+  document.getElementById('ir').href = destino;
+  function loja(u){ u=u.toLowerCase();
+    if (/meli\.la|mercadoli/.test(u)) return 'Mercado Livre'; if (/amzn|amazon|a\.co\//.test(u)) return 'Amazon';
+    if (/shopee|shp\.ee/.test(u)) return 'Shopee'; if (/tiktok/.test(u)) return 'TikTok Shop'; return 'outra loja'; }
+  var foi = false; function ir(){ if (!foi){ foi = true; location.replace(destino); } }
+  setTimeout(ir, 700);                       // nunca segura a pessoa mais que 0,7 s
+  try{
+    var cfg = window.LOJAML_CONFIG;
+    var corpo = { link: destino.slice(0,500), nome: (nome||'').slice(0,200), loja: (loja(destino) + ' (canal)').slice(0,40) };
+    if (pid && /^[\w-]{1,40}$/.test(pid)) corpo.produto_id = pid;
+    fetch(cfg.SUPABASE_URL + '/rest/v1/cliques', { method:'POST', keepalive:true,
+      headers:{ apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify(corpo) }).then(ir, ir);
+  }catch(e){ ir(); }
+})();
+</script>
+</body>
+</html>

@@ -48,6 +48,7 @@ class Produto:
     imagens_extra: list[str] = field(default_factory=list)  # achadas por regra de cada loja
     bloqueado: bool = False          # a loja pediu verificação de robô
     nome_do_link: bool = False       # o nome veio do endereço (pode estar incompleto)
+    site_id: str = ""                # id do produto no site (para o link rastreado do canal)
 
     @property
     def desconto(self) -> int | None:

@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -267,11 +267,22 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         caminho_video = None
         status.append(f"• Vídeo falhou: {str(erro)[:120]}")
 
-    # 4. Canal do Telegram (com o link clicável)
+    # 4. Site (Supabase) — antes do canal, para o canal usar o link rastreado do produto
+    if supabase.ativo():
+        if fotos:
+            try:
+                supabase.cadastrar_produto(produto, fotos[0], textos["legenda"])
+                status.append("• Site: produto cadastrado ✅")
+            except Exception as erro:  # noqa: BLE001
+                status.append(f"• Site: erro — {str(erro)[:160]}\n  (mande /colunas para conferir os nomes)")
+        else:
+            status.append("• Site: não cadastrado (sem foto)")
+    # 4a. Canal do Telegram (link rastreado: conta o clique e leva para a loja)
     if config.AUTO_POSTAR_CANAL and config.CANAL_ID:
         try:
-            telegram.enviar_foto(config.CANAL_ID, caminho_arte,
-                                 legenda.montar_legenda(produto, textos, com_link=True))
+            telegram.enviar_foto(config.CANAL_ID, caminho_arte, rastreio.legenda_html(
+                legenda.montar_legenda(produto, textos, com_link=True), produto.link,
+                produto.site_id, produto.nome), html=True)
             status.append(f"• Canal {config.CANAL_ID}: publicado ✅")
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Canal: erro — {str(erro)[:120]}")
@@ -317,16 +328,6 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• TikTok: erro — {str(erro)[:160]}")
 
-    # 5. Site (Supabase)
-    if supabase.ativo():
-        if fotos:
-            try:
-                supabase.cadastrar_produto(produto, fotos[0], textos["legenda"])
-                status.append("• Site: produto cadastrado ✅")
-            except Exception as erro:  # noqa: BLE001
-                status.append(f"• Site: erro — {str(erro)[:160]}\n  (mande /colunas para conferir os nomes)")
-        else:
-            status.append("• Site: não cadastrado (sem foto)")
     if supabase.ativo() and produto.preco is None:
         status.append("  👉 Para pôr no site depois, sem postar de novo: /site link + linha  preco: 89,90")
 
@@ -650,7 +651,11 @@ def postar_cupom(chat_id, texto: str) -> None:
     if not (config.AUTO_POSTAR_CANAL and config.CANAL_ID):
         telegram.enviar_texto(chat_id, "Canal não configurado. Veja como ficaria:\n\n" + post)
         return
-    telegram.enviar_texto(config.CANAL_ID, post)
+    if link:
+        telegram.enviar_html(config.CANAL_ID, rastreio.legenda_html(post, link, None, f"Cupom {codigo}",
+                                                                    "Ir para a loja ➜"))
+    else:
+        telegram.enviar_texto(config.CANAL_ID, post)
     aviso = "" if validade else "\n\n💡 Dica: coloque \"validade: dd/mm\" para o seguidor saber até quando vale."
     telegram.enviar_texto(chat_id, f"✅ Cupom {codigo} publicado no canal {config.CANAL_ID}.{aviso}")
 

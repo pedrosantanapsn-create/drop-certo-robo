@@ -154,12 +154,16 @@ def cadastrar_produto(p: Produto, imagem: Path, descricao: str) -> str:
         linha[config.COL_DESCRICAO] = descricao
     r = requests.post(
         f"{config.SUPABASE_URL}/rest/v1/{config.SUPABASE_TABELA}",
-        headers=_cabecalhos({"Content-Type": "application/json", "Prefer": "return=minimal"}),
+        headers=_cabecalhos({"Content-Type": "application/json", "Prefer": "return=representation"}),
         json=linha,
         timeout=30,
     )
     if r.status_code >= 300:
         raise RuntimeError(f"Supabase {r.status_code}: {r.text[:300]}")
+    try:
+        p.site_id = str((r.json() or [{}])[0].get("id") or "")
+    except (ValueError, IndexError, AttributeError):
+        p.site_id = ""
     return url_imagem
 
 
