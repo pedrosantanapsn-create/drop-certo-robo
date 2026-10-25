@@ -24,12 +24,19 @@ def _cabecalhos(extra: dict | None = None) -> dict:
 def enviar_arquivo(arquivo: Path, caminho: str, tipo: str) -> str:
     """Envia um arquivo para o bucket público e devolve o endereço público."""
     url = f"{config.SUPABASE_URL}/storage/v1/object/{config.SUPABASE_BUCKET}/{caminho}"
-    r = requests.post(
-        url,
-        headers=_cabecalhos({"Content-Type": tipo, "x-upsert": "true"}),
-        data=arquivo.read_bytes(),
-        timeout=120,
-    )
+    dados = arquivo.read_bytes()
+    for tentativa in range(4):          # erro 5xx do Storage costuma ser passageiro (vários envios juntos)
+        try:
+            r = requests.post(url, headers=_cabecalhos({"Content-Type": tipo, "x-upsert": "true"}),
+                              data=dados, timeout=120)
+        except requests.RequestException:
+            if tentativa == 3:
+                raise
+            time.sleep(3 * (tentativa + 1))
+            continue
+        if r.status_code < 500:
+            break
+        time.sleep(3 * (tentativa + 1))
     if r.status_code >= 300:
         raise RuntimeError(f"Supabase Storage {r.status_code}: {r.text[:200]}")
     return f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{caminho}"
