@@ -64,6 +64,42 @@ RE_NAO_PC = re.compile(
     r"fonte de (?:bancada|alimenta[cç][aã]o \d+v)|testador|mult[ií]metro|ferro de solda", re.I)
 
 
+# ---------------------------------------------------------------------------
+# Aprendizado: o que o SEU público clica mais (cliques do canal e do site, 30 dias)
+# ---------------------------------------------------------------------------
+BONUS_APRENDIDO = 30          # pontos extras para a palavra/categoria campeã de cliques
+MINIMO_CLIQUES = 15           # com menos que isso ainda não dá para tirar conclusão
+_pesos_cache: dict | None = None
+
+
+def pesos_por_palavra(palavras: list[str]) -> dict[str, float]:
+    """{palavra: 0..1} — fatia dos cliques de 30 dias em produtos com essa palavra no nome."""
+    global _pesos_cache
+    if _pesos_cache is not None:
+        return {p: _pesos_cache.get(p, 0.0) for p in palavras}
+    _pesos_cache = {}
+    try:
+        from . import relatorio
+        cliques = relatorio._cliques(datetime.now(FUSO) - timedelta(days=30)) or []
+    except Exception:  # noqa: BLE001
+        cliques = []
+    if len(cliques) < MINIMO_CLIQUES:
+        return {p: 0.0 for p in palavras}
+    nomes = [str(c.get("nome") or "").lower() for c in cliques]
+    contagem = {}
+    for palavra in palavras:
+        chaves = [w for w in re.findall(r"[a-zà-ú0-9]+", palavra.lower()) if len(w) >= 4] or [palavra.lower()]
+        contagem[palavra] = sum(1 for n in nomes if all(k in n for k in chaves[:2]))
+    maior = max(contagem.values() or [0])
+    _pesos_cache = {p: (c / maior if maior else 0.0) for p, c in contagem.items()}
+    return {p: _pesos_cache.get(p, 0.0) for p in palavras}
+
+
+def _ordenar_por_cliques(palavras: list[str]) -> list[str]:
+    pesos = pesos_por_palavra(palavras)
+    return sorted(palavras, key=lambda p: -pesos.get(p, 0.0))
+
+
 def eh_pc(nome: str) -> bool:
     return bool(RE_HARDWARE.search(nome or "")) and not RE_NAO_PC.search(nome or "")
 
@@ -197,7 +233,9 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
         return []
     vistas = set(_vistas()) if marcar else set()
     achados: dict[str, dict] = {}
-    for palavra in palavras or _palavras_shopee():
+    palavras = palavras or _palavras_shopee()
+    pesos = pesos_por_palavra(palavras)
+    for palavra in palavras:
         for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
             try:
                 nos = shopee.buscar(palavra, ordem, 20)
@@ -222,6 +260,7 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
                 n["_id"] = ident
                 n["_palavra"] = palavra
                 n["_nota"] = (comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
+                              + BONUS_APRENDIDO * pesos.get(palavra, 0.0)
                               + (BONUS_HARDWARE / 2 if eh_pc(str(n.get("productName", ""))) else 0))
                 achados[ident] = n
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
@@ -357,7 +396,9 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_p
     vistas = set(_vistas())
     achados: dict[str, dict] = {}
     categorias_vistas: set[str] = set()
-    for palavra in palavras or _palavras_ml():
+    palavras = _ordenar_por_cliques(palavras or _palavras_ml())
+    pesos = pesos_por_palavra(palavras)
+    for palavra in palavras:
         try:
             dominio = (mercadolivre._get("/sites/MLB/domain_discovery/search", q=palavra, limit=1) or [{}])[0]
             categoria = dominio.get("category_id")
@@ -394,7 +435,7 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_p
                 "desconto": desconto, "posicao": pos.get("position") or 99,
                 "categoria": dominio.get("category_name", ""),
                 "link": mercadolivre.link_afiliado(ident),
-                "_nota": desconto - (pos.get("position") or 99) * 1.5,
+                "_nota": desconto - (pos.get("position") or 99) * 1.5 + BONUS_APRENDIDO * pesos.get(palavra, 0.0),
             }
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
     escolhidos, por_palavra = [], {}

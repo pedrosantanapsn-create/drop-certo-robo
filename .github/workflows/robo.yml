@@ -69,6 +69,8 @@ jobs:
       AVISAR_QUEDAS: ${{ vars.AVISAR_QUEDAS }}
       QUEDA_MINIMA: ${{ vars.QUEDA_MINIMA }}
       FILA_AUTOMATICA: ${{ vars.FILA_AUTOMATICA }}
+      TOP_DO_DIA: ${{ vars.TOP_DO_DIA }}
+      RASTREAR_CLIQUES: ${{ vars.RASTREAR_CLIQUES }}
       FILA_AUTO_SHOPEE: ${{ vars.FILA_AUTO_SHOPEE }}
       FILA_AUTO_ML: ${{ vars.FILA_AUTO_ML }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
@@ -104,6 +106,10 @@ jobs:
           REABASTECER=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.reabastecer_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Top do dia no canal (21h)
+          TOP=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.top_proximo&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           # Quadro de ofertas do site: lote novo esperando (arquivo quadro/*.json no Storage)
           QUADRO=$(curl -s -X POST "${SUPABASE_URL}/storage/v1/object/list/produtos" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -119,6 +125,9 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$REABASTECER" ] && [ "$(date +%s)" -ge "$REABASTECER" ]; then
             echo "Fila acabou: hora de colocar ofertas novas."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$TOP" ] && [ "$(date +%s)" -ge "$TOP" ]; then
+            echo "Hora do Top do dia."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$QUADRO" ]; then
             echo "Quadro novo do site para colocar na fila."

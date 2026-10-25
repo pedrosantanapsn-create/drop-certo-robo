@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, verificador, video
+from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -791,6 +791,10 @@ def rodar_uma_vez() -> int:
         reabastecer.se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Fila automática:", erro, file=sys.stderr)
+    try:
+        top.postar_se_for_hora()
+    except Exception as erro:  # noqa: BLE001
+        print("Top do dia:", erro, file=sys.stderr)
     try:
         quedas.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001

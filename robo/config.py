@@ -75,6 +75,9 @@ PALAVRAS_ML = _env("PALAVRAS_ML", "")
 RASTREAR_CLIQUES = _env_bool("RASTREAR_CLIQUES", True)
 SITE_URL = _env("SITE_URL", "https://certodrop.netlify.app")
 
+# --- Top do dia no canal (21h) ---
+TOP_DO_DIA = _env_bool("TOP_DO_DIA", True)
+
 # --- Aviso de queda de preço no canal (ML e Shopee, conferência das 6h) ----
 AVISAR_QUEDAS = _env_bool("AVISAR_QUEDAS", True)
 QUEDA_MINIMA = float(_env("QUEDA_MINIMA", "10") or 10)
