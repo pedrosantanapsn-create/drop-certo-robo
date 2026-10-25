@@ -440,6 +440,7 @@ def tratar(mensagem: dict) -> None:
         try:
             for msg_pc, eh_html in sugestoes.sugerir_pc():
                 (telegram.enviar_html if eh_html else telegram.enviar_texto)(chat_id, msg_pc)
+            enviar_listas(chat_id)
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Peças de PC: {str(erro)[:200]}")
     elif comando in ("/ofertas_amazon", "/ofertasamazon", "/amazon") or (
@@ -458,6 +459,7 @@ def tratar(mensagem: dict) -> None:
         telegram.enviar_texto(chat_id, f"🛒 Buscando os mais vendidos do Mercado Livre{f': {palavra}' if palavra else ''}…")
         try:
             telegram.enviar_html(chat_id, sugestoes.sugerir_ml([palavra] if palavra else None, html=True))
+            enviar_listas(chat_id)
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Mercado Livre: {str(erro)[:200]}")
     elif comando == "/add":
@@ -481,6 +483,7 @@ def tratar(mensagem: dict) -> None:
         extra = sugestoes.sugerir_shopee()
         if extra:
             telegram.enviar_texto(chat_id, extra)
+            enviar_listas(chat_id)
     elif comando == "/shopee":
         palavra = " ".join(texto.split()[1:]).strip()
         telegram.enviar_texto(chat_id, f"🛍️ Buscando na Shopee{f': {palavra}' if palavra else ''}…")
@@ -490,6 +493,7 @@ def tratar(mensagem: dict) -> None:
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Shopee: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
+        enviar_listas(chat_id)
     elif comando == "/voz":
         pasta = nova_pasta()
         audio, _ = video.narrar("Olá! Este é um teste da narração do Drop Certo.", pasta / "teste_voz.mp3")
@@ -548,6 +552,14 @@ def tratar(mensagem: dict) -> None:
                               else "Supabase não configurado.")
     else:
         processar_oferta(mensagem, chat_id)
+
+
+def enviar_listas(chat_id) -> None:
+    """Depois das sugestões, manda os links num bloco que copia com um toque."""
+    for prefixo in ("S", "M"):
+        bloco = sugestoes.lista_copiavel(prefixo)
+        if bloco:
+            telegram.enviar_html(chat_id, bloco)
 
 
 def so_site(mensagem: dict, chat_id, texto: str) -> None:

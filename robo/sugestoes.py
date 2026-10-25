@@ -270,7 +270,7 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
             "",
         ]
     _guardar("S", [str(n.get("_link")) for n in produtos])
-    linhas += ["➕ Pôr na fila: /add S1 S3  ·  todos da Shopee: /add shopee",
+    linhas += ["➕ Pôr na fila: /add S1 S3  ·  todos: /add shopee  ·  ou copie a lista abaixo",
                "ℹ️ Preço e comissão de agora: podem mudar até o post sair."]
     return "\n".join(linhas)
 
@@ -278,8 +278,23 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
 CHAVE_ULTIMAS = "sugestoes_ultimas"
 
 
+_recentes: dict[str, list[str]] = {}      # links sugeridos nesta rodada (para a lista copiável)
+
+
+def lista_copiavel(prefixo: str) -> str:
+    """Mensagem HTML só com os links num bloco: no Telegram, tocar no bloco copia tudo."""
+    from html import escape
+    links = _recentes.pop(prefixo, [])
+    if not links:
+        return ""
+    loja = "da Shopee" if prefixo == "S" else "do Mercado Livre"
+    return (f"📋 Links {loja} — toque no bloco para copiar todos e depois cole aqui no bot:\n"
+            f"<pre>{escape(chr(10).join(links))}</pre>")
+
+
 def _guardar(prefixo: str, links: list[str]) -> None:
     """Guarda os links da última sugestão de cada loja para o comando /add."""
+    _recentes[prefixo] = list(links)
     if not supabase.ativo():
         return
     try:
@@ -418,7 +433,7 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
     afiliado = bool(config.ML_MATT_WORD and config.ML_MATT_TOOL)
     if afiliado:
         _guardar("M", [n["link"] for n in produtos])
-        linhas += ["➕ Pôr na fila: /add M1 M4  ·  todos do ML: /add ml",
+        linhas += ["➕ Pôr na fila: /add M1 M4  ·  todos: /add ml  ·  ou copie a lista abaixo",
                    "(os links já levam o seu código de afiliada)",
                    "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
     else:
@@ -551,4 +566,8 @@ def sugerir_se_for_hora(enviar) -> bool:
     extra = sugerir_shopee()
     if extra:
         enviar(extra)
+        bloco = lista_copiavel("S")
+        if bloco:
+            from . import telegram
+            telegram.enviar_html(config.ADMIN_CHAT_ID, bloco)
     return True
