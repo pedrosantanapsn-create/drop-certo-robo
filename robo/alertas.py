@@ -60,7 +60,7 @@ def depois_do_post(status: list[str]) -> None:
     for linha in status:
         for inicio, nome, dica in ERROS_DO_POST:
             if linha.startswith(inicio) and not any(i in linha for i in IGNORAR):
-                detalhe = linha.split(":", 1)[-1].strip()[:180]
+                detalhe = linha.split(":", 1)[-1].strip().removeprefix("erro — ")[:180]
                 avisar(f"post:{nome}", f"Problema no {nome}: {detalhe}\n\n👉 {dica}")
         if linha.startswith("• Vídeo: pronto (sem narração"):
             avisar("post:voz", "O vídeo saiu SEM narração (a voz falhou).\n"

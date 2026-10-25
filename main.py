@@ -247,7 +247,15 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     textos, origem = legenda.gerar_textos(produto)
     status.append(f"• Textos: {origem}")
 
-    # 3. Arte e vídeo
+    # 3. Arte e vídeo — alterna o modelo (cores, ordem das cenas) a cada post
+    try:
+        numero = int(str((supabase.ler_config("modelo_video") or {}).get("valor") or 0)) if supabase.ativo() else 0
+        modelo = video.usar_modelo(numero)
+        if supabase.ativo():
+            supabase.gravar_config("modelo_video", str(numero + 1))
+        status.append(f"• Modelo do vídeo: {modelo['nome']}")
+    except Exception as erro:  # noqa: BLE001
+        print("Modelo do vídeo:", erro, file=sys.stderr)
     caminho_arte = arte.arte_feed(produto, textos, fotos, pasta / "arte_feed.jpg")
     try:
         caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)

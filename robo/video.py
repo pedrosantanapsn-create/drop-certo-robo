@@ -144,7 +144,7 @@ def _limpar(palavra: str) -> str:
 def _clipe(quadro: Path, segundos: float, destino: Path, indice: int) -> Path:
     quadros = max(int(segundos * FPS), 1)
     # Alterna aproximação e afastamento, com zoom um pouco mais forte que antes
-    if indice % 2 == 0:
+    if (indice % 2 == 0) == bool(modelo_atual.get("zoom_entra", True)):
         zoom = f"1+0.09*on/{quadros}"
     else:
         zoom = f"1.09-0.09*on/{quadros}"
@@ -161,19 +161,51 @@ def _clipe(quadro: Path, segundos: float, destino: Path, indice: int) -> Path:
     return destino
 
 
+# ---------------------------------------------------------------------------
+# Modelos de vídeo: o robô alterna entre eles para os vídeos não ficarem todos
+# iguais (vídeos repetitivos perdem alcance no TikTok/Instagram).
+# ---------------------------------------------------------------------------
+MODELOS = [
+    {"nome": "Amarelo clássico", "fundo": "#0B1220", "destaque": "#FFD43B", "ordem": "padrao",
+     "transicoes": ["fade", "slideleft", "fade", "slideup", "fade"], "zoom_entra": True},
+    {"nome": "Laranja", "fundo": "#111111", "destaque": "#FF7A1A", "ordem": "preco_cedo",
+     "transicoes": ["slideup", "fade", "slideleft", "fade", "slideup"], "zoom_entra": False},
+    {"nome": "Turquesa", "fundo": "#140F2B", "destaque": "#2DD4BF", "ordem": "fotos_primeiro",
+     "transicoes": ["circleopen", "fade", "slideright", "fade", "circleopen"], "zoom_entra": True},
+    {"nome": "Verde-limão", "fundo": "#0B1F17", "destaque": "#A3E635", "ordem": "preco_cedo",
+     "transicoes": ["slideleft", "slideleft", "fade", "slideleft", "fade"], "zoom_entra": False},
+]
+modelo_atual = MODELOS[0]
+
+
+def usar_modelo(numero: int) -> dict:
+    """Escolhe o modelo do post (cores da arte e do vídeo, ordem das cenas, transições)."""
+    global modelo_atual
+    modelo_atual = MODELOS[numero % len(MODELOS)]
+    config.COR_FUNDO = modelo_atual["fundo"]
+    config.COR_DESTAQUE = modelo_atual["destaque"]
+    return modelo_atual
+
+
 def _montar_cenas(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> list[tuple[Path, float]]:
     """Devolve [(quadro, peso_de_tempo)]. Fotos extras viram cenas a mais."""
     foto = lambda i: fotos[i % len(fotos)] if fotos else None  # noqa: E731
-    cenas = [(arte.cena_gancho(p, t, foto(0), pasta / "cena_1.png"), 1.25)]
-    if len(fotos) >= 2:
-        cenas.append((arte.cena_foto(p, t, fotos[1], pasta / "cena_f1.png", "OLHA ISSO"), 0.85))
-    cenas.append((arte.cena_beneficios(p, t, foto(2 if len(fotos) > 2 else 0),
-                                       pasta / "cena_2.png"), 1.35))
-    if len(fotos) >= 4:
-        cenas.append((arte.cena_foto(p, t, fotos[3], pasta / "cena_f2.png", "DETALHES"), 0.85))
-    cenas.append((arte.cena_preco(p, t, foto(0), pasta / "cena_3.png"), 1.25))
-    cenas.append((arte.cena_cta(p, t, foto(0), pasta / "cena_4.png"), 0.85))
-    return cenas
+    gancho = (arte.cena_gancho(p, t, foto(0), pasta / "cena_1.png"), 1.25)
+    extra1 = ((arte.cena_foto(p, t, fotos[1], pasta / "cena_f1.png", "OLHA ISSO"), 0.85)
+              if len(fotos) >= 2 else None)
+    beneficios = (arte.cena_beneficios(p, t, foto(2 if len(fotos) > 2 else 0), pasta / "cena_2.png"), 1.35)
+    extra2 = ((arte.cena_foto(p, t, fotos[3], pasta / "cena_f2.png", "DETALHES"), 0.85)
+              if len(fotos) >= 4 else None)
+    preco = (arte.cena_preco(p, t, foto(0), pasta / "cena_3.png"), 1.25)
+    cta = (arte.cena_cta(p, t, foto(0), pasta / "cena_4.png"), 0.85)
+    ordem = modelo_atual.get("ordem")
+    if ordem == "preco_cedo":            # preço logo depois do gancho
+        cenas = [gancho, preco, extra1, beneficios, extra2, cta]
+    elif ordem == "fotos_primeiro":      # mostra o produto antes de falar dos benefícios
+        cenas = [gancho, extra1, extra2, beneficios, preco, cta]
+    else:
+        cenas = [gancho, extra1, beneficios, extra2, preco, cta]
+    return [c for c in cenas if c]
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +237,7 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         entradas += ["-i", str(c)]
 
     filtros, anterior, deslocamento = [], "[0:v]", 0.0
-    transicoes = ["fade", "slideleft", "fade", "slideup", "fade"]
+    transicoes = modelo_atual.get("transicoes") or ["fade", "slideleft", "fade", "slideup", "fade"]
     for i in range(1, len(clipes)):
         deslocamento += duracoes[i - 1]
         saida = f"[v{i}]"
