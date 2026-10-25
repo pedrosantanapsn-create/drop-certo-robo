@@ -1,18 +1,16 @@
 """Vídeo vertical (Reels / TikTok / Shorts) com FFmpeg + narração gratuita.
 
 Monta de 4 a 6 cenas (gancho, fotos do produto, benefícios, preço, chamada),
-com zoom, transições, narração em voz neural (edge-tts) e LEGENDAS ANIMADAS
+com zoom, transições, narração em voz neural (Kokoro) e LEGENDAS ANIMADAS
 sincronizadas com a fala (a palavra da vez fica em destaque, estilo Reels).
 Sem música, para evitar problemas de direitos autorais — você pode pôr um
 áudio em alta ao publicar no app.
 """
 from __future__ import annotations
 
-import asyncio
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from . import arte, config
@@ -45,28 +43,6 @@ def duracao(arquivo: Path) -> float:
 # ---------------------------------------------------------------------------
 motivo_sem_voz = ""        # por que a narração falhou (aparece no resumo do Telegram)
 voz_usada = ""
-
-
-def _narrar_edge(texto: str, destino: Path) -> list[tuple[float, float, str]]:
-    """Voz neural da Microsoft (edge-tts), com o tempo de cada palavra."""
-    import edge_tts
-
-    palavras: list[tuple[float, float, str]] = []
-
-    async def _falar():
-        com = edge_tts.Communicate(texto, config.VOZ, rate="+8%", boundary="WordBoundary")
-        with open(destino, "wb") as arq:
-            async for parte in com.stream():
-                if parte["type"] == "audio":
-                    arq.write(parte["data"])
-                elif parte["type"] == "WordBoundary":
-                    ini = parte["offset"] / 1e7
-                    palavras.append((ini, ini + parte["duration"] / 1e7, parte["text"]))
-
-    asyncio.run(_falar())
-    if not destino.exists() or destino.stat().st_size < 1000:
-        raise RuntimeError("edge-tts não devolveu áudio")
-    return palavras
 
 
 _kokoro = None
@@ -107,7 +83,7 @@ def _narrar_google(texto: str, destino: Path) -> None:
 def narrar(texto: str, destino: Path) -> tuple[Path | None, list[tuple[float, float, str]]]:
     """Gera a narração e devolve (arquivo, [(início, fim, palavra), ...]).
 
-    Ordem: Kokoro (no próprio robô) → Microsoft → Google (último recurso).
+    Ordem: Kokoro (no próprio robô) → Google (reserva).
     Se as duas falharem, devolve (None, []) e o vídeo sai só com legenda.
     """
     global motivo_sem_voz, voz_usada
@@ -119,15 +95,6 @@ def narrar(texto: str, destino: Path) -> tuple[Path | None, list[tuple[float, fl
     except Exception as erro:  # noqa: BLE001
         erros.append(f"Kokoro: {type(erro).__name__}: {str(erro)[:90]}")
         print("Narração (Kokoro):", repr(erro), file=sys.stderr)
-    for tentativa in range(1):
-        try:
-            palavras = _narrar_edge(texto, destino)
-            voz_usada = "Microsoft"
-            return destino, palavras
-        except Exception as erro:  # noqa: BLE001
-            erros.append(f"Microsoft: {type(erro).__name__}: {str(erro)[:90]}")
-            print("Narração (edge-tts):", repr(erro), file=sys.stderr)
-            time.sleep(2)
     try:
         _narrar_google(texto, destino)
         voz_usada = "Google (reserva)"

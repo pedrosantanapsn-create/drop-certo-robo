@@ -12,8 +12,6 @@ A imagem é lida pelo Gemini como um print (nome e preço) e vira a foto do post
 """
 from __future__ import annotations
 
-import json
-
 import requests
 
 from . import amazon, config, fila, supabase

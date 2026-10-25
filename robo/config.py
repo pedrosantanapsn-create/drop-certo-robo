@@ -37,7 +37,6 @@ TELEGRAM_TOKEN = _env("TELEGRAM_TOKEN")            # token do BotFather
 ADMIN_CHAT_ID = _env("ADMIN_CHAT_ID")              # seu ID (só você comanda o robô)
 CANAL_ID = _env("CANAL_ID")                        # ex.: @certodrop_ofertas
 AUTO_POSTAR_CANAL = _env_bool("AUTO_POSTAR_CANAL", True)
-BOTAO_WHATSAPP = _env_bool("BOTAO_WHATSAPP", False)   # botão "Mandar no WhatsApp" no resumo
 
 # --- Instagram (API oficial com login do Instagram) -----------------------
 IG_TOKEN = _env("IG_TOKEN")                        # só na 1ª vez; depois fica no Supabase
@@ -140,7 +139,6 @@ COR_DESTAQUE = _env("COR_DESTAQUE", "#FFD43B")
 COR_TEXTO = _env("COR_TEXTO", "#FFFFFF")
 
 # --- Voz da narração (edge-tts, gratuita) --------------------------------
-VOZ = _env("VOZ", "pt-BR-FranciscaNeural")         # Microsoft (reserva)
 # Voz principal: Kokoro, roda no próprio robô (sem bloqueio). Opções pt-BR:
 # pm_santa (masculina, escolhida), pm_alex (masculina), pf_dora (feminina)
 VOZ_KOKORO = _env("VOZ_KOKORO", "pm_santa")

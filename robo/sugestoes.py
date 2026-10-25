@@ -29,7 +29,7 @@ import requests
 
 import math
 
-from . import amazon, config, mercadolivre, shopee, supabase
+from . import config, mercadolivre, shopee, supabase
 from .fila import FUSO
 from .produto import CABECALHOS, formatar_preco
 

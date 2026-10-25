@@ -130,7 +130,7 @@ def montar(dias: int = 7) -> str:
             linhas.append(f"   • {nome}: {sum(1 for p in posts if p.get(rede))}")
         por_loja = Counter(p.get("loja", "?") for p in posts)
         linhas.append("   • Por loja: " + ", ".join(f"{l} {n}" for l, n in por_loja.most_common()))
-        linhas.append(f"   (Reels e TikTok têm limite por dia de propósito — o resto vai no Story, canal e site)")
+        linhas.append("   (Reels e TikTok têm limite por dia de propósito — o resto vai no Story, canal e site)")
     linhas.append("")
 
     # Cliques

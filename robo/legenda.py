@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 
-import requests
+
 
 from . import amazon, config, gemini
 from .produto import Produto, formatar_preco

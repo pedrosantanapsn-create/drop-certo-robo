@@ -51,13 +51,6 @@ def enviar_html(chat_id, texto: str) -> None:
             disable_web_page_preview="true")
 
 
-def enviar_com_botao(chat_id, texto: str, rotulo: str, url: str) -> None:
-    """Mensagem com um botão que abre um link (ex.: compartilhar no WhatsApp)."""
-    import json as _json
-    _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], disable_web_page_preview="true",
-            reply_markup=_json.dumps({"inline_keyboard": [[{"text": rotulo, "url": url}]]}))
-
-
 def enviar_foto(chat_id, foto: Path, legenda: str = "") -> dict:
     return _chamar("sendPhoto", arquivos={"photo": foto}, chat_id=chat_id, caption=legenda[:1024])
 

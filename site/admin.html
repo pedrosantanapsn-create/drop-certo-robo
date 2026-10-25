@@ -77,9 +77,8 @@
     <div class="logo">Loja<span>ML</span> · Admin</div>
     <nav class="abas">
       <button data-aba="produtos" class="ativo">Produtos</button>
-      <button data-aba="agendar">Agendar post</button>
     </nav>
-    <div><a class="btn sec" href="./" target="_blank" style="text-decoration:none;margin-right:6px">Ver loja</a><button class="btn sec" id="sair">Sair</button></div>
+    <div><a class="btn sec" href="quadro.html" style="text-decoration:none;margin-right:6px">Quadro de ofertas</a><a class="btn sec" href="./" target="_blank" style="text-decoration:none;margin-right:6px">Ver loja</a><button class="btn sec" id="sair">Sair</button></div>
   </div></div>
 
   <!-- ---------- PRODUTOS ---------- -->
@@ -117,34 +116,6 @@
     </div>
   </div>
 
-  <!-- ---------- AGENDAR ---------- -->
-  <div class="painel container" id="aba-agendar">
-    <div class="cols">
-      <form class="box" id="formAgendar">
-        <h3>Agendar publicação</h3>
-        <label>Produto</label>
-        <select id="agProduto"><option value="">— escolher (preenche texto e mídia) —</option></select>
-        <label>Texto da publicação *</label>
-        <textarea id="agTexto" rows="7" required placeholder="Legenda… (inclua #publi e o aviso de link de afiliado)"></textarea>
-        <label>Mídia (URL pública da imagem ou vídeo) *</label>
-        <input id="agMidia" type="url" required placeholder="https://…/imagem.jpg ou vídeo.mp4">
-        <input id="agArquivo" type="file" accept="image/*,video/mp4" style="margin-top:6px">
-        <small style="color:var(--texto-2)">Enviar um arquivo aqui grava no Supabase e preenche a URL acima. TikTok exige vídeo; Instagram aceita imagem ou vídeo.</small>
-        <label>Redes</label>
-        <div class="check"><input type="checkbox" id="agIG" checked><label for="agIG" style="margin:0">Instagram</label></div>
-        <div class="check"><input type="checkbox" id="agTT"><label for="agTT" style="margin:0">TikTok</label></div>
-        <label>Data e hora da publicação *</label>
-        <input id="agData" type="datetime-local" required>
-        <button class="btn" type="submit" id="btnAgendar" style="margin-top:16px">Agendar</button>
-        <div class="msg" id="msgAgendar"></div>
-      </form>
-
-      <div class="box">
-        <h3>Agendamentos</h3>
-        <table><thead><tr><th>Quando</th><th>Redes</th><th>Texto</th><th>Status</th></tr></thead><tbody id="listaAg"></tbody></table>
-      </div>
-    </div>
-  </div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -169,7 +140,7 @@
   function mostrar(logado){
     $('#login').style.display = logado ? 'none' : 'grid';
     $('#app').style.display = logado ? 'block' : 'none';
-    if (logado){ carregarProdutos(); carregarAgendamentos(); }
+    if (logado){ carregarProdutos(); }
   }
   $('#formLogin').addEventListener('submit', async e => {
     e.preventDefault();
@@ -199,7 +170,7 @@
   async function carregarProdutos(){
     const { data, error } = await sb.from('produtos').select('*').order('criado_em',{ascending:false});
     if (error){ aviso($('#msgProduto'), error.message, 'erro'); return; }
-    produtos = data || []; renderLista(); preencherSelectAg();
+    produtos = data || []; renderLista(); 
   }
   function renderLista(){
     const t = $('#buscaAdmin').value.trim().toLowerCase();
@@ -258,56 +229,6 @@
     }catch(err){ aviso($('#msgProduto'), err.message, 'erro'); }
     btn.disabled = false;
   });
-
-  // ---------- Agendamento ----------
-  function preencherSelectAg(){
-    $('#agProduto').innerHTML = '<option value="">— escolher (preenche texto e mídia) —</option>' +
-      produtos.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');
-  }
-  $('#agProduto').onchange = e => {
-    const p = produtos.find(x=>x.id===e.target.value); if (!p) return;
-    const desc = p.preco_anterior ? ` (antes ${brl(p.preco_anterior)})` : '';
-    $('#agTexto').value = `🔥 ${p.nome}\n\n💰 Por ${brl(p.preco)}${desc}\n\n👉 Link na bio / no site LojaML\n\n#publi #linkdeafiliado #lojaml #ofertas #mercadolivre`;
-    $('#agMidia').value = p.imagem_url;
-  };
-  $('#agArquivo').onchange = async e => {
-    const f = e.target.files[0]; if (!f) return;
-    try{ $('#agMidia').value = await upload(f); aviso($('#msgAgendar'),'Mídia enviada.','ok'); }catch(err){ aviso($('#msgAgendar'), err.message, 'erro'); }
-  };
-  // data mínima = agora + 10 min
-  const min = new Date(Date.now()+10*60000); min.setSeconds(0,0);
-  $('#agData').min = new Date(min - min.getTimezoneOffset()*60000).toISOString().slice(0,16);
-
-  $('#formAgendar').addEventListener('submit', async e => {
-    e.preventDefault(); const btn = $('#btnAgendar'); btn.disabled = true; btn.textContent = 'Enviando…';
-    try{
-      const plataformas = [$('#agIG').checked && 'instagram', $('#agTT').checked && 'tiktok'].filter(Boolean);
-      if (!plataformas.length) throw new Error('Escolha ao menos uma rede.');
-      const midia = $('#agMidia').value.trim();
-      if (plataformas.includes('tiktok') && !/\.(mp4|mov|webm)(\?|$)/i.test(midia)) throw new Error('O TikTok exige um vídeo (.mp4).');
-      const data = new Date($('#agData').value).toISOString();
-      const { data:{ session } } = await sb.auth.getSession();
-      const r = await fetch('/.netlify/functions/agendar', {
-        method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
-        body: JSON.stringify({ texto:$('#agTexto').value, midia_url:midia, plataformas, data, produto_id:$('#agProduto').value || null })
-      });
-      const res = await r.json();
-      if (!r.ok) throw new Error(res.erro || 'Falha ao agendar.');
-      aviso($('#msgAgendar'), 'Agendado com sucesso!', 'ok'); $('#formAgendar').reset(); $('#agIG').checked = true; carregarAgendamentos();
-    }catch(err){ aviso($('#msgAgendar'), err.message, 'erro'); }
-    btn.disabled = false; btn.textContent = 'Agendar';
-  });
-
-  async function carregarAgendamentos(){
-    const { data } = await sb.from('agendamentos').select('*').order('data_publicacao',{ascending:false}).limit(50);
-    $('#listaAg').innerHTML = (data||[]).map(a => `
-      <tr>
-        <td>${new Date(a.data_publicacao).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}</td>
-        <td>${(a.plataformas||[]).join(', ')}</td>
-        <td>${esc((a.texto||'').slice(0,60))}…</td>
-        <td><span class="st ${a.status}">${a.status}</span>${a.erro?`<br><small>${esc(a.erro)}</small>`:''}</td>
-      </tr>`).join('') || '<tr><td colspan="4" style="color:var(--texto-2)">Nenhum agendamento.</td></tr>';
-  }
 
   iniciar();
 })();
