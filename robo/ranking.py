@@ -240,11 +240,11 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
             cenas.append((arte.cena_ranking_item(pos, nome, item["preco"], item.get("nota"), item.get("vendas"),
                                                  item["loja"], fotos[pos - 1], pasta / f"item{pos}.png"), 1.0))
             fala = f"Número {pos}: {nome}, por {_preco_falado(item['preco'])}"
-            if item.get("nota"):
+            if item.get("nota") and pos == 1:     # nota falada só no 1º (vídeo mais curto)
                 fala += f", nota {str(round(item['nota'], 1)).replace('.', ',')}"
             falas.append(fala + ".")
         cenas.append((arte.cena_ranking_fim(pasta / "fim.png"), 0.8))
-        falas.append("Qual você levaria? Comenta o número! Os links estão no canal e na bio.")
+        falas.append("Qual você levaria? Links no canal e na bio.")
         caminho, com_voz = video.renderizar(cenas, " ".join(falas), pasta, "top5.mp4")
         status.append("• Vídeo: pronto" + (" com narração" if com_voz else " (sem narração)"))
 

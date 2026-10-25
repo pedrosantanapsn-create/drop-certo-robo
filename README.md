@@ -48,6 +48,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
 | a partir das 10h | Avisos de "baixou o preço" no canal (≥ 10%, ML e Shopee) |
 | 10h | Sugestões do dia (Promobit + Shopee) |
+| Ter/Qui/Dom 19h → 20h | Vídeo "Top 5" (prévia às 19h, `/cancelar_top`; publica às 20h no Reels, Story, TikTok e canal) |
 | 21h | Top 5 do dia no canal |
 | Segunda 9h | Relatório da semana (posts, cliques do canal e do site) |
 | Qualquer erro | Alerta imediato no bot (no máx. 1 por problema a cada 6 h) |
@@ -62,6 +63,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `/fila` `/agora` `/limpar` `/intervalo` | fila de posts |
 | `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
 | `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
+| `/video_top fone bluetooth até 100` · `/cancelar_top` | vídeo "Top 5" na hora · cancela o das 20h |
 | `/cupom CODIGO descrição` | post de cupom no canal |
 | `/site link` + `preco:` | só no site, sem postar de novo |
 | `/relatorio [dias]` `/conferir` | relatório e conferência na hora |
@@ -90,7 +92,8 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `TOP_DO_DIA` / `RASTREAR_CLIQUES` | true / true | top das 21h e cliques do canal |
 | `AMAZON_TAG` | certodrop-20 | sua tag da Amazon |
 | `ML_MATT_WORD` / `ML_MATT_TOOL` | seus códigos | link de afiliada do ML |
-| `VOZ_KOKORO` / `VELOCIDADE_VOZ` | pm_santa / 1.1 | narração |
+| `VOZ_KOKORO` / `VELOCIDADE_VOZ` / `VARIAR_VOZ` | pm_santa / 1.1 / true | narração (com VARIAR_VOZ cada modelo usa uma voz: Santa, Dora, Alex) |
+| `VIDEO_TOP` | true | vídeos Top 5 de terça, quinta e domingo |
 
 **Supabase:** tabelas `produtos` (site), `config` (estado do robô), `cliques` (só inserção pública);
 bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, Verify JWT desligado,
