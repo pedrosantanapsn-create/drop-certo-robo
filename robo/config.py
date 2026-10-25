@@ -75,6 +75,9 @@ PALAVRAS_ML = _env("PALAVRAS_ML", "")
 RASTREAR_CLIQUES = _env_bool("RASTREAR_CLIQUES", True)
 SITE_URL = _env("SITE_URL", "https://certodrop.netlify.app")
 
+# --- Vídeo "Top 5" (terça, quinta e domingo às 20h; prévia às 19h) ---
+VIDEO_TOP = _env_bool("VIDEO_TOP", True)
+
 # --- Top do dia no canal (21h) ---
 TOP_DO_DIA = _env_bool("TOP_DO_DIA", True)
 
@@ -150,6 +153,7 @@ COR_TEXTO = _env("COR_TEXTO", "#FFFFFF")
 # pm_santa (masculina, escolhida), pm_alex (masculina), pf_dora (feminina)
 VOZ_KOKORO = _env("VOZ_KOKORO", "pm_santa")
 VELOCIDADE_VOZ = float(_env("VELOCIDADE_VOZ", "1.1"))
+VARIAR_VOZ = _env_bool("VARIAR_VOZ", True)   # cada modelo de vídeo usa uma voz (Santa, Dora, Alex)
 PASTA_MODELOS = RAIZ / "modelos"
 
 AVISO_LEGAL = "#publi · Link de afiliado · Preço sujeito a alteração"

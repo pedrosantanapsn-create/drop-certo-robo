@@ -167,13 +167,17 @@ def _clipe(quadro: Path, segundos: float, destino: Path, indice: int) -> Path:
 # ---------------------------------------------------------------------------
 MODELOS = [
     {"nome": "Amarelo clássico", "fundo": "#0B1220", "destaque": "#FFD43B", "ordem": "padrao",
-     "transicoes": ["fade", "slideleft", "fade", "slideup", "fade"], "zoom_entra": True},
+     "transicoes": ["fade", "slideleft", "fade", "slideup", "fade"], "zoom_entra": True,
+     "voz": "pm_santa", "velocidade": 1.1},
     {"nome": "Laranja", "fundo": "#111111", "destaque": "#FF7A1A", "ordem": "preco_cedo",
-     "transicoes": ["slideup", "fade", "slideleft", "fade", "slideup"], "zoom_entra": False},
+     "transicoes": ["slideup", "fade", "slideleft", "fade", "slideup"], "zoom_entra": False,
+     "voz": "pf_dora", "velocidade": 1.1},
     {"nome": "Turquesa", "fundo": "#140F2B", "destaque": "#2DD4BF", "ordem": "fotos_primeiro",
-     "transicoes": ["circleopen", "fade", "slideright", "fade", "circleopen"], "zoom_entra": True},
+     "transicoes": ["circleopen", "fade", "slideright", "fade", "circleopen"], "zoom_entra": True,
+     "voz": "pm_alex", "velocidade": 1.1},
     {"nome": "Verde-limão", "fundo": "#0B1F17", "destaque": "#A3E635", "ordem": "preco_cedo",
-     "transicoes": ["slideleft", "slideleft", "fade", "slideleft", "fade"], "zoom_entra": False},
+     "transicoes": ["slideleft", "slideleft", "fade", "slideleft", "fade"], "zoom_entra": False,
+     "voz": "pf_dora", "velocidade": 1.18},
 ]
 modelo_atual = MODELOS[0]
 
@@ -184,6 +188,9 @@ def usar_modelo(numero: int) -> dict:
     modelo_atual = MODELOS[numero % len(MODELOS)]
     config.COR_FUNDO = modelo_atual["fundo"]
     config.COR_DESTAQUE = modelo_atual["destaque"]
+    if config.VARIAR_VOZ and modelo_atual.get("voz"):
+        config.VOZ_KOKORO = modelo_atual["voz"]
+        config.VELOCIDADE_VOZ = modelo_atual.get("velocidade", config.VELOCIDADE_VOZ)
     return modelo_atual
 
 
@@ -213,9 +220,13 @@ def _montar_cenas(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> list[t
 # ---------------------------------------------------------------------------
 def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Path, bool]:
     """Retorna (caminho_do_video, tem_narracao)."""
-    cenas = _montar_cenas(p, t, fotos, pasta)
+    return renderizar(_montar_cenas(p, t, fotos, pasta), t["narracao"], pasta)
 
-    audio, palavras = narrar(t["narracao"], pasta / "narracao.mp3")
+
+def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path,
+               nome: str = "video.mp4") -> tuple[Path, bool]:
+    """Junta as cenas [(quadro, peso)] com narração e legendas animadas."""
+    audio, palavras = narrar(texto_narracao, pasta / f"narracao_{Path(nome).stem}.mp3")
     total = max(DURACAO_MINIMA, (duracao(audio) + ATRASO_VOZ + 0.6) if audio else 0)
     soma = sum(peso for _, peso in cenas)
     duracoes = [total * peso / soma for _, peso in cenas]
@@ -225,7 +236,7 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         palavras = [(a + ATRASO_VOZ, b + ATRASO_VOZ, w) for a, b, w in palavras]
     else:
         fim_fala = (duracao(audio) + ATRASO_VOZ) if audio else total - 1.2
-        palavras = _tempos_estimados(t["narracao"], ATRASO_VOZ, fim_fala)
+        palavras = _tempos_estimados(texto_narracao, ATRASO_VOZ, fim_fala)
 
     clipes = []
     for i, ((q, _), seg) in enumerate(zip(cenas, duracoes)):
@@ -270,7 +281,7 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         )
         anterior = saida
 
-    destino = pasta / "video.mp4"
+    destino = pasta / nome
     cmd = ["ffmpeg", "-y", *entradas]
     idx_audio = n + len(legendas)
     if audio:

@@ -352,3 +352,60 @@ def quadro_legenda(palavras: list[str], ativa: int, destino: Path) -> Path:
         y += alt_linha
     img.save(destino)
     return destino
+
+
+# ---------------------------------------------------------------------------
+# Vídeo "Top 5" (ranking por nota/vendas)
+# ---------------------------------------------------------------------------
+def cena_ranking_capa(titulo: str, subtitulo: str, destino: Path) -> Path:
+    img = fundo(VW, VH)
+    d = ImageDraw.Draw(img)
+    pilula(d, (VM, 300), "TOP 5", fonte("black", 64), config.COR_DESTAQUE, config.COR_FUNDO, pad=(40, 18))
+    y = texto_bloco(d, (VM, 440), titulo.upper(), fonte("black", 96), config.COR_TEXTO, VW - 2 * VM, 5, espaco=1.05)
+    texto_bloco(d, (VM, y + 40), subtitulo, fonte("semibold", 46), CINZA, VW - 2 * VM, 3)
+    d.text((VM, 1180), config.MARCA, font=fonte("black", 52), fill=config.COR_DESTAQUE)
+    _rodape_video(d)
+    img.save(destino)
+    return destino
+
+
+def cena_ranking_item(posicao: int, nome: str, preco: float | None, nota: float | None,
+                      vendas: int | None, loja: str, foto: Path | None, destino: Path) -> Path:
+    img = fundo(VW, VH)
+    d = ImageDraw.Draw(img)
+    # número grande da posição
+    d.text((VM, 120), f"#{posicao}", font=fonte("black", 170), fill=config.COR_DESTAQUE)
+    d.text((VM + 300, 185), loja.upper(), font=fonte("extrabold", 40), fill=CINZA)
+    cartao_produto(img, foto, (VM + 40, 360, VW - VM - 40, 900), raio=56)
+    y = texto_bloco(d, (VM, 950), nome, fonte("extrabold", 58), config.COR_TEXTO, VW - 2 * VM, 2)
+    y += 10
+    if preco:
+        d.text((VM, y), formatar_preco(preco), font=fonte("black", 104), fill=config.COR_DESTAQUE)
+        y += 125
+    detalhes = []
+    if nota:
+        detalhes.append(f"★ {nota:.1f}".replace(".", ","))
+    if vendas:
+        detalhes.append(f"{vendas:,} vendidos".replace(",", "."))
+    if detalhes:
+        d.text((VM, y), "  ·  ".join(detalhes), font=fonte("bold", 46), fill=config.COR_TEXTO)
+    _rodape_video(d)
+    img.save(destino)
+    return destino
+
+
+def cena_ranking_fim(destino: Path) -> Path:
+    img = fundo(VW, VH)
+    d = ImageDraw.Draw(img)
+    d.text((VW / 2, 470), "Qual você levaria?", font=fonte("black", 78), fill=config.COR_TEXTO, anchor="mm")
+    d.text((VW / 2, 570), "comenta o número 👇".replace("👇", ""), font=fonte("semibold", 48),
+           fill=CINZA, anchor="mm")
+    f = fonte("black", 66)
+    txt = "LINKS NO CANAL E NA BIO"
+    w = d.textlength(txt, font=f)
+    d.rounded_rectangle((VW / 2 - w / 2 - 50, 720, VW / 2 + w / 2 + 50, 850), 65, fill=config.COR_DESTAQUE)
+    d.text((VW / 2, 785), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
+    d.text((VW / 2, 960), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE, anchor="mm")
+    _rodape_video(d)
+    img.save(destino)
+    return destino

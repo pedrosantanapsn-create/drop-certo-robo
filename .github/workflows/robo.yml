@@ -70,6 +70,8 @@ jobs:
       QUEDA_MINIMA: ${{ vars.QUEDA_MINIMA }}
       FILA_AUTOMATICA: ${{ vars.FILA_AUTOMATICA }}
       TOP_DO_DIA: ${{ vars.TOP_DO_DIA }}
+      VIDEO_TOP: ${{ vars.VIDEO_TOP }}
+      VARIAR_VOZ: ${{ vars.VARIAR_VOZ }}
       RASTREAR_CLIQUES: ${{ vars.RASTREAR_CLIQUES }}
       FILA_AUTO_SHOPEE: ${{ vars.FILA_AUTO_SHOPEE }}
       FILA_AUTO_ML: ${{ vars.FILA_AUTO_ML }}
@@ -106,6 +108,10 @@ jobs:
           REABASTECER=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.reabastecer_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Vídeo Top 5 (prévia 19h / post 20h)
+          RANKING=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.ranking_proximo&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           # Top do dia no canal (21h)
           TOP=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.top_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -125,6 +131,9 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$REABASTECER" ] && [ "$(date +%s)" -ge "$REABASTECER" ]; then
             echo "Fila acabou: hora de colocar ofertas novas."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$RANKING" ] && [ "$(date +%s)" -ge "$RANKING" ]; then
+            echo "Vídeo Top 5 (prévia/post ou primeira marcação)."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$TOP" ] && [ "$(date +%s)" -ge "$TOP" ]; then
             echo "Hora do Top do dia."

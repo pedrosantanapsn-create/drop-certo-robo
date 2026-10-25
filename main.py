@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, ranking, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -69,6 +69,7 @@ Comandos:
 /ml — liga/confere a API oficial do Mercado Livre
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
+/video_top fone bluetooth até 100 — vídeo "Top 5" na hora · /cancelar_top cancela o das 20h
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
@@ -253,7 +254,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         modelo = video.usar_modelo(numero)
         if supabase.ativo():
             supabase.gravar_config("modelo_video", str(numero + 1))
-        status.append(f"• Modelo do vídeo: {modelo['nome']}")
+        status.append(f"• Modelo do vídeo: {modelo['nome']} · voz {config.VOZ_KOKORO}")
     except Exception as erro:  # noqa: BLE001
         print("Modelo do vídeo:", erro, file=sys.stderr)
     caminho_arte = arte.arte_feed(produto, textos, fotos, pasta / "arte_feed.jpg")
@@ -289,9 +290,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
 
     # 4b. Instagram (Reels automático)
     legenda_redes = legenda.montar_legenda(produto, textos, com_link=False)
-    limite_ig = config.INSTAGRAM_MAX_DIA
-    feitos_ig = relatorio.postados_hoje("instagram") if (limite_ig and supabase.ativo()) else 0
-    if caminho_video and instagram.ativo() and limite_ig and feitos_ig >= limite_ig:
+    reserva = 1 if ranking.reservado_hoje() else 0     # dia de Top 5: guarda 1 vaga para o vídeo das 20h
+    limite_ig = max(config.INSTAGRAM_MAX_DIA - reserva, 0) if config.INSTAGRAM_MAX_DIA else 0
+    feitos_ig = relatorio.postados_hoje("instagram") if (config.INSTAGRAM_MAX_DIA and supabase.ativo()) else 0
+    if caminho_video and instagram.ativo() and config.INSTAGRAM_MAX_DIA and feitos_ig >= limite_ig:
         status.append(f"• Reels: pulado — limite de {limite_ig} Reels por dia já atingido (vai só no Story)")
     elif caminho_video and instagram.ativo() and config.INSTAGRAM_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
         status.append("• Reels: pulado — fora do horário de pico (vai só no Story)")
@@ -313,9 +315,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• Story no Instagram: erro — {str(erro)[:160]}")
 
     # 4c. TikTok (pelo Zernio)
-    limite_tt = config.TIKTOK_MAX_DIA
-    feitos_tt = relatorio.postados_hoje("tiktok") if (limite_tt and supabase.ativo()) else 0
-    if caminho_video and tiktok.ativo() and limite_tt and feitos_tt >= limite_tt:
+    limite_tt = max(config.TIKTOK_MAX_DIA - reserva, 0) if config.TIKTOK_MAX_DIA else 0
+    feitos_tt = relatorio.postados_hoje("tiktok") if (config.TIKTOK_MAX_DIA and supabase.ativo()) else 0
+    if caminho_video and tiktok.ativo() and config.TIKTOK_MAX_DIA and feitos_tt >= limite_tt:
         status.append(f"• TikTok: pulado — limite de {limite_tt} vídeos por dia já atingido (protege o alcance)")
     elif caminho_video and tiktok.ativo() and config.TIKTOK_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
         status.append("• TikTok: pulado — fora do horário de pico (vai só nos melhores horários)")
@@ -476,6 +478,13 @@ def tratar(mensagem: dict) -> None:
                 telegram.enviar_texto(chat_id, f"⚠️ Não achei na última sugestão: {', '.join(faltou)}")
     elif comando == "/site":
         so_site(mensagem, chat_id, texto.split(None, 1)[1] if len(texto.split(None, 1)) > 1 else "")
+    elif comando in ("/video_top", "/videotop", "/top5"):
+        try:
+            ranking.sob_demanda(" ".join(texto.split()[1:]), lambda t: telegram.enviar_texto(chat_id, t))
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Top 5: {str(erro)[:200]}")
+    elif comando in ("/cancelar_top", "/cancelartop"):
+        telegram.enviar_texto(chat_id, ranking.cancelar())
     elif comando == "/cupom":
         postar_cupom(chat_id, texto)
     elif comando == "/ofertas":
@@ -791,6 +800,10 @@ def rodar_uma_vez() -> int:
         reabastecer.se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Fila automática:", erro, file=sys.stderr)
+    try:
+        ranking.se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Top 5:", erro, file=sys.stderr)
     try:
         top.postar_se_for_hora()
     except Exception as erro:  # noqa: BLE001
