@@ -1,180 +1,115 @@
-# Robô Drop Certo — Etapa 1
+# Robô Drop Certo
 
-Você manda o seu link de afiliado (`meli.la/...`) para o seu bot no Telegram. O robô devolve, em poucos minutos:
+Automação de ofertas de afiliado (tecnologia, informática e peças de PC) para o **Drop Certo**:
+canal do Telegram [@DropCerto22](https://t.me/DropCerto22), Instagram **@certodrop**, TikTok **@certo.drop**
+e o site **certodrop.netlify.app**.
 
-| Entrega | Onde |
+Você manda um link (ou deixa a fila automática escolher) e o robô faz o resto: lê o produto, monta arte e
+vídeo com narração, escreve a legenda com #publi e publica em todos os canais, nos melhores horários.
+
+**Custo: R$ 0** — GitHub Actions, Telegram, Supabase (plano grátis), Netlify, Gemini (nível gratuito),
+voz Kokoro (roda no próprio robô), APIs oficiais da Shopee e do Mercado Livre, Zernio para Instagram/TikTok.
+
+---
+
+## 1. Como funciona
+
+```
+Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) ──► GitHub Actions (robo.yml)
+                                                                            │
+          ┌────────────────────────┬──────────────────────┬─────────────────┼──────────────────┐
+          ▼                        ▼                      ▼                 ▼                  ▼
+   Canal do Telegram         Site (Supabase +       Instagram Reels    TikTok (Zernio)    Relatórios e
+   (link rastreado r.html)   Netlify)               + Story (Zernio)                      alertas no bot
+```
+
+- **robo.yml** roda a cada 10 min (cron-job.org) e na hora em que você manda mensagem (modo instantâneo).
+  Um passo rápido confere se há algo a fazer (mensagem, fila, relatório, conferência, quadro, top do dia…)
+  antes de instalar tudo.
+- **site.yml** publica a pasta `site/` na Netlify sempre que ela muda.
+- Estado (fila, histórico, tokens, horários) fica na tabela `config` do Supabase.
+
+## 2. Lojas
+
+| Loja | Leitura do produto | Link de afiliado | Sugestões |
+|---|---|---|---|
+| **Shopee** | API oficial de afiliados (sem print) | gerado pela API (`generateShortLink`) | `/shopee`, 10h, fila automática |
+| **Mercado Livre** | API oficial (produtos de catálogo) | meli.la seu ou link com `matt_word`/`matt_tool` | `/ofertas_ml`, fila automática |
+| **Amazon** | print (Gemini lê nome e preço e recorta o produto) | tag `certodrop-20` colocada sozinha | `/ofertas_amazon` (Promobit) |
+| **TikTok Shop** | nome e foto da página; preço por print ou `preco:` | o link que você compartilha | — |
+
+## 3. O que roda sozinho
+
+| Quando | O quê |
 |---|---|
-| 🖼️ Arte do feed (1080×1350) com foto, preço, desconto e aviso de publicidade | No seu Telegram e no canal |
-| 🎬 Vídeo vertical de 12–15 s (1080×1920) com narração, para Reels, TikTok e Shorts | No seu Telegram |
-| 📋 Legenda pronta com #publi e hashtags | No seu Telegram |
-| 📢 Post automático no canal público com o link clicável | Canal do Telegram |
-| 🌐 Produto cadastrado no site (Supabase) | Seu site na Netlify |
+| 10h–23h | Fila: 1 post/hora; no pico (11h30–13h30 e 19h–23h) 2 por hora |
+| Cada post | Arte + vídeo (4 modelos em rodízio) + legenda → canal, site, Story; Reels (máx. 4/dia, só pico) e TikTok (máx. 3/dia, só pico, 2 h de intervalo) |
+| Fila acabou | Fila automática: 3 Shopee + 3 Mercado Livre, prioridade para peças de PC e para o que o público mais clica |
+| 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
+| a partir das 10h | Avisos de "baixou o preço" no canal (≥ 10%, ML e Shopee) |
+| 10h | Sugestões do dia (Promobit + Shopee) |
+| 21h | Top 5 do dia no canal |
+| Segunda 9h | Relatório da semana (posts, cliques do canal e do site) |
+| Qualquer erro | Alerta imediato no bot (no máx. 1 por problema a cada 6 h) |
 
-**Custo: R$ 0.** Usa apenas serviços gratuitos (GitHub Actions, API do Telegram, Gemini no nível gratuito, edge-tts e FFmpeg).
-
-> **Por que o robô não gera o link de afiliado sozinho?** O Mercado Livre não tem uma API oficial para afiliados. As ferramentas que geram o link sozinhas usam os cookies da sua conta, o que pode violar os termos e levar à suspensão. Aqui você gera o link no app do ML (5 segundos), e o robô faz todo o resto sem acessar a sua conta.
-
----
-
-## 1. O que você vai precisar
-
-- [x] Bot do Telegram criado no BotFather (você já tem)
-- [x] Chave do Gemini no Google AI Studio (você já tem)
-- [x] Projeto Supabase do site (você já tem)
-- [ ] Um **canal público** no Telegram
-- [ ] Uma conta no **GitHub**, que é gratuita
-
----
-
-## 2. Passo a passo
-
-### Passo 1 — Canal público no Telegram
-
-1. No Telegram, toque em ✏️ e depois em **Novo canal**.
-2. Escolha **Canal público** e defina o link, por exemplo `t.me/certodrop_ofertas`.
-   O programa de afiliados só aceita canais públicos. Grupos fechados não valem.
-3. Abra o canal, vá em **Administradores → Adicionar administrador** e adicione o seu bot.
-   Deixe ativada a permissão **Publicar mensagens**.
-4. Cadastre o canal no painel do Programa de Afiliados do Mercado Livre como canal de divulgação.
-
-### Passo 2 — Repositório no GitHub
-
-1. Entre em <https://github.com> e clique em **New repository**.
-2. Use o nome `drop-certo-robo` e marque **Public**.
-   - Em repositório **público**, os minutos do GitHub Actions são **ilimitados e gratuitos**.
-   - As suas chaves **não ficam visíveis**: elas vão em "Secrets", que ninguém consegue ler.
-   - Se preferir **Private**, o limite é de 2.000 minutos por mês. Nesse caso troque `*/10` por `*/30` no arquivo `.github/workflows/robo.yml`.
-3. Clique em **uploading an existing file** e arraste **todo o conteúdo** desta pasta, incluindo a pasta `.github`.
-4. Clique em **Commit changes**.
-
-### Passo 3 — Cadastrar as chaves (Secrets)
-
-No repositório, abra **Settings → Secrets and variables → Actions → New repository secret** e crie um segredo para cada item:
-
-| Nome do segredo | O que colocar | Onde encontrar |
-|---|---|---|
-| `TELEGRAM_TOKEN` | Token do bot | BotFather → `/mybots` → API Token |
-| `CANAL_ID` | `@nome_do_seu_canal` | Link do canal |
-| `GEMINI_API_KEY` | Chave do Gemini | <https://aistudio.google.com/apikey> |
-| `SUPABASE_URL` | `https://xxxx.supabase.co` | Supabase → Project Settings → API |
-| `SUPABASE_SERVICE_KEY` | Chave **service_role** | Supabase → Project Settings → API |
-| `ADMIN_CHAT_ID` | Seu ID do Telegram | Veja o Passo 4 |
-
-> ⚠️ A chave `service_role` dá acesso total ao banco. Coloque-a **somente** em Secrets e nunca no código do site.
-
-### Passo 4 — Primeiro teste e seu ID
-
-1. No GitHub, vá em **Actions** e clique em **I understand… enable them**, se aparecer.
-2. No Telegram, mande `/start` para o seu bot.
-3. Em **Actions → Robô Drop Certo**, clique em **Run workflow**. Isso roda na hora, sem esperar os 10 minutos.
-4. O bot responde: **"Seu ID do Telegram é: 123456789"**.
-5. Crie o segredo `ADMIN_CHAT_ID` com esse número. A partir daí **só você** consegue usar o robô.
-
-### Passo 5 — Conferir as colunas do site
-
-1. Mande `/colunas` para o bot e rode o workflow de novo.
-2. O bot lista os nomes das colunas da sua tabela de produtos.
-3. Se forem diferentes do padrão (`nome`, `preco`, `imagem_url`, `link`, `descricao`), vá em **Settings → Secrets and variables → Actions → aba Variables** e crie as variáveis com os nomes certos. Por exemplo, `COL_IMAGEM` com o valor `foto`.
-4. Se a tabela ou o bucket tiverem outro nome, crie também `SUPABASE_TABELA` e `SUPABASE_BUCKET`.
-
----
-
-## 3. Como usar no dia a dia
-
-1. No app do Mercado Livre, ache a oferta e toque em **Compartilhar** para gerar o link de afiliado `meli.la/...`.
-2. Cole o link no chat do seu bot e envie.
-3. Em até ~10 minutos chegam a arte, o vídeo e a legenda. O post do canal e o cadastro no site já ficam feitos.
-4. Publique o vídeo no Instagram, TikTok e YouTube Shorts colando a legenda. Leva cerca de 1 minuto.
-
-### Formatos aceitos
-
-Só o link:
-```
-meli.la/2VjtBGz
-```
-
-Corrigindo ou completando dados (uma informação por linha):
-```
-meli.la/2VjtBGz
-nome: Mouse Gamer Sem Fio RGB
-preco: 89,90
-de: 149,90
-obs: bom para quem joga FPS
-```
-
-**Com foto:** mande uma foto do produto e escreva o link na legenda. O robô usa a sua foto.
-
-### Comandos
+## 4. Comandos do bot
 
 | Comando | Para quê |
 |---|---|
-| `/ajuda` | Mostra os formatos aceitos |
-| `/id` | Mostra o seu ID do Telegram |
-| `/colunas` | Lista as colunas da tabela do site |
+| link (ou vários, um por linha) | posta na hora (1 link) ou põe na fila (vários) |
+| print + link na legenda | Amazon / TikTok Shop: lê preço e recorta o produto |
+| `preco:` `de:` `nome:` `cupom:` | linhas embaixo do link para completar/corrigir |
+| `/fila` `/agora` `/limpar` `/intervalo` | fila de posts |
+| `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
+| `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
+| `/cupom CODIGO descrição` | post de cupom no canal |
+| `/site link` + `preco:` | só no site, sem postar de novo |
+| `/relatorio [dias]` `/conferir` | relatório e conferência na hora |
+| `/ml` `/instagram` `/tiktok` `/voz` `/instantaneo` | conferir ligações |
 
----
+**Quadro de ofertas:** `certodrop.netlify.app/quadro.html` (login do admin) — imagem em cima, link embaixo,
+"+" para mais quadros; o robô importa para a fila em até 10 min.
 
-## 4. Opcional: rodar no seu PC (resposta na hora)
+## 5. Configuração
 
-No GitHub o robô confere as mensagens a cada ~10 minutos. Com o PC ligado, ele responde em segundos.
+**Secrets (GitHub → Settings → Secrets and variables → Actions):**
+`TELEGRAM_TOKEN`, `ADMIN_CHAT_ID`, `CANAL_ID`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+`ZERNIO_API_KEY`, `SHOPEE_APP_ID`, `SHOPEE_APP_SECRET`, `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
+`NETLIFY_AUTH_TOKEN`, `MAKE_WEBHOOK_URL` (reserva do Instagram, opcional).
 
-1. Instale o Python: <https://www.python.org/downloads/>. Marque **"Add python.exe to PATH"** na instalação.
-2. Instale o FFmpeg. No Prompt de Comando, rode `winget install Gyan.FFmpeg`.
-   A arte usa a fonte Inter (licença livre OFL), que o GitHub instala sozinho. No PC, se ela não estiver instalada, o robô usa Arial.
-3. Copie `.env.exemplo` para `.env` e preencha as chaves.
-4. Dê dois cliques em **`ligar_robo_no_pc.bat`**.
+**Variáveis opcionais (aba Variables)** — todas têm padrão:
 
-> Não deixe o PC e o GitHub ligados ao mesmo tempo. Os dois disputariam as mesmas mensagens. Enquanto usar o PC, desative o workflow em **Actions → Robô Drop Certo → ⋯ → Disable workflow**.
-
-Para conferir o visual sem internet, rode `python main.py --teste`. A arte e o vídeo de exemplo ficam em `saida/teste/`.
-
----
-
-## 5. Estrutura do projeto
-
-```
-drop-certo-robo/
-├── main.py                  # Recebe as mensagens e coordena tudo
-├── robo/
-│   ├── config.py            # Chaves, cores e nomes de colunas
-│   ├── produto.py           # Lê nome, preço e fotos do anúncio
-│   ├── legenda.py           # Textos com Gemini (com modelo de reserva)
-│   ├── arte.py              # Arte do feed e quadros do vídeo
-│   ├── video.py             # Vídeo com FFmpeg + narração
-│   ├── telegram.py          # API do Telegram
-│   └── supabase.py          # Cadastro no site
-├── .github/workflows/robo.yml  # Agendamento gratuito no GitHub
-├── .env.exemplo             # Modelo de chaves para rodar no PC
-└── ligar_robo_no_pc.bat     # Liga o robô no Windows
-```
-
-### Mudar as cores da marca
-
-Crie as variáveis `COR_FUNDO`, `COR_DESTAQUE` e `COR_TEXTO` com cores em hexadecimal, por exemplo `#0B1220`. Também dá para mudar `ARROBA` e `MARCA`.
-
----
-
-## 6. Limitações e cuidados
-
-| Situação | O que acontece | O que fazer |
+| Variável | Padrão | Para quê |
 |---|---|---|
-| O ML bloqueia a leitura do anúncio | Os servidores do GitHub às vezes são vistos como robô | O bot avisa e pede `nome:` e `preco:`. Mande junto uma foto do produto |
-| O agendamento atrasa | O GitHub pode atrasar execuções agendadas em horários de pico | Use **Run workflow** ou rode no PC |
-| 60 dias sem alterações no repositório | O GitHub desativa o agendamento de repositórios públicos | Reative em **Actions** ou faça qualquer commit |
-| Limite diário do Gemini | O robô usa um modelo de texto pronto | Nada. O post sai do mesmo jeito |
-| Narração indisponível | O vídeo sai sem voz | Coloque um áudio em alta ao publicar no app |
-| Preço mudou depois do post | O ML altera preços com frequência | A legenda já traz "Preço sujeito a alteração" |
+| `INSTAGRAM_MAX_DIA` / `INSTAGRAM_SO_PICO` / `INSTAGRAM_INTERVALO_H` | 4 / true / 1 | limite de Reels |
+| `TIKTOK_MAX_DIA` / `TIKTOK_SO_PICO` / `TIKTOK_INTERVALO_H` | 3 / true / 2 | limite do TikTok |
+| `HORARIOS_PICO` | 11:30-13:30,19:00-23:00 | horários de pico |
+| `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` | true / 3 / 3 | fila automática |
+| `PALAVRAS_PC` / `PALAVRAS_SHOPEE` / `PALAVRAS_ML` | peças de PC + periféricos | o que buscar |
+| `QUEDA_MINIMA` / `AVISAR_QUEDAS` | 10 / true | aviso de queda de preço |
+| `TOP_DO_DIA` / `RASTREAR_CLIQUES` | true / true | top das 21h e cliques do canal |
+| `AMAZON_TAG` | certodrop-20 | sua tag da Amazon |
+| `ML_MATT_WORD` / `ML_MATT_TOOL` | seus códigos | link de afiliada do ML |
+| `VOZ_KOKORO` / `VELOCIDADE_VOZ` | pm_santa / 1.1 | narração |
 
-### Regras que o robô já respeita
+**Supabase:** tabelas `produtos` (site), `config` (estado do robô), `cliques` (só inserção pública);
+bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, Verify JWT desligado,
+segredo `GITHUB_TOKEN_ROBO`).
 
-- **#publi e "Link de afiliado"** em toda arte, vídeo e legenda. O CDC (art. 36) exige que a publicidade seja identificável, e o Guia de Publicidade por Influenciadores Digitais do CONAR orienta sinalizar o conteúdo comercial.
-- A IA recebe instruções para **não inventar** especificações, estoque ou urgência falsa, para evitar publicidade enganosa (CDC, art. 37).
-- O robô não acessa a sua conta do Mercado Livre e não compra tráfego.
-- Só você comanda o robô. Mensagens de outras pessoas são ignoradas.
+## 6. Regras que o robô segue (legislação brasileira)
 
----
+- Todo post leva **#publi** e o aviso de link de afiliado (CONAR, CDC art. 36); na Amazon também
+  "Como Associado da Amazon, eu ganho com compras qualificadas.".
+- Preço com data/hora; site esconde o preço da Amazon após 24 h; "de R$" só quando é verdade e é apagado
+  quando deixa de ser; ofertas esgotadas saem do site (CDC art. 37).
+- Cupom só entra quando você escreve, com regras e validade.
+- Nenhuma foto é "inventada" por IA: o recorte usa a foto real do anúncio.
+- Cliques são contados sem nenhum dado do visitante (LGPD).
+- Chaves só nos Secrets do GitHub / Supabase — nunca no site nem no código.
 
-## 7. Próximas etapas
+## 7. Arquivos
 
-- **Etapa 2:** postagem automática no Instagram pela API oficial da Meta.
-- **Etapa 3:** busca de ofertas de informática para você só aprovar e gerar o link.
+`main.py` (comandos e fluxo do post) · `robo/` (um módulo por assunto: `fila`, `sugestoes`, `reabastecer`,
+`shopee`, `mercadolivre`, `amazon`, `verificador`, `quedas`, `top`, `alertas`, `rastreio`, `relatorio`,
+`arte`, `video`, `recorte`, `legenda`, `instagram`, `tiktok`, `zernio`, `quadro`…) · `site/` (vitrine,
+admin, quadro, `r.html` dos cliques, `ml.html` da autorização) · `supabase/functions/telegram-robo`.
