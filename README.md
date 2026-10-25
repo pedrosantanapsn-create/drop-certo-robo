@@ -64,6 +64,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
 | `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
 | `/video_top fone bluetooth até 100` · `/cancelar_top` | vídeo "Top 5" na hora · cancela o das 20h |
+| áudio + `/musica` · `/musicas` · `/tirar_musica N` | biblioteca de músicas de fundo (Pixabay, sem Content ID) |
 | `/cupom CODIGO descrição` | post de cupom no canal |
 | `/site link` + `preco:` | só no site, sem postar de novo |
 | `/relatorio [dias]` `/conferir` | relatório e conferência na hora |
@@ -94,6 +95,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `ML_MATT_WORD` / `ML_MATT_TOOL` | seus códigos | link de afiliada do ML |
 | `VOZ_KOKORO` / `VELOCIDADE_VOZ` / `VARIAR_VOZ` | pm_santa / 1.1 / true | narração (com VARIAR_VOZ cada modelo usa uma voz: Santa, Dora, Alex) |
 | `VIDEO_TOP` | true | vídeos Top 5 de terça, quinta e domingo |
+| `MUSICA_FUNDO` / `VOLUME_MUSICA` | true / 0.12 | música da biblioteca por baixo da narração |
 
 **Supabase:** tabelas `produtos` (site), `config` (estado do robô), `cliques` (só inserção pública);
 bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, Verify JWT desligado,

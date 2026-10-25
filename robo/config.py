@@ -153,7 +153,9 @@ COR_TEXTO = _env("COR_TEXTO", "#FFFFFF")
 # pm_santa (masculina, escolhida), pm_alex (masculina), pf_dora (feminina)
 VOZ_KOKORO = _env("VOZ_KOKORO", "pm_santa")
 VELOCIDADE_VOZ = float(_env("VELOCIDADE_VOZ", "1.1"))
-VARIAR_VOZ = _env_bool("VARIAR_VOZ", True)   # cada modelo de vídeo usa uma voz (Santa, Dora, Alex)
+VARIAR_VOZ = _env_bool("VARIAR_VOZ", True)
+MUSICA_FUNDO = _env_bool("MUSICA_FUNDO", True)                 # música da biblioteca (/musica) nos vídeos
+VOLUME_MUSICA = float(_env("VOLUME_MUSICA", "0.12") or 0.12)   # 0.12 = bem baixinha por baixo da voz   # cada modelo de vídeo usa uma voz (Santa, Dora, Alex)
 PASTA_MODELOS = RAIZ / "modelos"
 
 AVISO_LEGAL = "#publi · Link de afiliado · Preço sujeito a alteração"

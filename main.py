@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, quadro, quedas, ranking, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, musicas, quadro, quedas, ranking, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -70,6 +70,7 @@ Comandos:
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /video_top fone bluetooth até 100 — vídeo "Top 5" na hora · /cancelar_top cancela o das 20h
+/musica (mande o áudio) · /musicas · /tirar_musica N — músicas de fundo dos vídeos
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
@@ -261,7 +262,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     try:
         caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
         if com_voz:
-            status.append(f"• Vídeo: pronto com narração ({video.voz_usada})")
+            status.append(f"• Vídeo: pronto com narração ({video.voz_usada})"
+                          + (f" + música \"{musicas.musica_usada}\"" if musicas.musica_usada else ""))
         else:
             status.append(f"• Vídeo: pronto (sem narração — {video.motivo_sem_voz[:200]})")
     except Exception as erro:  # noqa: BLE001
@@ -390,6 +392,14 @@ def tratar(mensagem: dict) -> None:
     print(f"::notice::Mensagem: {len(texto.splitlines())} linha(s), "
           f"{len(fila.separar_ofertas(texto))} oferta(s) com link")
     grupo = str(mensagem.get("media_group_id") or "")
+    # Áudio mandado para o bot (com ou sem a legenda /musica) entra na biblioteca de músicas
+    doc = mensagem.get("document") or {}
+    if mensagem.get("audio") or (doc and str(doc.get("mime_type", "")).startswith("audio")):
+        try:
+            telegram.enviar_texto(chat_id, musicas.adicionar(mensagem))
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Música: {str(erro)[:200]}")
+        return
     if mensagem.get("photo") and (grupo or comando == "/agendar"):
         agendar_foto(mensagem, chat_id, texto, grupo)
         return
@@ -485,6 +495,12 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_texto(chat_id, f"❌ Top 5: {str(erro)[:200]}")
     elif comando in ("/cancelar_top", "/cancelartop"):
         telegram.enviar_texto(chat_id, ranking.cancelar())
+    elif comando in ("/musicas", "/musica"):
+        telegram.enviar_texto(chat_id, musicas.resumo())
+    elif comando in ("/tirar_musica", "/tirarmusica"):
+        partes = texto.split()
+        telegram.enviar_texto(chat_id, musicas.tirar(int(partes[1])) if len(partes) > 1 and partes[1].isdigit()
+                              else "Use assim: /tirar_musica 3 (veja os números em /musicas)")
     elif comando == "/cupom":
         postar_cupom(chat_id, texto)
     elif comando == "/ofertas":

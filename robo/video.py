@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import arte, config
+from . import arte, config, musicas
 from .produto import Produto
 
 FPS = 30
@@ -284,13 +284,23 @@ def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path
     destino = pasta / nome
     cmd = ["ffmpeg", "-y", *entradas]
     idx_audio = n + len(legendas)
+    musica = musicas.sortear(pasta / f"musica_{Path(nome).stem}.mp3")
+    rotulo_voz = "[voz]" if musica else "[a]"
     if audio:
         cmd += ["-i", str(audio)]
         atraso = int(ATRASO_VOZ * 1000)
-        filtros.append(f"[{idx_audio}:a]adelay={atraso}|{atraso},apad[a]")
+        filtros.append(f"[{idx_audio}:a]adelay={atraso}|{atraso},apad,aformat=sample_rates=48000:channel_layouts=stereo{rotulo_voz}")
     else:  # faixa de áudio silenciosa: o Reels exige áudio
         cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]
-        filtros.append(f"[{idx_audio}:a]anull[a]")
+        filtros.append(f"[{idx_audio}:a]anull{rotulo_voz}")
+    if musica:
+        # música em loop, bem baixa por baixo da voz, com entrada e saída suaves
+        volume = config.VOLUME_MUSICA if audio else min(config.VOLUME_MUSICA * 3, 0.6)
+        cmd += ["-stream_loop", "-1", "-i", str(musica)]
+        filtros.append(
+            f"[{idx_audio + 1}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={volume},"
+            f"afade=t=in:d=0.6,afade=t=out:st={max(total - 1.5, 0):.2f}:d=1.5[mus]")
+        filtros.append("[voz][mus]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]")
     cmd += ["-filter_complex", ";".join(filtros), "-map", anterior]
     # Limites do Instagram: áudio até 128 kbps / 48 kHz; vídeo até 5 Mbps
     cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"]

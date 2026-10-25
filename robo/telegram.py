@@ -71,6 +71,14 @@ def enviar_arquivo(chat_id, arquivo: Path, legenda: str = "") -> dict:
                    caption=legenda[:1024])
 
 
+def baixar_arquivo(file_id: str, destino: Path) -> Path:
+    info = _chamar("getFile", file_id=file_id)
+    r = requests.get(f"https://api.telegram.org/file/bot{config.TELEGRAM_TOKEN}/{info['file_path']}", timeout=120)
+    r.raise_for_status()
+    destino.write_bytes(r.content)
+    return destino
+
+
 def baixar_foto_da_mensagem(mensagem: dict, destino: Path) -> Path | None:
     """Se você mandar uma foto junto com o link, ela vira a foto do post."""
     if mensagem.get("_foto_url"):          # foto que veio do quadro do site (Supabase Storage)

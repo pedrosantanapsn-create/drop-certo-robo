@@ -72,6 +72,8 @@ jobs:
       TOP_DO_DIA: ${{ vars.TOP_DO_DIA }}
       VIDEO_TOP: ${{ vars.VIDEO_TOP }}
       VARIAR_VOZ: ${{ vars.VARIAR_VOZ }}
+      MUSICA_FUNDO: ${{ vars.MUSICA_FUNDO }}
+      VOLUME_MUSICA: ${{ vars.VOLUME_MUSICA }}
       RASTREAR_CLIQUES: ${{ vars.RASTREAR_CLIQUES }}
       FILA_AUTO_SHOPEE: ${{ vars.FILA_AUTO_SHOPEE }}
       FILA_AUTO_ML: ${{ vars.FILA_AUTO_ML }}
