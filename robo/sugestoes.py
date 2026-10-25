@@ -261,7 +261,7 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
         vendas = int(_num(n.get("sales")))
         nota = _num(n.get("ratingStar"))
         linhas += [
-            f"{i}. 🔥 -{round(desconto)}% · ⭐ {nota:.1f} · {vendas:,} vendidos".replace(",", "."),
+            f"S{i}. 🔥 -{round(desconto)}% · ⭐ {nota:.1f} · {vendas:,} vendidos".replace(",", "."),
             str(n.get("productName", ""))[:90],
             f"💰 {formatar_preco(preco)}" + (f" (antes ~{formatar_preco(antes)})" if antes else ""),
             f"💸 Comissão: {comissao:.0f}%".replace(".", ",")
@@ -269,12 +269,53 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
             f"🔗 {n.get('_link')}",
             "",
         ]
-    linhas += ["📋 Todos os links (copie este bloco e mande para mim — vão direto para a fila):",
-               *[str(n.get("_link")) for n in produtos], ""]
-    linhas += ["👉 Para postar só um: copie o link 🔗 dele e mande para mim.",
-               "O robô lê nome, preço e foto pela API da Shopee — sem print.",
+    _guardar("S", [str(n.get("_link")) for n in produtos])
+    linhas += ["➕ Pôr na fila: /add S1 S3  ·  todos da Shopee: /add shopee",
                "ℹ️ Preço e comissão de agora: podem mudar até o post sair."]
     return "\n".join(linhas)
+
+
+CHAVE_ULTIMAS = "sugestoes_ultimas"
+
+
+def _guardar(prefixo: str, links: list[str]) -> None:
+    """Guarda os links da última sugestão de cada loja para o comando /add."""
+    if not supabase.ativo():
+        return
+    try:
+        atual = json.loads((supabase.ler_config(CHAVE_ULTIMAS) or {}).get("valor") or "{}")
+    except ValueError:
+        atual = {}
+    atual[prefixo] = links
+    supabase.gravar_config(CHAVE_ULTIMAS, json.dumps(atual))
+
+
+def escolhidos(pedido: list[str]) -> tuple[list[str], list[str]]:
+    """/add S1 M3 | /add shopee | /add ml | /add todos  → (links, códigos não achados)."""
+    try:
+        atual = json.loads((supabase.ler_config(CHAVE_ULTIMAS) or {}).get("valor") or "{}")
+    except ValueError:
+        atual = {}
+    links, faltou = [], []
+    for item in pedido:
+        item = item.strip(",;").upper()
+        if item in ("TODOS", "TUDO"):
+            links += atual.get("S", []) + atual.get("M", [])
+        elif item == "SHOPEE":
+            links += atual.get("S", [])
+        elif item in ("ML", "MERCADOLIVRE"):
+            links += atual.get("M", [])
+        elif re.fullmatch(r"[SM]\d+(-\d+)?", item):
+            lista = atual.get(item[0], [])
+            ini, _, fim = item[1:].partition("-")
+            for n in range(int(ini), int(fim or ini) + 1):
+                if 1 <= n <= len(lista):
+                    links.append(lista[n - 1])
+                else:
+                    faltou.append(f"{item[0]}{n}")
+        elif item:
+            faltou.append(item)
+    return list(dict.fromkeys(links)), faltou
 
 
 def sugerir_shopee(palavras: list[str] | None = None) -> str:
@@ -365,10 +406,10 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
     e = escape if html else (lambda x: x)
     linhas = ["🛒 Mercado Livre — mais vendidos com desconto", ""]
     for i, n in enumerate(produtos, 1):
-        link = (f'🔗 <a href="{e(n["link"])}">Abrir no Mercado Livre ({e(n["id"])})</a>' if html
+        link = (f'🔗 <a href="{e(n["link"])}">Ver no Mercado Livre</a>' if html
                 else f"🔗 {n['link']}")
         linhas += [
-            f"{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {e(n['categoria'])}",
+            f"M{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {e(n['categoria'])}",
             e(str(n["nome"])[:90]),
             f"💰 {formatar_preco(n['preco'])} (antes {formatar_preco(n['antes'])})",
             link,
@@ -376,9 +417,9 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
         ]
     afiliado = bool(config.ML_MATT_WORD and config.ML_MATT_TOOL)
     if afiliado:
-        linhas += ["📋 Todos os links (já com o SEU código de afiliada — copie e mande para mim):",
-                   *[e(n["link"]) for n in produtos], "",
-                   "👉 Para postar só um: copie o link dele e mande para mim.",
+        _guardar("M", [n["link"] for n in produtos])
+        linhas += ["➕ Pôr na fila: /add M1 M4  ·  todos do ML: /add ml",
+                   "(os links já levam o seu código de afiliada)",
                    "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
     else:
         linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",

@@ -67,6 +67,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
@@ -459,6 +460,17 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_html(chat_id, sugestoes.sugerir_ml([palavra] if palavra else None, html=True))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Mercado Livre: {str(erro)[:200]}")
+    elif comando == "/add":
+        pedido = texto.split()[1:]
+        links, faltou = sugestoes.escolhidos(pedido) if pedido else ([], [])
+        if not links:
+            telegram.enviar_texto(chat_id, "Use os códigos da última sugestão:\n/add S1 S3 M2  ·  /add M1-4\n"
+                                  "/add shopee  ·  /add ml  ·  /add todos"
+                                  + (f"\n\nNão achei: {', '.join(faltou)}" if faltou else ""))
+        else:
+            agendar(chat_id, "\n".join(links))
+            if faltou:
+                telegram.enviar_texto(chat_id, f"⚠️ Não achei na última sugestão: {', '.join(faltou)}")
     elif comando == "/site":
         so_site(mensagem, chat_id, texto.split(None, 1)[1] if len(texto.split(None, 1)) > 1 else "")
     elif comando == "/cupom":
@@ -539,7 +551,8 @@ def tratar(mensagem: dict) -> None:
 
 
 def so_site(mensagem: dict, chat_id, texto: str) -> None:
-    """/site link + preco: — cadastra SÓ no site (sem postar de novo no canal/Instagram/TikTok).
+    """/add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
+/site link + preco: — cadastra SÓ no site (sem postar de novo no canal/Instagram/TikTok).
     Serve para quando o post saiu sem preço e o site recusou."""
     dados = ler_mensagem(texto)
     if not dados.get("link") or not dados.get("preco"):
