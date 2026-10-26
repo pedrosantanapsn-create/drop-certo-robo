@@ -151,7 +151,7 @@ def buscar_produtos(palavra: str, teto: float | None, quantos: int = 5) -> list[
             pass
     if len(escolhidos) < quantos and mercadolivre.ativo():
         try:
-            for n in sugestoes.buscar_ml([palavra], quantos=quantos * 2):
+            for n in sugestoes.buscar_ml([palavra], quantas=quantos * 2):
                 if teto and n["preco"] > teto:
                     continue
                 if any(_parecidos(n["nome"], e["nome"]) for e in escolhidos):
@@ -193,6 +193,26 @@ def separar_pedido(texto: str) -> tuple[str, float | None, list[str]]:
     return resto, teto, requisitos
 
 
+TIPOS = {
+    "fone": r"fone|headset|headphone|auricular|earbud|tws",
+    "fones": r"fone|headset|headphone|auricular|earbud|tws",
+    "headset": r"headset|fone|headphone",
+    "mouse": r"mouse", "teclado": r"teclado|keyboard", "ssd": r"\bssd\b",
+    "memoria": r"mem[oó]ria|ram\b", "monitor": r"monitor", "webcam": r"webcam|c[aâ]mera",
+    "controle": r"controle|gamepad|joystick", "caixa": r"caixa de som|speaker",
+}
+
+
+def _e_do_tipo(nome: str, palavra: str) -> bool:
+    """O anúncio é do produto pedido? (evita 'adaptador dongle' numa busca de fone)"""
+    nome = (nome or "").lower()
+    for tok in re.findall(r"[a-zà-ú0-9]{3,}", palavra.lower()):
+        padrao = TIPOS.get(tok, re.escape(tok).replace("e", "[eé]") if tok.isalpha() else re.escape(tok))
+        if not re.search(padrao, nome, re.I):
+            return False
+    return True
+
+
 def _atende(texto: str, requisitos: list[str]) -> bool:
     texto = (texto or "").lower()
     for req in requisitos:
@@ -218,7 +238,8 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
     candidatos: list[dict] = []
     if shopee.ativo():
         vistos = set()
-        for termo in dict.fromkeys([busca, palavra]):
+        curto = " ".join(palavra.split()[:2])
+        for termo in dict.fromkeys([busca, palavra, curto]):
             for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
                 try:
                     nos = shopee.buscar(termo, ordem, 50)
@@ -232,15 +253,18 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                     if n.get("itemId") in vistos or not preco or (teto and preco > teto):
                         continue
                     vistos.add(n.get("itemId"))
-                    if nota < 4.3 or vendas < 30 or sugestoes.RE_NAO_PC.search(nome) or not _atende(nome, requisitos):
+                    if (nota < 4.3 or vendas < 30 or sugestoes.RE_NAO_PC.search(nome)
+                            or not _atende(nome, requisitos) or not _e_do_tipo(nome, palavra)):
                         continue
                     candidatos.append({"nome": nome, "preco": preco, "nota": nota, "vendas": vendas, "ficha": nome,
                                        "link": n.get("productLink") or n.get("offerLink"),
                                        "imagem": n.get("imageUrl"), "loja": "Shopee"})
     if mercadolivre.ativo():
         try:
-            for n in sugestoes.buscar_ml([busca], quantos=10):
+            for n in sugestoes.buscar_ml([busca], quantas=10):
                 if teto and n["preco"] > teto:
+                    continue
+                if not _e_do_tipo(n["nome"], palavra):
                     continue
                 ficha = _ficha_ml(n["id"])
                 if not _atende(n["nome"] + " " + ficha, requisitos):
