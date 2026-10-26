@@ -203,9 +203,15 @@ TIPOS = {
 }
 
 
+RE_ACESSORIO = re.compile(r"\badaptador|\bcabo\b|\bcapa\b|\bcase\b|suporte|almofada|espuma|"
+                          r"protetor|pel[ií]cula|\bkit \d+ adaptador|transmissor|reposi[cç][aã]o", re.I)
+
+
 def _e_do_tipo(nome: str, palavra: str) -> bool:
     """O anúncio é do produto pedido? (evita 'adaptador dongle' numa busca de fone)"""
     nome = (nome or "").lower()
+    if RE_ACESSORIO.search(nome) and not RE_ACESSORIO.search(palavra):
+        return False
     for tok in re.findall(r"[a-zà-ú0-9]{3,}", palavra.lower()):
         padrao = TIPOS.get(tok, re.escape(tok).replace("e", "[eé]") if tok.isalpha() else re.escape(tok))
         if not re.search(padrao, nome, re.I):
@@ -239,7 +245,13 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
     if shopee.ativo():
         vistos = set()
         curto = " ".join(palavra.split()[:2])
-        for termo in dict.fromkeys([busca, palavra, curto]):
+        extras = []
+        for req in requisitos:                       # ex.: dongle -> "fone 2.4g", "headset 2.4g"
+            if req.lower() == "dongle":
+                extras += [f"{palavra} 2.4g", f"headset sem fio 2.4g" if "fone" in palavra.lower() else ""]
+            elif req.lower() == "sem fio":
+                extras.append(f"{palavra} wireless")
+        for termo in dict.fromkeys([t for t in [busca, *extras, palavra, curto] if t]):
             for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
                 try:
                     nos = shopee.buscar(termo, ordem, 50)

@@ -21,7 +21,7 @@ jobs:
           from robo import ranking, sugestoes, supabase
           sugestoes._vistas = lambda: []
           supabase.gravar_config = lambda *a, **k: None
-          for pedido in ["fone com dongle até 300", "ssd nvme 1tb até 450"]:
+          for pedido in ["fone com dongle até 300", "ssd nvme até 600", "mouse gamer sem fio até 150"]:
               p, t, r = ranking.separar_pedido(pedido)
               itens = ranking.buscar_custo(p, t, r)
               print("::warning::== %s: %d itens" % (pedido, len(itens)))
