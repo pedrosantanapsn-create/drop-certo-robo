@@ -1,0 +1,40 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timedelta
+          from robo import relatorio, fila, supabase, ranking
+          F = relatorio.FUSO
+          agora = datetime.now(F)
+          hist = relatorio._historico()
+          ini = agora - timedelta(days=2)
+          rec = [p for p in hist if p.get("t", 0) >= ini.timestamp()]
+          print("::warning::POSTS 48h=%d" % len(rec))
+          linhas = []
+          for p in rec[-25:]:
+              redes = "".join(k[0].upper() for k in ("canal","instagram","tiktok","site") if p.get(k))
+              linhas.append("%s %s [%s] %s" % (datetime.fromtimestamp(p["t"], F).strftime("%d/%m %H:%M"), p.get("loja","")[:6], redes, p.get("nome","")[:38]))
+          for i in range(0, len(linhas), 6):
+              print("::warning::" + " || ".join(linhas[i:i+6]))
+          hoje = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+          print("::warning::HOJE reels=%d tiktok=%d" % (relatorio.postados_hoje("instagram"), relatorio.postados_hoje("tiktok")))
+          print("::warning::FILA %d itens proxima=%s modo=%s" % (len(fila.itens()), supabase.ler_config("fila_proxima"), fila.modo()))
+          print("::warning::RANKING estado=%s" % json.dumps({k: v for k, v in ranking.estado_hoje().items() if k != "itens"}, ensure_ascii=False)[:300])
+          c = relatorio._cliques(agora - timedelta(days=7)) or []
+          canal = sum(1 for x in c if str(x.get("loja","")).endswith("(canal)"))
+          print("::warning::CLIQUES 7d=%d canal=%d site=%d" % (len(c), canal, len(c)-canal))
+          print("::warning::ALERTAS %s" % (supabase.ler_config("alertas_enviados") or {}).get("valor"))
+          print("::warning::QUEDAS pend=%s" % (supabase.ler_config("quedas_pendentes") or {}).get("valor","")[:200])
+          PY
