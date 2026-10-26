@@ -51,12 +51,12 @@ AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
 TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
 # Máximo de vídeos por dia no TikTok (0 = sem limite). Postar demais derruba o alcance.
 # Instagram: Reels no feed limitados (o resto vai só no Story, canal e site)
-INSTAGRAM_MAX_DIA = int(_env("INSTAGRAM_MAX_DIA", "4") or 4)
-INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", True)
+INSTAGRAM_MAX_DIA = int(_env("INSTAGRAM_MAX_DIA", "6") or 6)
+INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", False)   # espalhado pelo dia (6 por dia não cabem só no pico)
 INSTAGRAM_INTERVALO_H = float(_env("INSTAGRAM_INTERVALO_H", "1") or 1)
-TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "3"))
-TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", True)   # TikTok só nos horários de pico
-TIKTOK_INTERVALO_H = int(_env("TIKTOK_INTERVALO_H", "2"))  # horas mínimas entre vídeos no TikTok
+TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "5"))
+TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", False)  # espalhado pelo dia (5 por dia)
+TIKTOK_INTERVALO_H = float(_env("TIKTOK_INTERVALO_H", "1.5") or 1.5)  # horas mínimas entre vídeos no TikTok
 # Instagram pelo Zernio (se o Instagram estiver conectado lá; senão usa o Make)
 ZERNIO_INSTAGRAM_ACCOUNT = _env("ZERNIO_INSTAGRAM_ACCOUNT")  # opcional
 AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto com o Reels
@@ -99,8 +99,8 @@ ML_MATT_TOOL = _env("ML_MATT_TOOL", "66102052")
 
 # --- Fila automática: quando a fila acaba, o robô coloca ofertas novas sozinho ---
 FILA_AUTOMATICA = _env_bool("FILA_AUTOMATICA", True)
-FILA_AUTO_SHOPEE = int(_env("FILA_AUTO_SHOPEE", "3") or 3)
-FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "3") or 3)
+FILA_AUTO_SHOPEE = int(_env("FILA_AUTO_SHOPEE", "5") or 5)
+FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "5") or 5)
 
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)
@@ -117,10 +117,10 @@ PALAVRAS_SHOPEE = _env("PALAVRAS_SHOPEE", "mouse gamer,teclado mecanico,headset 
 # --- Fila de postagens (horário de Brasília) ------------------------------
 POSTAR_DAS = int(_env("POSTAR_DAS", "10"))          # primeiro post do dia
 POSTAR_ATE = int(_env("POSTAR_ATE", "23"))         # depois disso, só no dia seguinte
-# Modo "hora" (padrão da fila): 1 post por hora; no pico, um a cada 30 min (2 por hora)
+# Modo "hora" (padrão da fila): 1 post a cada 30 min; no pico, a cada 20 min (3 por hora)
 HORARIOS_PICO = _env("HORARIOS_PICO", "11:30-13:30,19:00-23:00")
-MINUTOS_FORA_PICO = int(_env("MINUTOS_FORA_PICO", "60"))
-MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "30"))
+MINUTOS_FORA_PICO = int(_env("MINUTOS_FORA_PICO", "30"))
+MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "20"))
 
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")

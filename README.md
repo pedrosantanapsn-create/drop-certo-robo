@@ -42,9 +42,9 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 
 | Quando | O quê |
 |---|---|
-| 10h–23h | Fila: 1 post/hora; no pico (11h30–13h30 e 19h–23h) 2 por hora |
-| Cada post | Arte + vídeo (4 modelos em rodízio) + legenda → canal, site, Story; Reels (máx. 4/dia, só pico) e TikTok (máx. 3/dia, só pico, 2 h de intervalo) |
-| Fila acabou | Fila automática: 3 Shopee + 3 Mercado Livre, prioridade para peças de PC e para o que o público mais clica |
+| 10h–23h | Fila: 1 post a cada 30 min; no pico (11h30–13h30 e 19h–23h) a cada 20 min |
+| Cada post | Arte + vídeo (4 modelos em rodízio) + legenda → canal, site, Story; Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
+| Fila acabou | Fila automática: 5 Shopee + 5 Mercado Livre, prioridade para peças de PC e para o que o público mais clica |
 | 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
 | a partir das 10h | Avisos de "baixou o preço" no canal (≥ 10%, ML e Shopee) |
 | 10h | Sugestões do dia (Promobit + Shopee) |
@@ -85,10 +85,10 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 
 | Variável | Padrão | Para quê |
 |---|---|---|
-| `INSTAGRAM_MAX_DIA` / `INSTAGRAM_SO_PICO` / `INSTAGRAM_INTERVALO_H` | 4 / true / 1 | limite de Reels |
-| `TIKTOK_MAX_DIA` / `TIKTOK_SO_PICO` / `TIKTOK_INTERVALO_H` | 3 / true / 2 | limite do TikTok |
+| `INSTAGRAM_MAX_DIA` / `INSTAGRAM_SO_PICO` / `INSTAGRAM_INTERVALO_H` | 6 / false / 1 | limite de Reels |
+| `TIKTOK_MAX_DIA` / `TIKTOK_SO_PICO` / `TIKTOK_INTERVALO_H` | 5 / false / 1.5 | limite do TikTok |
 | `HORARIOS_PICO` | 11:30-13:30,19:00-23:00 | horários de pico |
-| `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` | true / 3 / 3 | fila automática |
+| `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` | true / 5 / 5 | fila automática |
 | `PALAVRAS_PC` / `PALAVRAS_SHOPEE` / `PALAVRAS_ML` | peças de PC + periféricos | o que buscar |
 | `QUEDA_MINIMA` / `AVISAR_QUEDAS` | 10 / true | aviso de queda de preço |
 | `TOP_DO_DIA` / `RASTREAR_CLIQUES` | true / true | top das 21h e cliques do canal |
