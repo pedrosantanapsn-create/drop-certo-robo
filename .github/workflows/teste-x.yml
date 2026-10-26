@@ -1,0 +1,34 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+      ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+      ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -q -r requirements.txt pillow
+      - name: teste
+        run: |
+          python - <<'PY'
+          from robo import sugestoes, precos, marcas
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:900])
+          try:
+              s = sugestoes.buscar_shopee(quantas=5, so_marca=True)
+              w(f"shopee so_marca: {len(s)} -> " + " ; ".join(f"{n.get('productName','')[:40]} [{marcas.marca(n.get('productName',''))}]" for n in s))
+          except Exception as e: w(f"shopee ERRO {e!r}")
+          try:
+              m = sugestoes.buscar_ml(quantas=5, so_marca=True)
+              w(f"ml so_marca: {len(m)} -> " + " ; ".join(str(x)[:90] for x in m))
+          except Exception as e: w(f"ml ERRO {e!r}")
+          w(f"historico: {len(precos._carregar())} produtos, bugs: {len(sugestoes.bugs_encontrados)}")
+          precos.salvar()
+          w("salvo ok")
+          PY
