@@ -211,7 +211,7 @@ RE_ACESSORIO = re.compile(r"\badaptador|\bcabo\b|\bcapa\b|\bcase\b|suporte|almof
 def _e_do_tipo(nome: str, palavra: str) -> bool:
     """O anúncio é do produto pedido? (evita 'adaptador dongle' numa busca de fone)"""
     nome = (nome or "").lower()
-    inicio = " ".join(nome.split()[:4])          # o "tipo" do anúncio vem nas primeiras palavras
+    inicio = " ".join(nome.split()[:6])          # o "tipo" do anúncio vem nas primeiras palavras
     if RE_ACESSORIO.search(inicio) and not RE_ACESSORIO.search(palavra):
         return False
     for tok in re.findall(r"[a-zà-ú0-9]{3,}", palavra.lower()):
@@ -253,7 +253,7 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                 extras += [f"{palavra} 2.4g", f"headset sem fio 2.4g" if "fone" in palavra.lower() else ""]
             elif req.lower() == "sem fio":
                 extras.append(f"{palavra} wireless")
-        for termo in dict.fromkeys([t for t in [busca, *extras, palavra, curto] if t]):
+        for termo in dict.fromkeys([t for t in [busca, *extras, palavra, curto, f"{palavra} original"] if t]):
             for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
                 try:
                     nos = shopee.buscar(termo, ordem, 50)
@@ -275,17 +275,29 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                                        "imagem": n.get("imageUrl"), "loja": "Shopee"})
     if mercadolivre.ativo():
         try:
-            for n in sugestoes.buscar_ml([busca], quantas=10):
-                if teto and n["preco"] > teto:
+            dominio = (mercadolivre._get("/sites/MLB/domain_discovery/search", q=busca, limit=1) or [{}])[0]
+            ranking_ml = (mercadolivre._get(f"/highlights/MLB/category/{dominio['category_id']}").get("content")
+                          if dominio.get("category_id") else []) or []
+            for pos in ranking_ml[:20]:
+                if pos.get("type") != "PRODUCT":
                     continue
-                if not _e_do_tipo(n["nome"], palavra):
+                pid = pos["id"]
+                try:
+                    prod = mercadolivre._get(f"/products/{pid}")
+                    vend = (mercadolivre._get(f"/products/{pid}/items").get("results") or [{}])[0]
+                except Exception:  # noqa: BLE001
                     continue
-                ficha = _ficha_ml(n["id"])
-                if not _atende(n["nome"] + " " + ficha, requisitos):
+                nome, preco = prod.get("name", ""), vend.get("price")
+                if not preco or (teto and preco > teto) or not _e_do_tipo(nome, palavra):
                     continue
-                candidatos.append({"nome": n["nome"], "preco": n["preco"], "nota": None, "vendas": None,
-                                   "ficha": ficha or n["nome"], "link": n["link"], "imagem": None,
-                                   "id_ml": n["id"], "loja": "Mercado Livre"})
+                ficha = "; ".join(f"{a.get('name')}: {a.get('value_name')}" for a in (prod.get("attributes") or [])
+                                  if a.get("value_name") and len(str(a.get("value_name"))) < 40)[:600]
+                if not _atende(nome + " " + ficha, requisitos):
+                    continue
+                candidatos.append({"nome": nome, "preco": preco, "nota": None, "vendas": None,
+                                   "ficha": f"{pos.get('position')}º mais vendido da categoria; {ficha}",
+                                   "link": mercadolivre.link_afiliado(pid), "imagem": None,
+                                   "id_ml": pid, "loja": "Mercado Livre"})
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Custo ML: {str(erro)[:120]}")
     # tira repetidos e limita a 16 para a IA comparar
@@ -331,8 +343,7 @@ def _avaliar_custo(palavra, requisitos, teto, cands: list[dict], quantos: int) -
             if 0 <= i < len(cands) and cands[i] not in escolhidos:
                 cands[i]["motivo"] = str(r.get("motivo") or "")[:80]
                 escolhidos.append(cands[i])
-        if len(escolhidos) >= 3:
-            return escolhidos[:quantos]
+        return escolhidos[:quantos]          # a IA descartou o resto (acessórios, fora do pedido)
     except Exception as erro:  # noqa: BLE001
         print(f"::warning::Custo-benefício (Gemini): {str(erro)[:150]}")
     def nota(c):
