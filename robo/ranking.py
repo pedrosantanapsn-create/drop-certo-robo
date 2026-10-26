@@ -250,7 +250,9 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
         extras = []
         for req in requisitos:                       # ex.: dongle -> "fone 2.4g", "headset 2.4g"
             if req.lower() == "dongle":
-                extras += [f"{palavra} 2.4g", f"headset sem fio 2.4g" if "fone" in palavra.lower() else ""]
+                extras += [f"{palavra} 2.4g", f"{palavra} 2.4ghz receptor usb"]
+                if re.search(r"fone|headset", palavra, re.I):
+                    extras += ["headset gamer sem fio 2.4g", "headset wireless 2.4ghz", "fone gamer sem fio 2.4g"]
             elif req.lower() == "sem fio":
                 extras.append(f"{palavra} wireless")
         for termo in dict.fromkeys([t for t in [busca, *extras, palavra, curto, f"{palavra} original"] if t]):
@@ -267,7 +269,7 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                     if n.get("itemId") in vistos or not preco or (teto and preco > teto):
                         continue
                     vistos.add(n.get("itemId"))
-                    if (nota < 4.3 or vendas < 30 or sugestoes.RE_NAO_PC.search(nome)
+                    if (nota < 4.3 or vendas < 15 or sugestoes.RE_NAO_PC.search(nome)
                             or not _atende(nome, requisitos) or not _e_do_tipo(nome, palavra)):
                         continue
                     candidatos.append({"nome": nome, "preco": preco, "nota": nota, "vendas": vendas, "ficha": nome,
