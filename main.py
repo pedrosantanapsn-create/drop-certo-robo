@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, config, fila, instagram, instantaneo, legenda, mercadolivre, musicas, quadro, quedas, ranking, rastreio, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import alertas, amazon, arte, canal, config, cupons, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -72,7 +72,9 @@ Comandos:
 /custo fone com dongle até 300 — vídeo Top 5 de custo-benefício (ficha técnica + preço + nota)
 /video_top fone bluetooth até 100 — vídeo "Top 5" na hora · /cancelar_top cancela o das 20h
 /musica (mande o áudio) · /musicas · /tirar_musica N — músicas de fundo dos vídeos
-/cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
+/cupom CODIGO descrição — cupom no canal com passo a passo; "hora: 00:00" agenda (/cupom sozinho = modelo)
+/cupons — cupons agendados · /cancelar_cupom CODIGO
+/regras — publica e fixa as regras no canal
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
@@ -128,6 +130,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 produto.preco_antigo = oficial.get("preco_antigo") or produto.preco_antigo
             if oficial.get("imagem"):
                 produto.imagens = [oficial["imagem"], *produto.imagens]
+            produto.chave_preco = oficial.get("chave_preco") or ""
             produto.bloqueado = False
             status.append("• Dados lidos pela API oficial da Shopee ✅")
         except Exception as erro:  # noqa: BLE001
@@ -170,6 +173,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                     produto.nome, produto.nome_do_link = str(oficial["nome"]).strip(), False
                 produto.preco = oficial["preco"]
                 produto.preco_antigo = oficial.get("preco_antigo")
+                produto.chave_preco = oficial.get("chave_preco") or ""
                 if oficial.get("imagens") and (not produto.imagens or produto.bloqueado):
                     produto.imagens = oficial["imagens"]
                 produto.bloqueado = False
@@ -281,12 +285,35 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 status.append(f"• Site: erro — {str(erro)[:160]}\n  (mande /colunas para conferir os nomes)")
         else:
             status.append("• Site: não cadastrado (sem foto)")
-    # 4a. Canal do Telegram (link rastreado: conta o clique e leva para a loja)
+    # Histórico de preços próprio: "📉 Menor preço em 30 dias" só quando é verdade
+    menor30 = False
+    if not produto.chave_preco and amazon.e_amazon(produto.link):
+        asin = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", produto.link + " " + (produto.url_final or ""))
+        produto.chave_preco = f"amazon:{asin.group(1)}" if asin else ""
+    if produto.chave_preco and produto.preco:
+        try:
+            info = precos.analise(produto.chave_preco, produto.preco)
+            menor30 = bool(info.get("menor30"))
+            if info.get("bug") and not produto.alerta:
+                produto.alerta = "bug"
+                status.append("• ⚠️ Preço 50% abaixo do normal deste produto — postado como possível erro de preço")
+            precos.registrar(produto.chave_preco, produto.preco)
+            precos.salvar()
+            if menor30:
+                status.append(f"• 📉 Menor preço em 30 dias (histórico de {info.get('dias')} dias)")
+            elif info.get("dias"):
+                status.append(f"• Histórico de preço: {info.get('dias')} dias, mínimo "
+                              f"{formatar_preco(info.get('minimo30'))}")
+        except Exception as erro:  # noqa: BLE001
+            print("Histórico de preços:", erro, file=sys.stderr)
+
+    # 4a. Canal do Telegram — formato compacto: foto do produto + nome + preço + cupom + link limpo
     if config.AUTO_POSTAR_CANAL and config.CANAL_ID:
         try:
-            telegram.enviar_foto(config.CANAL_ID, caminho_arte, rastreio.legenda_html(
-                legenda.montar_legenda(produto, textos, com_link=True), produto.link,
-                produto.site_id, produto.nome), html=True)
+            # print inteiro (recorte falhou) fica feio no canal: aí vai a arte
+            foto_canal = fotos[0] if fotos and not (foto_enviada and fotos[0] == foto_enviada) else caminho_arte
+            telegram.enviar_foto(config.CANAL_ID, foto_canal,
+                                 canal.legenda(produto, menor30), html=True)
             status.append(f"• Canal {config.CANAL_ID}: publicado ✅")
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Canal: erro — {str(erro)[:120]}")
@@ -509,6 +536,18 @@ def tratar(mensagem: dict) -> None:
                               else "Use assim: /tirar_musica 3 (veja os números em /musicas)")
     elif comando == "/cupom":
         postar_cupom(chat_id, texto)
+    elif comando == "/cupons":
+        lista = cupons.agendados()
+        telegram.enviar_texto(chat_id, "\n".join(
+            ["🎟️ Cupons agendados:"] + [f"• {c['codigo']} — {datetime.fromtimestamp(c['ts'], fila.FUSO):%d/%m %H:%M}"
+                                         for c in lista]) if lista else "Nenhum cupom agendado.")
+    elif comando in ("/cancelar_cupom", "/cancelarcupom"):
+        partes = texto.split()
+        n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
+        telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
+                              else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando == "/regras":
+        postar_regras(chat_id)
     elif comando == "/ofertas":
         telegram.enviar_texto(chat_id, "🔎 Procurando ofertas…")
         telegram.enviar_texto(chat_id, sugestoes.sugerir())
@@ -640,13 +679,20 @@ def so_site(mensagem: dict, chat_id, texto: str) -> None:
 
 MODELO_CUPOM = """🎟️ Para divulgar um cupom no canal, mande assim:
 
-/cupom DROP10 10% off em eletrônicos
+/cupom DROP10 R$ 20 off acima de R$ 100
+loja: Shopee
 https://s.shopee.com.br/seu-link
-validade: 20/10
+validade: 31/10
+1. Resgate o cupom na página da loja
+2. Adicione os produtos no carrinho
+3. Na finalização, escolha o cupom DROP10
+hora: 00:00
 
-• 1ª linha: o código e o que ele dá
-• link de afiliado da loja/produto (opcional, mas recomendado)
-• validade (recomendado — cupom vencido gera reclamação)
+• 1ª linha: o código e o que ele dá (obrigatório)
+• loja, link de afiliado e validade (recomendados — cupom vencido gera reclamação)
+• linhas numeradas = passo a passo (sem elas, vai um passo a passo padrão)
+• hora: 00:00 (ou 25/10 18:30) = posta nesse horário; sem "hora", posta agora
+• /cupons mostra os agendados · /cancelar_cupom DROP10 tira da agenda
 
 Para usar cupom num produto, coloque a linha "cupom: CODIGO o que dá" embaixo do link:
 https://meli.la/abc123
@@ -654,41 +700,40 @@ cupom: DROP10 10% off"""
 
 
 def postar_cupom(chat_id, texto: str) -> None:
-    """/cupom CODIGO descrição [link] [validade: dd/mm] → post de texto no canal do Telegram."""
-    linhas = [l.strip() for l in texto.splitlines() if l.strip()]
-    primeira = linhas[0].split(None, 2) if linhas else []
-    if len(primeira) < 2:
+    """/cupom → post de cupom no canal (com passo a passo), na hora ou no horário marcado."""
+    cupom = cupons.montar(texto)
+    if not cupom:
         telegram.enviar_texto(chat_id, MODELO_CUPOM)
         return
-    codigo = primeira[1].upper()
-    descricao = primeira[2] if len(primeira) > 2 else ""
-    link = next((m.group(0).rstrip(").,") for l in linhas for m in [fila.RE_LINK.search(l)] if m), "")
-    validade = next((l.split(":", 1)[1].strip() for l in linhas[1:]
-                     if l.lower().startswith(("validade", "valido", "válido", "ate", "até"))), "")
-    if link and amazon.e_amazon(link):
-        novo, _ = amazon.link_com_minha_tag(link)
-        link = novo or link
-    partes = [f"🎟️ CUPOM: {codigo}"]
-    if descricao:
-        partes.append(f"✅ {descricao}")
-    if validade:
-        partes.append(f"⏰ Válido até {validade}")
-    if link:
-        partes.append(f"🛒 {link}")
-    partes += ["", "Copie o código e use no carrinho/finalização da compra.",
-               "Regras e validade conforme a loja; o cupom pode acabar antes do prazo.", "",
-               config.AVISO_LEGAL + (f"\n{amazon.AVISO}" if link and amazon.e_amazon(link) else "")]
-    post = "\n".join(partes)
     if not (config.AUTO_POSTAR_CANAL and config.CANAL_ID):
-        telegram.enviar_texto(chat_id, "Canal não configurado. Veja como ficaria:\n\n" + post)
+        telegram.enviar_html(chat_id, "Canal não configurado. Veja como ficaria:\n\n" + cupom["html"])
         return
-    if link:
-        telegram.enviar_html(config.CANAL_ID, rastreio.legenda_html(post, link, None, f"Cupom {codigo}",
-                                                                    "Ir para a loja ➜"))
-    else:
-        telegram.enviar_texto(config.CANAL_ID, post)
-    aviso = "" if validade else "\n\n💡 Dica: coloque \"validade: dd/mm\" para o seguidor saber até quando vale."
-    telegram.enviar_texto(chat_id, f"✅ Cupom {codigo} publicado no canal {config.CANAL_ID}.{aviso}")
+    dica = "" if cupom["tem_validade"] else "\n\n💡 Dica: coloque \"validade: dd/mm\" para o seguidor saber até quando vale."
+    if cupom["quando"]:
+        if not supabase.ativo():
+            telegram.enviar_texto(chat_id, "Para agendar preciso do Supabase ligado. Mande sem a linha \"hora:\".")
+            return
+        cupons.agendar(cupom)
+        telegram.enviar_html(chat_id, f"⏰ Cupom {cupom['codigo']} agendado para "
+                             f"{cupom['quando']:%d/%m às %H:%M}. Prévia:\n\n" + cupom["html"])
+        telegram.enviar_texto(chat_id, "Para cancelar: /cancelar_cupom " + cupom["codigo"] + dica)
+        return
+    telegram.enviar_html(config.CANAL_ID, cupom["html"])
+    telegram.enviar_texto(chat_id, f"✅ Cupom {cupom['codigo']} publicado no canal {config.CANAL_ID}.{dica}")
+
+
+def postar_regras(chat_id) -> None:
+    if not config.CANAL_ID:
+        telegram.enviar_html(chat_id, canal.regras())
+        return
+    msg = telegram.enviar_html(config.CANAL_ID, canal.regras())
+    try:
+        telegram.fixar(config.CANAL_ID, msg["message_id"])
+        telegram.enviar_texto(chat_id, "📌 Regras publicadas e fixadas no topo do canal.")
+    except Exception as erro:  # noqa: BLE001
+        telegram.enviar_texto(chat_id, "✅ Regras publicadas, mas não consegui fixar "
+                              f"({str(erro)[:100]}).\nNo canal: toque e segure a mensagem → Fixar. "
+                              "(Ou dê ao robô a permissão \"Fixar mensagens\" nos administradores.)")
 
 
 def agendar(chat_id, texto: str) -> None:
@@ -811,6 +856,10 @@ def rodar_uma_vez() -> int:
         # várias fotos chegam juntas e o robô roda várias vezes ao mesmo tempo).
         return len(atualizacoes)
     try:
+        cupons.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Cupons agendados:", erro, file=sys.stderr)
+    try:
         quadro.importar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Quadro:", erro, file=sys.stderr)
@@ -846,6 +895,11 @@ def rodar_uma_vez() -> int:
         verificador.conferir_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Conferência:", erro, file=sys.stderr)
+    try:   # erros de preço vistos nas buscas desta rodada + histórico de preços
+        sugestoes.avisar_bugs(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+        precos.salvar()
+    except Exception as erro:  # noqa: BLE001
+        print("Histórico de preços/bugs:", erro, file=sys.stderr)
     return len(atualizacoes)
 
 

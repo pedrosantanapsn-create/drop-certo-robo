@@ -225,7 +225,8 @@ def ler(link: str) -> dict:
     if antigo and preco and antigo <= preco:
         antigo = None
     return {"nome": nome, "preco": preco, "preco_antigo": antigo,
-            "imagens": [i for i in imagens if i][:4], "ativo": ativo_}
+            "imagens": [i for i in imagens if i][:4], "ativo": ativo_,
+            "chave_preco": f"ml:{catalogo or item_id}"}
 
 
 def link_afiliado(produto_id: str) -> str:

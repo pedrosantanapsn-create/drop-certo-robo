@@ -4,7 +4,8 @@
   de afiliada (gerado pela API oficial).
 • Mercado Livre: mais vendidos com desconto real (API oficial), com o SEU código
   de afiliada (matt_word/matt_tool dos seus links meli.la).
-• Prioridade para peças de PC; nunca repete produto já sugerido.
+• Só marcas conhecidas (AMD, Kingston, Logitech, Rise Mode…); prioridade para peças de PC
+  e para o que está no menor preço em 30 dias; nunca repete produto já sugerido.
 
 Só reabastece dentro da janela de posts (10h–23h) e no máximo a cada 2 horas.
 Você recebe no Telegram a lista do que entrou — /limpar cancela tudo.
@@ -54,7 +55,7 @@ def se_for_hora(enviar) -> int:
     textos, linhas = [], []
     if shopee.ativo() and config.FILA_AUTO_SHOPEE:
         try:
-            for n in sugestoes.buscar_shopee(quantas=config.FILA_AUTO_SHOPEE):
+            for n in sugestoes.buscar_shopee(quantas=config.FILA_AUTO_SHOPEE, so_marca=True):
                 if n.get("_link"):
                     textos.append(str(n["_link"]))
                     linhas.append(f"🛍️ {str(n.get('productName', ''))[:55]} — "
@@ -63,7 +64,7 @@ def se_for_hora(enviar) -> int:
             print(f"::warning::Fila automática Shopee: {str(erro)[:150]}")
     if mercadolivre.ativo() and config.FILA_AUTO_ML and config.ML_MATT_WORD:
         try:
-            for n in sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML):
+            for n in sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML, so_marca=True):
                 textos.append(n["link"])
                 linhas.append(f"🛒 {str(n['nome'])[:55]} — {formatar_preco(n['preco'])} (-{round(n['desconto'])}%)")
         except Exception as erro:  # noqa: BLE001

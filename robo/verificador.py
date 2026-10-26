@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from . import config, mercadolivre, quedas, shopee, supabase
+from . import config, mercadolivre, precos, quedas, shopee, supabase
 from .produto import (CABECALHOS, LojaBloqueou, Produto, _extrair, _json_ld_produto,
                       _link_de_produto_na_pagina, formatar_preco, titulo_generico)
 from .fila import FUSO
@@ -64,6 +64,7 @@ def _situacao_shopee(link: str) -> tuple[str, Produto]:
     produto.nome = str(dados.get("nome") or "")
     produto.preco = dados["preco"]
     produto.preco_antigo = dados.get("preco_antigo")
+    precos.registrar(dados.get("chave_preco", ""), dados["preco"])   # histórico de preço próprio
     return "ok", produto
 
 
@@ -83,6 +84,7 @@ def _situacao_ml(link: str) -> tuple[str, Produto] | None:
     produto.nome = str(dados.get("nome") or "")
     produto.preco = dados["preco"]
     produto.preco_antigo = dados.get("preco_antigo")
+    precos.registrar(dados.get("chave_preco", ""), dados["preco"])   # histórico de preço próprio
     return "ok", produto
 
 

@@ -49,6 +49,8 @@ class Produto:
     bloqueado: bool = False          # a loja pediu verificação de robô
     nome_do_link: bool = False       # o nome veio do endereço (pode estar incompleto)
     site_id: str = ""                # id do produto no site (para o link rastreado do canal)
+    chave_preco: str = ""            # chave no histórico de preços (shopee:123 / ml:MLB123)
+    alerta: str = ""                 # "bug" = possível erro de preço (post especial no canal)
 
     @property
     def desconto(self) -> int | None:
@@ -117,6 +119,8 @@ def ler_mensagem(texto: str) -> dict:
             dados["preco_antigo"] = _para_float(valor)
         elif chave in ("obs", "observacao", "observação", "texto"):
             dados["observacao"] = valor
+        elif chave == "alerta":
+            dados["alerta"] = valor.lower()
         elif chave in ("cupom", "cupon", "codigo", "código", "cupom de desconto"):
             partes = valor.split(None, 1)
             if partes:
@@ -329,6 +333,7 @@ def buscar_produto(dados: dict) -> Produto:
         observacao=dados.get("observacao", ""),
         cupom=dados.get("cupom", ""),
         cupom_info=dados.get("cupom_info", ""),
+        alerta=dados.get("alerta", ""),
     )
     if not produto.link:
         raise ValueError("Não encontrei nenhum link na mensagem.")

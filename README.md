@@ -43,8 +43,10 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | Quando | O quê |
 |---|---|
 | 10h–23h | Fila: 1 post a cada 30 min; no pico (11h30–13h30 e 19h–23h) a cada 20 min |
-| Cada post | Arte + vídeo (4 modelos em rodízio) + legenda → canal, site, Story; Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
-| Fila acabou | Fila automática: 5 Shopee + 5 Mercado Livre, prioridade para peças de PC e para o que o público mais clica |
+| Cada post | Canal no formato compacto (foto do produto, nome, preço, cupom, link limpo); arte + vídeo (4 modelos em rodízio) + legenda → Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
+| Fila acabou | Fila automática: 5 Shopee + 5 Mercado Livre, **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
+| Toda busca/conferência | Histórico de preços próprio (60 dias): "📉 Menor preço em 30 dias" e alerta de **possível erro de preço** (≥ 50% abaixo da mediana) no bot com `/add B1` |
+| Horário marcado | Cupons agendados (`hora: 00:00`) saem no canal sozinhos |
 | 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
 | a partir das 10h | Avisos de "baixou o preço" no canal (≥ 10%, ML e Shopee) |
 | 10h | Sugestões do dia (Promobit + Shopee) |
@@ -59,14 +61,15 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 |---|---|
 | link (ou vários, um por linha) | posta na hora (1 link) ou põe na fila (vários) |
 | print + link na legenda | Amazon / TikTok Shop: lê preço e recorta o produto |
-| `preco:` `de:` `nome:` `cupom:` | linhas embaixo do link para completar/corrigir |
+| `preco:` `de:` `nome:` `cupom:` `alerta: bug` | linhas embaixo do link para completar/corrigir (`alerta: bug` = post "⚠️ POSSÍVEL ERRO DE PREÇO") |
 | `/fila` `/agora` `/limpar` `/intervalo` | fila de posts |
 | `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
 | `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
 | `/custo fone com dongle até 300` | vídeo Top 5 de custo-benefício (ficha técnica + preço + nota, IA grátis) |
 | `/video_top fone bluetooth até 100` · `/cancelar_top` | vídeo "Top 5" na hora · cancela o das 20h |
 | áudio + `/musica` · `/musicas` · `/tirar_musica N` | biblioteca de músicas de fundo (Pixabay, sem Content ID) |
-| `/cupom CODIGO descrição` | post de cupom no canal |
+| `/cupom CODIGO descrição` + `loja:` `validade:` passos `1.` `2.` `hora: 00:00` | post de cupom com passo a passo, na hora ou agendado · `/cupons` · `/cancelar_cupom CODIGO` |
+| `/regras` | publica e fixa as regras do canal |
 | `/site link` + `preco:` | só no site, sem postar de novo |
 | `/relatorio [dias]` `/conferir` | relatório e conferência na hora |
 | `/ml` `/instagram` `/tiktok` `/voz` `/instantaneo` | conferir ligações |
@@ -103,6 +106,9 @@ bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, 
 segredo `GITHUB_TOKEN_ROBO`).
 
 ## 6. Regras que o robô segue (legislação brasileira)
+
+- Post do canal: "(ANÚNCIO) #publi · link de afiliado" e "Preço visto em dd/mm hh:mm, pode mudar".
+- "📉 Menor preço em 30 dias" só com 7 dias ou mais de histórico próprio (nunca inventado).
 
 - Todo post leva **#publi** e o aviso de link de afiliado (CONAR, CDC art. 36); na Amazon também
   "Como Associado da Amazon, eu ganho com compras qualificadas.".

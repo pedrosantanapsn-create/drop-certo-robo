@@ -29,7 +29,7 @@ import requests
 
 import math
 
-from . import config, mercadolivre, shopee, supabase
+from . import config, marcas, mercadolivre, precos, shopee, supabase
 from .fila import FUSO
 from .produto import CABECALHOS, formatar_preco
 
@@ -226,8 +226,19 @@ def _num(valor, padrao: float = 0.0) -> float:
         return padrao
 
 
+BONUS_MARCA = 20             # marca conhecida (oferta "certeira")
+BONUS_MENOR_PRECO = 25       # menor preço em 30 dias pelo histórico próprio
+bugs_encontrados: list[dict] = []   # possíveis erros de preço vistos nesta rodada
+
+
+def _anotar_bug(nome: str, preco: float, info: dict, link_produto: str, loja: str, chave: str) -> None:
+    if info.get("bug") and not any(b["chave"] == chave for b in bugs_encontrados):
+        bugs_encontrados.append({"chave": chave, "nome": nome, "preco": preco, "mediana": info.get("mediana"),
+                                 "link_produto": link_produto, "loja": loja})
+
+
 def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANTAS,
-                  marcar: bool = True, so_pc: bool = False) -> list[dict]:
+                  marcar: bool = True, so_pc: bool = False, so_marca: bool = False) -> list[dict]:
     """Melhores produtos da Shopee: vendem bem, nota alta, desconto e boa comissão."""
     if not shopee.ativo():
         return []
@@ -244,6 +255,8 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
                 continue
             for n in nos:
                 ident = f"shopee:{n.get('itemId')}"
+                preco_visto = _num(n.get("priceMin"), None)
+                precos.registrar(ident, preco_visto)             # histórico de preço próprio
                 if ident in vistas or ident in achados:
                     continue
                 desconto = _num(n.get("priceDiscountRate"))
@@ -257,11 +270,19 @@ def buscar_shopee(palavras: list[str] | None = None, quantas: int = SHOPEE_QUANT
                     continue
                 if so_pc and not eh_pc(str(n.get("productName", ""))):
                     continue
+                nome_n = str(n.get("productName", ""))
+                if so_marca and not marcas.conhecida(nome_n):
+                    continue
+                info = precos.analise(ident, preco)
+                _anotar_bug(nome_n, preco, info, str(n.get("productLink") or n.get("offerLink")), "Shopee", ident)
+                n["_menor30"] = info.get("menor30", False)
                 n["_id"] = ident
                 n["_palavra"] = palavra
                 n["_nota"] = (comissao * 100 * 2 + desconto / 2 + math.log10(vendas + 1) * 3
                               + BONUS_APRENDIDO * pesos.get(palavra, 0.0)
-                              + (BONUS_HARDWARE / 2 if eh_pc(str(n.get("productName", ""))) else 0))
+                              + (BONUS_HARDWARE / 2 if eh_pc(str(n.get("productName", ""))) else 0)
+                              + (BONUS_MARCA if marcas.conhecida(nome_n) else 0)
+                              + (BONUS_MENOR_PRECO if n["_menor30"] else 0))
                 achados[ident] = n
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
     # no máximo 2 por palavra, para variar os produtos
@@ -300,7 +321,8 @@ def mensagem_shopee(produtos: list[dict], titulo: str = "🛍️ Shopee — suge
         vendas = int(_num(n.get("sales")))
         nota = _num(n.get("ratingStar"))
         linhas += [
-            f"S{i}. 🔥 -{round(desconto)}% · ⭐ {nota:.1f} · {vendas:,} vendidos".replace(",", "."),
+            f"S{i}. 🔥 -{round(desconto)}% · ⭐ {nota:.1f} · {vendas:,} vendidos".replace(",", ".")
+            + (" · 📉 menor preço em 30 dias" if n.get("_menor30") else ""),
             str(n.get("productName", ""))[:90],
             f"💰 {formatar_preco(preco)}" + (f" (antes ~{formatar_preco(antes)})" if antes else ""),
             f"💸 Comissão: {comissao:.0f}%".replace(".", ",")
@@ -359,7 +381,7 @@ def escolhidos(pedido: list[str]) -> tuple[list[str], list[str]]:
             links += atual.get("S", [])
         elif item in ("ML", "MERCADOLIVRE"):
             links += atual.get("M", [])
-        elif re.fullmatch(r"[SM]\d+(-\d+)?", item):
+        elif re.fullmatch(r"[SMB]\d+(-\d+)?", item):
             lista = atual.get(item[0], [])
             ini, _, fim = item[1:].partition("-")
             for n in range(int(ini), int(fim or ini) + 1):
@@ -389,7 +411,8 @@ def _palavras_ml() -> list[str]:
     return [p.strip() for p in texto.split(",") if p.strip()]
 
 
-def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_pc: bool = False) -> list[dict]:
+def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_pc: bool = False,
+              so_marca: bool = False) -> list[dict]:
     """Mais vendidos do ML nas categorias das palavras, com desconto real agora."""
     if not mercadolivre.ativo():
         return []
@@ -419,6 +442,7 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_p
                     continue
                 vendedor = lista[0]
                 preco, antes = vendedor.get("price"), vendedor.get("original_price")
+                precos.registrar(f"ml:{ident}", preco)           # histórico de preço próprio
                 if not preco or not antes or antes <= preco:
                     continue
                 desconto = (1 - preco / antes) * 100
@@ -429,13 +453,21 @@ def buscar_ml(palavras: list[str] | None = None, quantas: int = ML_QUANTAS, so_p
                 continue
             if so_pc and not eh_pc(produto.get("name", "")):
                 continue
+            if so_marca and not marcas.conhecida(produto.get("name", "")):
+                continue
+            info = precos.analise(f"ml:{ident}", preco)
+            _anotar_bug(produto.get("name", ""), preco, info, f"https://www.mercadolivre.com.br/p/{ident}",
+                        "Mercado Livre", f"ml:{ident}")
             achados[f"ml:{ident}"] = {
                 "_id": f"ml:{ident}", "_palavra": palavra, "id": ident,
                 "nome": produto.get("name", ""), "preco": preco, "antes": antes,
                 "desconto": desconto, "posicao": pos.get("position") or 99,
                 "categoria": dominio.get("category_name", ""),
                 "link": mercadolivre.link_afiliado(ident),
-                "_nota": desconto - (pos.get("position") or 99) * 1.5 + BONUS_APRENDIDO * pesos.get(palavra, 0.0),
+                "_menor30": info.get("menor30", False),
+                "_nota": (desconto - (pos.get("position") or 99) * 1.5 + BONUS_APRENDIDO * pesos.get(palavra, 0.0)
+                          + (BONUS_MARCA if marcas.conhecida(produto.get("name", "")) else 0)
+                          + (BONUS_MENOR_PRECO if info.get("menor30") else 0)),
             }
     melhores = sorted(achados.values(), key=lambda n: -n["_nota"])
     escolhidos, por_palavra = [], {}
@@ -465,7 +497,8 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
         link = (f'🔗 <a href="{e(n["link"])}">Ver no Mercado Livre</a>' if html
                 else f"🔗 {n['link']}")
         linhas += [
-            f"M{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {e(n['categoria'])}",
+            f"M{i}. 🔥 -{round(n['desconto'])}% · 🏆 {n['posicao']}º mais vendido em {e(n['categoria'])}"
+            + (" · 📉 menor preço em 30 dias" if n.get("_menor30") else ""),
             e(str(n["nome"])[:90]),
             f"💰 {formatar_preco(n['preco'])} (antes {formatar_preco(n['antes'])})",
             link,
@@ -612,3 +645,37 @@ def sugerir_se_for_hora(enviar) -> bool:
             from . import telegram
             telegram.enviar_html(config.ADMIN_CHAT_ID, bloco)
     return True
+
+
+def avisar_bugs(enviar) -> int:
+    """Manda para você os possíveis erros de preço vistos nesta rodada (com /add B1 para postar)."""
+    if not bugs_encontrados:
+        return 0
+    try:
+        ja = json.loads((supabase.ler_config("bugs_avisados") or {}).get("valor") or "[]")
+    except ValueError:
+        ja = []
+    novos = [b for b in bugs_encontrados if b["chave"] not in ja][:3]
+    bugs_encontrados.clear()
+    if not novos:
+        return 0
+    textos, linhas = [], ["⚠️ POSSÍVEIS ERROS DE PREÇO (bem abaixo do que o produto costuma custar):", ""]
+    for i, b in enumerate(novos, 1):
+        link = b["link_produto"]
+        if b["loja"] == "Shopee":
+            try:
+                link = shopee.link_afiliado(link, "dropcerto_bug")
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            link = mercadolivre.link_afiliado(b["chave"].split(":", 1)[1])
+        textos.append(f"{link}\nalerta: bug")
+        linhas += [f"B{i}. {b['nome'][:70]}", f"   {formatar_preco(b['preco'])} — costuma ser ~{formatar_preco(b['mediana'])}"
+                   f" ({b['loja']})", f"   🔗 {link}", ""]
+    _guardar("B", textos)
+    linhas += ["Confira na loja (pode ser variação mais barata do anúncio).",
+               "Se for real: /add B1 → sai no canal como \"⚠️ POSSÍVEL ERRO DE PREÇO\"."]
+    enviar("\n".join(linhas))
+    if supabase.ativo():
+        supabase.gravar_config("bugs_avisados", json.dumps((ja + [b["chave"] for b in novos])[-300:]))
+    return len(novos)

@@ -91,7 +91,8 @@ def ler(link: str) -> dict:
     preco = _preco(no.get("priceMin") or no.get("price"))
     desconto = _preco(no.get("priceDiscountRate")) or 0
     antigo = round(preco / (1 - desconto / 100), 2) if preco and 0 < desconto < 95 else None
-    return {"nome": no.get("productName"), "preco": preco, "preco_antigo": antigo, "imagem": no.get("imageUrl")}
+    return {"nome": no.get("productName"), "preco": preco, "preco_antigo": antigo, "imagem": no.get("imageUrl"),
+            "chave_preco": f"shopee:{item}"}
 
 
 # ---------------------------------------------------------------------------

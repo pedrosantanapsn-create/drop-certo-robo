@@ -45,10 +45,15 @@ def enviar_texto(chat_id, texto: str) -> None:
     _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], disable_web_page_preview="true")
 
 
-def enviar_html(chat_id, texto: str) -> None:
+def enviar_html(chat_id, texto: str) -> dict:
     """Mensagem com links clicáveis em <a href> (não quebram no meio, como /p/ do ML)."""
-    _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], parse_mode="HTML",
+    return _chamar("sendMessage", chat_id=chat_id, text=texto[:4096], parse_mode="HTML",
             disable_web_page_preview="true")
+
+
+def fixar(chat_id, message_id) -> None:
+    """Fixa a mensagem no topo (o robô precisa ser admin com permissão de fixar)."""
+    _chamar("pinChatMessage", chat_id=chat_id, message_id=message_id, disable_notification="true")
 
 
 def enviar_foto(chat_id, foto: Path, legenda: str = "", html: bool = False) -> dict:
