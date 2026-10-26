@@ -28,9 +28,21 @@ _RE = re.compile(r"(?:^|[^a-z0-9])(" + "|".join(re.escape(m.strip()) for m in so
                  + r")(?:[^a-z0-9]|$)", re.I)
 
 
+# "Carregador para iPhone", "Suporte compatível com Nvidia": a marca é do OUTRO produto
+_RE_COMPAT = re.compile(r"\b(para|pra|p/|compat[ií]vel|compat|serve|tipo|estilo|similar|igual|modelo)\b", re.I)
+
+
 def marca(nome: str) -> str:
-    """Marca conhecida encontrada no nome, ou '' se for genérico."""
-    m = _RE.search(f" {nome or ''} ")
+    """Marca conhecida do PRÓPRIO produto, ou '' se for genérico.
+
+    Só vale a marca que aparece antes de "para / compatível com…" e nas primeiras 8 palavras.
+    """
+    texto = f" {nome or ''} "
+    corte = _RE_COMPAT.search(texto)
+    if corte:
+        texto = texto[:corte.start()] + " "
+    texto = " " + " ".join(texto.split()[:8]) + " "
+    m = _RE.search(texto)
     return m.group(1).strip() if m else ""
 
 
