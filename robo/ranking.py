@@ -609,8 +609,16 @@ def custo_sob_demanda(texto: str, enviar) -> None:
     enviar(f"💡 Montando o Top 5 custo-benefício: {desc}… (uns 3 min)")
     itens = buscar_custo(palavra, teto, requisitos)
     if len(itens) < 3:
-        enviar("Não achei produtos suficientes que cumpram o pedido com nota boa. "
-               "Tente sem o requisito ou com um preço maior.")
+        if itens:     # poucos para um vídeo Top 5, mas vale mostrar para você
+            linhas = [f"Só achei {len(itens)} que cumprem o pedido com nota boa (pouco para um vídeo):", ""]
+            for i, it in enumerate(itens, 1):
+                linhas += [f"{i}. {it['nome'][:70]} — {formatar_preco(it['preco'])} ({it['loja']})",
+                           f"   ↳ {it.get('motivo', '')}", f"   🔗 {it['link']}", ""]
+            linhas.append("Para postar um, mande o link para mim. Para um vídeo, tente um preço maior.")
+            enviar("\n".join(linhas))
+        else:
+            enviar("Não achei produtos que cumpram o pedido com nota boa. "
+                   "Tente sem o requisito ou com um preço maior.")
         return
     titulo = palavra + (f" com {', '.join(requisitos)}" if requisitos else "")
     publicar(palavra, titulo, teto, itens, enviar, reservado=False, modo="custo")

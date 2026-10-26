@@ -48,7 +48,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
 | a partir das 10h | Avisos de "baixou o preço" no canal (≥ 10%, ML e Shopee) |
 | 10h | Sugestões do dia (Promobit + Shopee) |
-| Ter/Qui/Dom 19h → 20h | Vídeo "Top 5" (prévia às 19h, `/cancelar_top`; publica às 20h no Reels, Story, TikTok e canal) |
+| Ter/Qui/Dom 19h → 20h | Vídeo "Top 5", alternando "custo-benefício" e "mais bem avaliados" (prévia às 19h, `/cancelar_top`; publica às 20h no Reels, Story, TikTok e canal) |
 | 21h | Top 5 do dia no canal |
 | Segunda 9h | Relatório da semana (posts, cliques do canal e do site) |
 | Qualquer erro | Alerta imediato no bot (no máx. 1 por problema a cada 6 h) |
@@ -63,6 +63,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `/fila` `/agora` `/limpar` `/intervalo` | fila de posts |
 | `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
 | `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
+| `/custo fone com dongle até 300` | vídeo Top 5 de custo-benefício (ficha técnica + preço + nota, IA grátis) |
 | `/video_top fone bluetooth até 100` · `/cancelar_top` | vídeo "Top 5" na hora · cancela o das 20h |
 | áudio + `/musica` · `/musicas` · `/tirar_musica N` | biblioteca de músicas de fundo (Pixabay, sem Content ID) |
 | `/cupom CODIGO descrição` | post de cupom no canal |
