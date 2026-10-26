@@ -12,7 +12,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python - <<'PY'
+          python - <<'PY' 2>err.txt || (tail -5 err.txt | tr '\n' ' ' | sed 's/^/::warning::ERR /'; echo)
           import json
           from datetime import datetime, timedelta
           from robo import relatorio, fila, supabase, ranking
