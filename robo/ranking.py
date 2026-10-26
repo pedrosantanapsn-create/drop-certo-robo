@@ -166,6 +166,140 @@ def buscar_produtos(palavra: str, teto: float | None, quantos: int = 5) -> list[
     return escolhidos[:quantos]
 
 
+# ---------------------------------------------------------------------------
+# Modo CUSTO-BENEFÍCIO (grátis): ficha técnica + preço + nota, avaliado pelo Gemini
+# ---------------------------------------------------------------------------
+SINONIMOS = {
+    "dongle": r"2[.,]4\s*g|dongle|receptor|wireless usb|usb wireless|lightspeed",
+    "bluetooth": r"bluetooth|\bbt\s*5",
+    "rgb": r"\brgb\b",
+    "microfone": r"microfone|\bmic\b",
+    "mecanico": r"mec[aâ]nico|switch",
+    "sem fio": r"sem fio|wireless|bluetooth|2[.,]4\s*g",
+    "anc": r"\banc\b|cancelamento (ativo )?de ru[ií]do",
+}
+
+
+def separar_pedido(texto: str) -> tuple[str, float | None, list[str]]:
+    """'fone com dongle até 300' -> ('fone', 300, ['dongle'])"""
+    m = re.search(r"(?:at[eé]|<=?)\s*r?\$?\s*(\d+)", texto, re.I)
+    teto = float(m.group(1)) if m else None
+    resto = re.sub(r"(?:at[eé]|<=?)\s*r?\$?\s*\d+", "", texto, flags=re.I).strip()
+    requisitos = []
+    if " com " in f" {resto} ":
+        palavra, _, extras = f" {resto} ".partition(" com ")
+        requisitos = [r.strip() for r in re.split(r"\s+e\s+|,", extras) if r.strip()]
+        resto = palavra.strip()
+    return resto, teto, requisitos
+
+
+def _atende(texto: str, requisitos: list[str]) -> bool:
+    texto = (texto or "").lower()
+    for req in requisitos:
+        padrao = SINONIMOS.get(req.lower().replace("ê", "e"), re.escape(req.lower()))
+        if not re.search(padrao, texto, re.I):
+            return False
+    return True
+
+
+def _ficha_ml(produto_id: str) -> str:
+    try:
+        p = mercadolivre._get(f"/products/{produto_id}")
+    except Exception:  # noqa: BLE001
+        return ""
+    attrs = [f"{a.get('name')}: {a.get('value_name')}" for a in (p.get("attributes") or [])
+             if a.get("value_name") and len(str(a.get("value_name"))) < 40][:18]
+    return "; ".join(attrs)
+
+
+def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quantos: int = 5) -> list[dict]:
+    """Candidatos que cumprem o pedido; o Gemini escolhe os 5 de melhor custo-benefício."""
+    busca = " ".join([palavra, *requisitos]).strip()
+    candidatos: list[dict] = []
+    if shopee.ativo():
+        vistos = set()
+        for termo in dict.fromkeys([busca, palavra]):
+            for ordem in (shopee.ORDEM_MAIS_VENDIDOS, shopee.ORDEM_MAIOR_COMISSAO):
+                try:
+                    nos = shopee.buscar(termo, ordem, 50)
+                except Exception:  # noqa: BLE001
+                    continue
+                for n in nos:
+                    nome = str(n.get("productName") or "")
+                    preco = sugestoes._num(n.get("priceMin"), None)
+                    nota = sugestoes._num(n.get("ratingStar"))
+                    vendas = int(sugestoes._num(n.get("sales")))
+                    if n.get("itemId") in vistos or not preco or (teto and preco > teto):
+                        continue
+                    vistos.add(n.get("itemId"))
+                    if nota < 4.3 or vendas < 30 or sugestoes.RE_NAO_PC.search(nome) or not _atende(nome, requisitos):
+                        continue
+                    candidatos.append({"nome": nome, "preco": preco, "nota": nota, "vendas": vendas, "ficha": nome,
+                                       "link": n.get("productLink") or n.get("offerLink"),
+                                       "imagem": n.get("imageUrl"), "loja": "Shopee"})
+    if mercadolivre.ativo():
+        try:
+            for n in sugestoes.buscar_ml([busca], quantos=10):
+                if teto and n["preco"] > teto:
+                    continue
+                ficha = _ficha_ml(n["id"])
+                if not _atende(n["nome"] + " " + ficha, requisitos):
+                    continue
+                candidatos.append({"nome": n["nome"], "preco": n["preco"], "nota": None, "vendas": None,
+                                   "ficha": ficha or n["nome"], "link": n["link"], "imagem": None,
+                                   "id_ml": n["id"], "loja": "Mercado Livre"})
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Custo ML: {str(erro)[:120]}")
+    # tira repetidos e limita a 16 para a IA comparar
+    unicos: list[dict] = []
+    for c in sorted(candidatos, key=lambda c: -((c["nota"] or 4.5) * 20 + math.log10((c["vendas"] or 100) + 1) * 8)):
+        if not any(_parecidos(c["nome"], u["nome"]) for u in unicos):
+            unicos.append(c)
+        if len(unicos) >= 16:
+            break
+    if len(unicos) < 3:
+        return []
+    escolhidos = _avaliar_custo(palavra, requisitos, teto, unicos, quantos)
+    for c in escolhidos:
+        if c["loja"] == "Shopee":
+            try:
+                c["link"] = shopee.link_afiliado(str(c["link"]), "dropcerto_custo")
+            except Exception:  # noqa: BLE001
+                pass
+    return escolhidos
+
+
+def _avaliar_custo(palavra, requisitos, teto, cands: list[dict], quantos: int) -> list[dict]:
+    """Gemini compara ficha × preço × nota. Sem Gemini: fórmula simples (nota e vendas por real)."""
+    lista = [{"i": i, "nome": c["nome"][:140], "preco": c["preco"], "nota": c["nota"], "vendas": c["vendas"],
+              "ficha": (c["ficha"] or "")[:500]} for i, c in enumerate(cands)]
+    prompt = (
+        f"Você é um analista de custo-benefício de tecnologia. Produto procurado: {palavra}"
+        + (f" com {', '.join(requisitos)}" if requisitos else "") + (f", até R$ {int(teto)}" if teto else "")
+        + ".\nCompare os candidatos abaixo usando SOMENTE os dados informados (nome, ficha, preço, nota e vendas). "
+        "Custo-benefício = o que o produto entrega (recursos, bateria, conexões, capacidade, potência) pelo preço, "
+        "com nota boa como garantia. Não invente especificações que não estão nos dados.\n"
+        f"Escolha os {quantos} melhores em ordem (1 = melhor) e para cada um escreva um motivo de no máximo "
+        "10 palavras, citando dados concretos (ex.: 'dongle e Bluetooth, 26h de bateria, menor preço').\n"
+        'Responda só JSON: [{"i": 0, "motivo": "..."}]\n' + json.dumps(lista, ensure_ascii=False))
+    try:
+        dados, _ = gemini.chamar([{"text": prompt}], temperatura=0.2)
+        resposta = json.loads(re.sub(r"^```(?:json)?|```$", "", gemini.texto(dados).strip(), flags=re.M))
+        escolhidos = []
+        for r in resposta:
+            i = int(r.get("i", -1))
+            if 0 <= i < len(cands) and cands[i] not in escolhidos:
+                cands[i]["motivo"] = str(r.get("motivo") or "")[:80]
+                escolhidos.append(cands[i])
+        if len(escolhidos) >= 3:
+            return escolhidos[:quantos]
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Custo-benefício (Gemini): {str(erro)[:150]}")
+    def nota(c):
+        return ((c["nota"] or 4.5) * 20 + math.log10((c["vendas"] or 100) + 1) * 8) / max(c["preco"], 1) ** 0.35
+    return sorted(cands, key=nota, reverse=True)[:quantos]
+
+
 def _nomes_curtos(nomes: list[str]) -> list[str]:
     """Nomes de até 6 palavras para a tela e a narração (Gemini; se falhar, corta)."""
     reserva = [" ".join(re.sub(r"[|,(\[].*$", "", n).split()[:6]) or n[:40] for n in nomes]
@@ -191,12 +325,17 @@ def _preco_falado(valor: float) -> str:
 # ---------------------------------------------------------------------------
 # Vídeo e publicação
 # ---------------------------------------------------------------------------
-def _titulo(titulo: str, teto: float | None) -> str:
-    return f"{titulo} mais bem avaliados" + (f" até R$ {int(teto)}" if teto else "")
+CRITERIOS = {"avaliados": "pela nota e pelas vendas de quem comprou",
+             "custo": "pela ficha técnica, preço e avaliação dos compradores"}
+
+
+def _titulo(titulo: str, teto: float | None, modo: str = "avaliados") -> str:
+    base = f"custo-benefício: {titulo}" if modo == "custo" else f"{titulo} mais bem avaliados"
+    return base + (f" até R$ {int(teto)}" if teto else "")
 
 
 def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], enviar,
-             reservado: bool) -> list[str]:
+             reservado: bool, modo: str = "avaliados") -> list[str]:
     """Monta o vídeo e publica. Devolve as linhas de status."""
     status: list[str] = []
     pasta = Path(tempfile.mkdtemp(prefix="top5_"))
@@ -229,18 +368,25 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
                     foto = None
             fotos.append(foto)
 
-        titulo_video = _titulo(titulo, teto)
-        criterio = "pela nota e pelas vendas de quem comprou"
+        titulo_video = _titulo(titulo, teto, modo)
+        criterio = CRITERIOS.get(modo, CRITERIOS["avaliados"])
         capa = arte.cena_ranking_capa(titulo_video, f"Ranking {criterio}", pasta / "capa.png")
         cenas = [(capa, 1.3)]
-        falas = [f"Os {len(itens)} {titulo} mais bem avaliados" + (f" até {int(teto)} reais" if teto else "")
-                 + f", {criterio}."]
+        if modo == "custo":
+            falas = [f"Os {len(itens)} {titulo} com melhor custo-benefício"
+                     + (f" até {int(teto)} reais" if teto else "") + f", {criterio}."]
+        else:
+            falas = [f"Os {len(itens)} {titulo} mais bem avaliados" + (f" até {int(teto)} reais" if teto else "")
+                     + f", {criterio}."]
         for pos in range(len(itens), 0, -1):
             item, nome = itens[pos - 1], curtos[pos - 1]
             cenas.append((arte.cena_ranking_item(pos, nome, item["preco"], item.get("nota"), item.get("vendas"),
-                                                 item["loja"], fotos[pos - 1], pasta / f"item{pos}.png"), 1.0))
+                                                 item["loja"], fotos[pos - 1], pasta / f"item{pos}.png",
+                                                 motivo=item.get("motivo", "")), 1.15 if item.get("motivo") else 1.0))
             fala = f"Número {pos}: {nome}, por {_preco_falado(item['preco'])}"
-            if item.get("nota") and pos == 1:     # nota falada só no 1º (vídeo mais curto)
+            if item.get("motivo"):
+                fala += f". {item['motivo']}"
+            elif item.get("nota") and pos == 1:     # nota falada só no 1º (vídeo mais curto)
                 fala += f", nota {str(round(item['nota'], 1)).replace('.', ',')}"
             falas.append(fala + ".")
         cenas.append((arte.cena_ranking_fim(pasta / "fim.png"), 0.8))
@@ -249,6 +395,7 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
         status.append("• Vídeo: pronto" + (" com narração" if com_voz else " (sem narração)"))
 
         linhas_lista = [f"{p}. {curtos[p - 1]} — {formatar_preco(itens[p - 1]['preco'])}"
+                        + (f" ({itens[p - 1]['motivo']})" if itens[p - 1].get("motivo") else "")
                         for p in range(1, len(itens) + 1)]
         hashtags = "#top5 #achadinhos #tecnologia #custobeneficio #oferta"
         legenda_redes = "\n".join([f"🏆 Top {len(itens)} {titulo_video}", f"(ranking {criterio})", "",
@@ -263,6 +410,8 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
                 for p in range(1, len(itens) + 1):
                     it = itens[p - 1]
                     extra = f" · ★ {it['nota']:.1f}".replace(".", ",") if it.get("nota") else ""
+                    if it.get("motivo"):
+                        extra += f"\n   <i>{escape(it['motivo'])}</i>"
                     url = rastreio.link(str(it["link"]), None, curtos[p - 1])
                     partes.append(f"{p}. {escape(curtos[p - 1])} — {formatar_preco(it['preco'])}{extra}  "
                                   f"<a href=\"{escape(url)}\">ver ➜</a>")
@@ -316,12 +465,14 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
         shutil.rmtree(pasta, ignore_errors=True)
 
 
-def _previa(categoria: tuple, itens: list[dict]) -> str:
+def _previa(categoria: tuple, itens: list[dict], modo: str = "avaliados") -> str:
     palavra, titulo, teto = categoria
-    linhas = [f"🏆 Prévia do Top 5 de hoje (sai às {HORA_POST}h):", _titulo(titulo, teto), ""]
+    linhas = [f"🏆 Prévia do Top 5 de hoje (sai às {HORA_POST}h):", _titulo(titulo, teto, modo), ""]
     for p, it in enumerate(itens, 1):
         extra = f" · ★ {it['nota']:.1f}".replace(".", ",") if it.get("nota") else f" · {it['loja']}"
         linhas.append(f"{p}. {it['nome'][:60]} — {formatar_preco(it['preco'])}{extra}")
+        if it.get("motivo"):
+            linhas.append(f"   ↳ {it['motivo']}")
     linhas += ["", "Não gostou? Mande /cancelar_top (o horário volta para os posts comuns)."]
     return "\n".join(linhas)
 
@@ -343,23 +494,27 @@ def se_for_hora(enviar) -> bool:
         return False
     if not estado:
         categoria = escolher_categoria(DIAS[agora.weekday()])
-        itens = buscar_produtos(categoria[0], categoria[2])
+        modo = "custo" if len(_ler(CHAVE_HISTORICO, [])) % 2 == 0 else "avaliados"   # alterna os formatos
+        itens = buscar_custo(categoria[0], categoria[2], []) if modo == "custo" else []
+        if len(itens) < 3:
+            modo, itens = "avaliados", buscar_produtos(categoria[0], categoria[2])
         if len(itens) < 3:
             supabase.gravar_config(CHAVE_ESTADO, json.dumps({"data": _hoje(), "fase": "sem_produtos"}))
             supabase.gravar_config(CHAVE_PROXIMO, str(int(_proximo_dia_util(agora + timedelta(hours=5)).timestamp())))
             enviar(f"🏆 Top 5 de hoje: não achei produtos suficientes em \"{categoria[1]}\". Fica para a próxima.")
             return False
         supabase.gravar_config(CHAVE_ESTADO, json.dumps({"data": _hoje(), "fase": "previa", "categoria": categoria,
-                                                         "itens": itens}, ensure_ascii=False))
+                                                         "itens": itens, "modo": modo}, ensure_ascii=False))
         hora_post = agora.replace(hour=HORA_POST, minute=0, second=0, microsecond=0)
         supabase.gravar_config(CHAVE_PROXIMO, str(int(max(hora_post, agora + timedelta(minutes=30)).timestamp())))
-        enviar(_previa(categoria, itens))
+        enviar(_previa(categoria, itens, modo))
         return True
     if estado.get("fase") == "previa":
         supabase.gravar_config(CHAVE_ESTADO, json.dumps({**estado, "fase": "postado"}, ensure_ascii=False))
         supabase.gravar_config(CHAVE_PROXIMO, str(int(_proximo_dia_util(agora + timedelta(hours=5)).timestamp())))
         palavra, titulo, teto = estado["categoria"]
-        publicar(palavra, titulo, teto, estado["itens"], enviar, reservado=True)
+        publicar(palavra, titulo, teto, estado["itens"], enviar, reservado=True,
+                 modo=estado.get("modo", "avaliados"))
         return True
     supabase.gravar_config(CHAVE_PROXIMO, str(int(_proximo_dia_util(agora + timedelta(hours=5)).timestamp())))
     return False
@@ -389,3 +544,20 @@ def sob_demanda(texto: str, enviar) -> None:
         enviar("Não achei produtos suficientes com nota boa nessa busca. Tente outra palavra ou um preço maior.")
         return
     publicar(palavra, palavra, teto, itens, enviar, reservado=False)
+
+
+def custo_sob_demanda(texto: str, enviar) -> None:
+    """/custo fone com dongle até 300"""
+    palavra, teto, requisitos = separar_pedido(texto)
+    if not palavra:
+        enviar("Use assim: /custo fone com dongle até 300\n(ou /custo ssd nvme 1tb até 400)")
+        return
+    desc = palavra + (f" com {', '.join(requisitos)}" if requisitos else "") + (f" até R$ {int(teto)}" if teto else "")
+    enviar(f"💡 Montando o Top 5 custo-benefício: {desc}… (uns 3 min)")
+    itens = buscar_custo(palavra, teto, requisitos)
+    if len(itens) < 3:
+        enviar("Não achei produtos suficientes que cumpram o pedido com nota boa. "
+               "Tente sem o requisito ou com um preço maior.")
+        return
+    titulo = palavra + (f" com {', '.join(requisitos)}" if requisitos else "")
+    publicar(palavra, titulo, teto, itens, enviar, reservado=False, modo="custo")

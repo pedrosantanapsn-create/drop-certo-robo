@@ -370,7 +370,8 @@ def cena_ranking_capa(titulo: str, subtitulo: str, destino: Path) -> Path:
 
 
 def cena_ranking_item(posicao: int, nome: str, preco: float | None, nota: float | None,
-                      vendas: int | None, loja: str, foto: Path | None, destino: Path) -> Path:
+                      vendas: int | None, loja: str, foto: Path | None, destino: Path,
+                      motivo: str = "") -> Path:
     img = fundo(VW, VH)
     d = ImageDraw.Draw(img)
     # número grande da posição
@@ -389,6 +390,10 @@ def cena_ranking_item(posicao: int, nome: str, preco: float | None, nota: float 
         detalhes.append(f"{vendas:,} vendidos".replace(",", "."))
     if detalhes:
         d.text((VM, y), "  ·  ".join(detalhes), font=fonte("bold", 46), fill=config.COR_TEXTO)
+        y += 70
+    if motivo:
+        texto_bloco(d, (VM, y), f"✓ {motivo}".replace("✓", "+"), fonte("semibold", 40), CINZA,
+                    VW - 2 * VM, 2)
     _rodape_video(d)
     img.save(destino)
     return destino

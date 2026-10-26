@@ -69,6 +69,7 @@ Comandos:
 /ml — liga/confere a API oficial do Mercado Livre
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
+/custo fone com dongle até 300 — vídeo Top 5 de custo-benefício (ficha técnica + preço + nota)
 /video_top fone bluetooth até 100 — vídeo "Top 5" na hora · /cancelar_top cancela o das 20h
 /musica (mande o áudio) · /musicas · /tirar_musica N — músicas de fundo dos vídeos
 /cupom CODIGO descrição — publica um cupom no canal (mande /cupom sozinho para ver o modelo)
@@ -493,6 +494,11 @@ def tratar(mensagem: dict) -> None:
             ranking.sob_demanda(" ".join(texto.split()[1:]), lambda t: telegram.enviar_texto(chat_id, t))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Top 5: {str(erro)[:200]}")
+    elif comando in ("/custo", "/custobeneficio", "/custo_beneficio"):
+        try:
+            ranking.custo_sob_demanda(" ".join(texto.split()[1:]), lambda t: telegram.enviar_texto(chat_id, t))
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Custo-benefício: {str(erro)[:200]}")
     elif comando in ("/cancelar_top", "/cancelartop"):
         telegram.enviar_texto(chat_id, ranking.cancelar())
     elif comando in ("/musicas", "/musica"):
