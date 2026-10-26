@@ -203,14 +203,16 @@ TIPOS = {
 }
 
 
-RE_ACESSORIO = re.compile(r"\badaptador|\bcabo\b|\bcapa\b|\bcase\b|suporte|almofada|espuma|"
-                          r"protetor|pel[ií]cula|\bkit \d+ adaptador|transmissor|reposi[cç][aã]o", re.I)
+RE_ACESSORIO = re.compile(r"\badaptador|\bcabo\b|\bcapa\b|\bcase\b|suporte|almofada|espuma|dissipador|"
+                          r"protetor|pel[ií]cula|\bkit \d+ adaptador|transmissor|reposi[cç][aã]o|"
+                          r"case|gaveta|cooler para ssd|heatsink|receptor avulso", re.I)
 
 
 def _e_do_tipo(nome: str, palavra: str) -> bool:
     """O anúncio é do produto pedido? (evita 'adaptador dongle' numa busca de fone)"""
     nome = (nome or "").lower()
-    if RE_ACESSORIO.search(nome) and not RE_ACESSORIO.search(palavra):
+    inicio = " ".join(nome.split()[:4])          # o "tipo" do anúncio vem nas primeiras palavras
+    if RE_ACESSORIO.search(inicio) and not RE_ACESSORIO.search(palavra):
         return False
     for tok in re.findall(r"[a-zà-ú0-9]{3,}", palavra.lower()):
         padrao = TIPOS.get(tok, re.escape(tok).replace("e", "[eé]") if tok.isalpha() else re.escape(tok))
@@ -314,9 +316,11 @@ def _avaliar_custo(palavra, requisitos, teto, cands: list[dict], quantos: int) -
         + (f" com {', '.join(requisitos)}" if requisitos else "") + (f", até R$ {int(teto)}" if teto else "")
         + ".\nCompare os candidatos abaixo usando SOMENTE os dados informados (nome, ficha, preço, nota e vendas). "
         "Custo-benefício = o que o produto entrega (recursos, bateria, conexões, capacidade, potência) pelo preço, "
-        "com nota boa como garantia. Não invente especificações que não estão nos dados.\n"
-        f"Escolha os {quantos} melhores em ordem (1 = melhor) e para cada um escreva um motivo de no máximo "
-        "10 palavras, citando dados concretos (ex.: 'dongle e Bluetooth, 26h de bateria, menor preço').\n"
+        "com nota boa como garantia. Não invente especificações que não estão nos dados. "
+        f"DESCARTE o que não for de fato um(a) {palavra} (acessórios, peças, adaptadores) e o que não cumprir o pedido.\n"
+        f"Escolha até {quantos} em ordem (1 = melhor) e para cada um escreva um motivo de no máximo "
+        "10 palavras citando RECURSOS concretos da ficha (ex.: 'dongle e Bluetooth, 26h de bateria'); "
+        "não repita preço nem nota no motivo (já aparecem no vídeo).\n"
         'Responda só JSON: [{"i": 0, "motivo": "..."}]\n' + json.dumps(lista, ensure_ascii=False))
     try:
         dados, _ = gemini.chamar([{"text": prompt}], temperatura=0.2)
