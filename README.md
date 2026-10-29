@@ -74,12 +74,6 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `/cupom CODIGO descrição` + `loja:` `validade:` passos `1.` `2.` `hora: 00:00` | post de cupom com passo a passo, na hora ou agendado · `/cupons` · `/cancelar_cupom CODIGO` |
 | `/regras` | publica e fixa as regras do canal |
 
-**Bot de busca para seguidores:** qualquer pessoa manda no privado do @Dropcerto22bot algo como
-`ssd 1tb até 300` e recebe as 3 melhores opções de custo-benefício (Shopee + ML) com o seu link.
-Estranhos só conseguem buscar; limite de 5 buscas por hora por pessoa e 150 por dia
-(`BUSCAS_POR_HORA`, `BUSCAS_POR_DIA`, desligar com `BUSCA_PUBLICA=false`). Roda no `busca.yml` (leve).
-A mensagem do seguidor não vai para os registros públicos do GitHub (fica no Supabase e é apagada).
-
 **De onde vêm as vendas:** links da Shopee saem marcados por rede (`canal`, `site`, `bot`, `aindavale`);
 o relatório de segunda mostra os pedidos e a comissão da Shopee por origem (API de conversões).
 No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (link da bio com
@@ -110,7 +104,6 @@ No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (li
 | `QUEDA_MINIMA` / `AVISAR_QUEDAS` | 10 / true | aviso de queda de preço |
 | `NOTA_MINIMA` | 45 | nota mínima para oferta da fila automática ir às redes |
 | `MARCAR_ORIGEM_SHOPEE` | true | links da Shopee marcados por rede |
-| `BUSCA_PUBLICA` / `BUSCAS_POR_HORA` / `BUSCAS_POR_DIA` | true / 5 / 150 | bot de busca para seguidores |
 | `AINDA_VALE` | true | repost "Ainda vale!" das 18h |
 | `TOP_DO_DIA` / `RASTREAR_CLIQUES` | true / true | top das 21h e cliques do canal |
 | `AMAZON_TAG` | certodrop-20 | sua tag da Amazon |
@@ -121,8 +114,7 @@ No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (li
 
 **Supabase:** tabelas `produtos` (site), `config` (estado do robô), `cliques` (só inserção pública);
 bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, Verify JWT desligado,
-segredo `GITHUB_TOKEN_ROBO`). A função é publicada sozinha pelo `funcao.yml` quando muda
-(precisa do segredo `SUPABASE_ACCESS_TOKEN` no GitHub).
+segredo `GITHUB_TOKEN_ROBO`).
 
 ## 6. Regras que o robô segue (legislação brasileira)
 

@@ -105,7 +105,7 @@ NOTA_MINIMA = int(_env("NOTA_MINIMA", "45") or 45)
 # Links da Shopee marcados por rede (canal/site/bot…) para o relatório de vendas por origem
 MARCAR_ORIGEM_SHOPEE = _env_bool("MARCAR_ORIGEM_SHOPEE", True)
 # Bot de busca para seguidores ("ssd 1tb até 300" no privado do bot)
-BUSCA_PUBLICA = _env_bool("BUSCA_PUBLICA", True)
+BUSCA_PUBLICA = _env_bool("BUSCA_PUBLICA", False)
 BUSCAS_POR_HORA = int(_env("BUSCAS_POR_HORA", "5") or 5)        # por pessoa
 BUSCAS_POR_DIA = int(_env("BUSCAS_POR_DIA", "150") or 150)       # todas as pessoas juntas
 # "Ainda vale!": repostar no canal oferta que teve clique e continua com o mesmo preço
