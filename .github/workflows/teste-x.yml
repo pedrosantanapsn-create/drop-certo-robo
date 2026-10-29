@@ -1,0 +1,32 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -q requests beautifulsoup4
+      - name: t
+        run: |
+          python - <<'PY'
+          from robo import shopee
+          import time, json
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
+          for q in ['{__type(name:"Query"){fields{name args{name}}}}',
+                    '{__type(name:"ConversionReportConnection"){fields{name}}}',
+                    '{__type(name:"ConversionReport"){fields{name}}}',
+                    '{__type(name:"ConversionReportOrder"){fields{name}}}',
+                    '{__type(name:"ConversionReportOrderItem"){fields{name}}}']:
+              try: w(q[:40]+" => "+json.dumps(shopee._consultar(q))[:900])
+              except Exception as e: w(f"ERRO {q[:40]} {e}")
+          agora=int(time.time())
+          try:
+              d=shopee._consultar('{conversionReport(purchaseTimeStart:%d,purchaseTimeEnd:%d,limit:5){nodes{purchaseTime utmContent orders{orderStatus items{itemName itemTotalCommission}}} pageInfo{hasNextPage}}}'%(agora-30*86400,agora))
+              w("conv => "+json.dumps(d)[:900])
+          except Exception as e: w(f"conv ERRO {e}")
+          PY
