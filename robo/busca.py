@@ -109,7 +109,7 @@ def responder(mensagem: dict) -> None:
     desc = palavra + (f" com {', '.join(requisitos)}" if requisitos else "") + (f" até R$ {int(teto)}" if teto else "")
     telegram.enviar_texto(chat_id, f"🔎 Procurando {desc}… (leva uns segundos)")
     try:
-        itens = ranking.buscar_custo(palavra, teto, requisitos, quantos=3, sub_id="bot")
+        itens = ranking.buscar_custo(palavra, teto, requisitos, quantos=3, sub_id="bot", minimo=1)
     except Exception as erro:  # noqa: BLE001
         print(f"::warning::Busca pública: {str(erro)[:200]}")
         itens = []

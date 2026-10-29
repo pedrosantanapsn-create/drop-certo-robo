@@ -27,9 +27,23 @@ jobs:
           def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
           try:
               p, t, r = busca.entender("quero um ssd 1tb até 350")
-              it = ranking.buscar_custo(p, t, r, quantos=3, sub_id="bot")
+              it = ranking.buscar_custo(p, t, r, quantos=3, sub_id="bot", minimo=1)
               w(f"busca {p},{t},{r}: " + " ; ".join(f"{i['nome'][:40]} {i['preco']} {i['loja']} {str(i['link'])[:40]} | {i.get('motivo','')}" for i in it))
           except Exception as e: w(f"busca ERRO {e!r}")
+          try:
+              from robo import mercadolivre
+              dom = mercadolivre._get("/sites/MLB/domain_discovery/search", q="ssd 1tb", limit=1)
+              w("dom: " + str(dom)[:300])
+              hl = mercadolivre._get(f"/highlights/MLB/category/{dom[0]['category_id']}").get("content") or []
+              out=[]
+              for pos in hl[:8]:
+                  if pos.get("type")!="PRODUCT": out.append(pos.get("type")); continue
+                  prod=mercadolivre._get(f"/products/{pos['id']}")
+                  try: vend=(mercadolivre._get(f"/products/{pos['id']}/items").get("results") or [{}])[0]
+                  except Exception as e: vend={"erro":str(e)[:40]}
+                  out.append((prod.get("name","")[:35], vend.get("price"), vend.get("erro")))
+              w("hl: "+str(out))
+          except Exception as e: w(f"ml ERRO {e!r}")
           try: w("aindavale candidatos: " + str([(c['id'], str(c.get('nome'))[:30]) for c in aindavale._candidatos(datetime.now(FUSO))[:5]]))
           except Exception as e: w(f"aindavale ERRO {e!r}")
           PY

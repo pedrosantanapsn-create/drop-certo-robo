@@ -249,7 +249,7 @@ def _varias_versoes(nome: str) -> bool:
 
 
 def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quantos: int = 5,
-                 sub_id: str = "dropcerto_custo") -> list[dict]:
+                 sub_id: str = "dropcerto_custo", minimo: int = 3) -> list[dict]:
     """Candidatos que cumprem o pedido; o Gemini escolhe os 5 de melhor custo-benefício."""
     busca = " ".join([palavra, *requisitos]).strip()
     candidatos: list[dict] = []
@@ -319,7 +319,8 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
             unicos.append(c)
         if len(unicos) >= 16:
             break
-    if len(unicos) < 3:
+    print(f"Custo-benefício '{busca}': {len(candidatos)} candidatos, {len(unicos)} únicos")
+    if len(unicos) < minimo:
         return []
     escolhidos = _avaliar_custo(palavra, requisitos, teto, unicos, quantos)
     for c in escolhidos:
