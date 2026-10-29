@@ -16,11 +16,20 @@ from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 
-from . import config, fila, mercadolivre, shopee, sugestoes, supabase
-from .produto import formatar_preco
+from . import config, fila, mercadolivre, nota, precos, shopee, sugestoes, supabase
+from .produto import Produto, formatar_preco
 
 CHAVE = "reabastecer_proximo"
 INTERVALO_MIN_H = 2
+
+
+def _nota_previa(nome: str, preco: float | None, desconto: float, chave: str, extras: dict) -> int:
+    """Nota da oferta já na hora de pôr na fila (no pico o robô posta a de maior nota primeiro)."""
+    antigo = round(preco / (1 - desconto / 100), 2) if preco and 0 < desconto < 95 else None
+    p = Produto(link="", nome=nome, preco=preco, preco_antigo=antigo)
+    info = precos.analise(chave, preco) if chave else {}
+    falso = bool(nota.desconto_falso(p, info))
+    return nota.calcular(p, info, extras, falso=falso)[0]
 
 
 def agendar(daqui_min: int = 20) -> None:
@@ -57,16 +66,24 @@ def se_for_hora(enviar) -> int:
         try:
             for n in sugestoes.buscar_shopee(quantas=config.FILA_AUTO_SHOPEE, so_marca=True):
                 if n.get("_link"):
-                    textos.append(str(n["_link"]))
-                    linhas.append(f"🛍️ {str(n.get('productName', ''))[:55]} — "
-                                  f"{formatar_preco(sugestoes._num(n.get('priceMin'), None))}")
+                    preco = sugestoes._num(n.get("priceMin"), None)
+                    pontos = _nota_previa(str(n.get("productName", "")), preco,
+                                          sugestoes._num(n.get("priceDiscountRate")), n.get("_id", ""),
+                                          {"comissao": sugestoes._num(n.get("commissionRate"), None),
+                                           "nota_loja": sugestoes._num(n.get("ratingStar"), None),
+                                           "vendas": sugestoes._num(n.get("sales"), None)})
+                    textos.append(f"{n['_link']}\norigem: auto\nnota: {pontos}")
+                    linhas.append(f"🛍️ {str(n.get('productName', ''))[:55]} — {formatar_preco(preco)} · nota {pontos}")
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Fila automática Shopee: {str(erro)[:150]}")
     if mercadolivre.ativo() and config.FILA_AUTO_ML and config.ML_MATT_WORD:
         try:
             for n in sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML, so_marca=True):
-                textos.append(n["link"])
-                linhas.append(f"🛒 {str(n['nome'])[:55]} — {formatar_preco(n['preco'])} (-{round(n['desconto'])}%)")
+                pontos = _nota_previa(str(n["nome"]), n["preco"], float(n.get("desconto") or 0),
+                                      n.get("_id", ""), {})
+                textos.append(f"{n['link']}\norigem: auto\nnota: {pontos}")
+                linhas.append(f"🛒 {str(n['nome'])[:55]} — {formatar_preco(n['preco'])} "
+                              f"(-{round(n['desconto'])}%) · nota {pontos}")
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Fila automática ML: {str(erro)[:150]}")
     if not textos:
@@ -84,5 +101,6 @@ def se_for_hora(enviar) -> int:
     enviar("🤖 A fila tinha acabado — coloquei ofertas novas sozinho "
            f"({len(textos) - ignorados}):\n\n" + "\n".join(linhas) +
            f"\n\n⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}\n"
+           f"No pico sai primeiro a de maior nota; nota abaixo de {config.NOTA_MINIMA} vai só para o site.\n"
            "Mande /fila para ver · /limpar para cancelar tudo.")
     return len(textos) - ignorados

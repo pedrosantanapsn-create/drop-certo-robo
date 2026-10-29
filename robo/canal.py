@@ -26,9 +26,9 @@ def _loja(link: str) -> str:
     return "loja"
 
 
-def legenda(produto: Produto, menor30: bool = False) -> str:
+def legenda(produto: Produto, menor30: bool = False, link: str = "", topo: str = "") -> str:
     """Legenda em HTML (parse_mode HTML) para o post do canal."""
-    linhas: list[str] = []
+    linhas: list[str] = [topo, ""] if topo else []
     if produto.alerta == "bug":
         linhas += ["⚠️ <b>POSSÍVEL ERRO DE PREÇO</b> — pode cair a qualquer momento", ""]
     linhas.append(f"<b>{escape(produto.nome.strip())}</b>")
@@ -45,7 +45,7 @@ def legenda(produto: Produto, menor30: bool = False) -> str:
         linhas.append(f"🎟️ Cupom: <code>{escape(produto.cupom)}</code>"
                       + (f" — {escape(produto.cupom_info)}" if produto.cupom_info else ""))
     linhas.append("")
-    url = rastreio.link(produto.link, produto.site_id, produto.nome)
+    url = rastreio.link(link or produto.link, produto.site_id, produto.nome)
     linhas.append(f'🛒 <a href="{escape(url)}">Comprar na {escape(_loja(produto.link))}</a>')
     linhas.append("")
     agora = datetime.now(fila.FUSO).strftime("%d/%m %H:%M")

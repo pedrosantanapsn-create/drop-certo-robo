@@ -240,7 +240,8 @@ def _ficha_ml(produto_id: str) -> str:
     return "; ".join(attrs)
 
 
-def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quantos: int = 5) -> list[dict]:
+def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quantos: int = 5,
+                 sub_id: str = "dropcerto_custo") -> list[dict]:
     """Candidatos que cumprem o pedido; o Gemini escolhe os 5 de melhor custo-benefício."""
     busca = " ".join([palavra, *requisitos]).strip()
     candidatos: list[dict] = []
@@ -315,7 +316,7 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
     for c in escolhidos:
         if c["loja"] == "Shopee":
             try:
-                c["link"] = shopee.link_afiliado(str(c["link"]), "dropcerto_custo")
+                c["link"] = shopee.link_afiliado(str(c["link"]), sub_id)
             except Exception:  # noqa: BLE001
                 pass
     return escolhidos

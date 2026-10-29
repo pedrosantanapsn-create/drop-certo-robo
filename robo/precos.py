@@ -74,7 +74,7 @@ def salvar() -> None:
 
 
 def analise(chave: str, preco: float | None) -> dict:
-    """{'dias', 'minimo30', 'mediana', 'menor30': bool, 'bug': bool}"""
+    """{'dias', 'minimo30', 'maximo30', 'mediana', 'menor30': bool, 'bug': bool}"""
     pontos = _carregar().get(chave or "", {})
     hoje = _hoje()
     limite = (datetime.now(FUSO) - timedelta(days=30)).strftime("%y%m%d")
@@ -83,7 +83,7 @@ def analise(chave: str, preco: float | None) -> dict:
         return {"dias": len(antes), "menor30": False, "bug": False}
     mediana = statistics.median(antes)
     return {
-        "dias": len(antes), "minimo30": min(antes), "mediana": mediana,
+        "dias": len(antes), "minimo30": min(antes), "maximo30": max(antes), "mediana": mediana,
         "menor30": len(antes) >= DIAS_MINIMO and preco < min(antes) - 0.01,
         "bug": len(antes) >= 5 and preco <= mediana * FATOR_BUG,
     }

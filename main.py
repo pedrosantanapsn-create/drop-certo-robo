@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import alertas, amazon, arte, canal, config, cupons, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, alertas, amazon, arte, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -111,6 +111,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     status: list[str] = []
 
     # 1. Dados do produto
+    extras: dict = {}            # nota/vendas/comissão da loja (Shopee) para a nota da oferta
+    link_produto = ""            # endereço da Shopee para gerar links marcados por rede
     try:
         produto = buscar_produto(dados)
     except Exception as erro:  # noqa: BLE001
@@ -131,6 +133,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             if oficial.get("imagem"):
                 produto.imagens = [oficial["imagem"], *produto.imagens]
             produto.chave_preco = oficial.get("chave_preco") or ""
+            extras = {k: oficial.get(k) for k in ("comissao", "nota_loja", "vendas")}
+            link_produto = oficial.get("link_produto") or ""
             produto.bloqueado = False
             status.append("• Dados lidos pela API oficial da Shopee ✅")
         except Exception as erro:  # noqa: BLE001
@@ -250,6 +254,46 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if not fotos:
         status.append("• Sem foto do produto — mande uma foto junto com o link para ficar melhor")
 
+    # Histórico de preços próprio, desconto falso e nota da oferta
+    menor30, info = False, {}
+    if not produto.chave_preco and amazon.e_amazon(produto.link):
+        asin = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", produto.link + " " + (produto.url_final or ""))
+        produto.chave_preco = f"amazon:{asin.group(1)}" if asin else ""
+    if produto.chave_preco and produto.preco:
+        try:
+            info = precos.analise(produto.chave_preco, produto.preco)
+            menor30 = bool(info.get("menor30"))
+            if info.get("bug") and not produto.alerta:
+                produto.alerta = "bug"
+                status.append("• ⚠️ Preço 50% abaixo do normal deste produto — postado como possível erro de preço")
+            precos.registrar(produto.chave_preco, produto.preco)
+            precos.salvar()
+            if menor30:
+                status.append(f"• 📉 Menor preço em 30 dias (histórico de {info.get('dias')} dias)")
+            elif info.get("dias"):
+                status.append(f"• Histórico de preço: {info.get('dias')} dias, mínimo "
+                              f"{formatar_preco(info.get('minimo30'))}")
+        except Exception as erro:  # noqa: BLE001
+            print("Histórico de preços:", erro, file=sys.stderr)
+    falso = nota.desconto_falso(produto, info)
+    if falso:
+        status.append(f"• 🚫 Desconto falso: {falso} — tirei o \"de R$\" e o \"% OFF\" do post (CDC art. 37)")
+        produto.preco_antigo = None
+    pontos, motivos = nota.calcular(produto, info, extras, falso=bool(falso))
+    vai_redes = nota.passa(produto, pontos)
+    status.append(f"• Nota da oferta: {pontos}/100" + (f" ({', '.join(motivos[:5])})" if motivos else ""))
+    if not vai_redes:
+        status.append(f"• Nota abaixo de {config.NOTA_MINIMA} (fila automática): fica só no site — "
+                      "não gastei o alcance do canal, Reels e TikTok")
+
+    # Shopee: um link por rede (canal / site) para o relatório mostrar de onde vêm as VENDAS
+    if link_produto and config.MARCAR_ORIGEM_SHOPEE:
+        try:
+            produto.link_canal = shopee.link_afiliado(link_produto, "canal")
+            produto.link = shopee.link_afiliado(link_produto, "site")
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Links por rede da Shopee: {str(erro)[:150]}")
+
     # 2. Textos
     textos, origem = legenda.gerar_textos(produto)
     status.append(f"• Textos: {origem}")
@@ -265,6 +309,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         print("Modelo do vídeo:", erro, file=sys.stderr)
     caminho_arte = arte.arte_feed(produto, textos, fotos, pasta / "arte_feed.jpg")
     try:
+        if not vai_redes:
+            raise RuntimeError("não precisa (oferta só para o site)")
         caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
         if com_voz:
             status.append(f"• Vídeo: pronto com narração ({video.voz_usada})"
@@ -285,35 +331,13 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 status.append(f"• Site: erro — {str(erro)[:160]}\n  (mande /colunas para conferir os nomes)")
         else:
             status.append("• Site: não cadastrado (sem foto)")
-    # Histórico de preços próprio: "📉 Menor preço em 30 dias" só quando é verdade
-    menor30 = False
-    if not produto.chave_preco and amazon.e_amazon(produto.link):
-        asin = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", produto.link + " " + (produto.url_final or ""))
-        produto.chave_preco = f"amazon:{asin.group(1)}" if asin else ""
-    if produto.chave_preco and produto.preco:
-        try:
-            info = precos.analise(produto.chave_preco, produto.preco)
-            menor30 = bool(info.get("menor30"))
-            if info.get("bug") and not produto.alerta:
-                produto.alerta = "bug"
-                status.append("• ⚠️ Preço 50% abaixo do normal deste produto — postado como possível erro de preço")
-            precos.registrar(produto.chave_preco, produto.preco)
-            precos.salvar()
-            if menor30:
-                status.append(f"• 📉 Menor preço em 30 dias (histórico de {info.get('dias')} dias)")
-            elif info.get("dias"):
-                status.append(f"• Histórico de preço: {info.get('dias')} dias, mínimo "
-                              f"{formatar_preco(info.get('minimo30'))}")
-        except Exception as erro:  # noqa: BLE001
-            print("Histórico de preços:", erro, file=sys.stderr)
-
     # 4a. Canal do Telegram — formato compacto: foto do produto + nome + preço + cupom + link limpo
-    if config.AUTO_POSTAR_CANAL and config.CANAL_ID:
+    if config.AUTO_POSTAR_CANAL and config.CANAL_ID and vai_redes:
         try:
             # print inteiro (recorte falhou) fica feio no canal: aí vai a arte
             foto_canal = fotos[0] if fotos and not (foto_enviada and fotos[0] == foto_enviada) else caminho_arte
             telegram.enviar_foto(config.CANAL_ID, foto_canal,
-                                 canal.legenda(produto, menor30), html=True)
+                                 canal.legenda(produto, menor30, produto.link_canal), html=True)
             status.append(f"• Canal {config.CANAL_ID}: publicado ✅")
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Canal: erro — {str(erro)[:120]}")
@@ -399,7 +423,8 @@ def tratar(mensagem: dict) -> None:
         )
         return
     if str(chat_id) != config.ADMIN_CHAT_ID:
-        return  # ignora qualquer outra pessoa
+        busca.responder(mensagem)   # outras pessoas: só a busca de ofertas (nenhum comando seu)
+        return
 
     # Mensagem de sugestões copiada inteira e reenviada: usa só os links (um por linha)
     if any(marca in texto for marca in ("sugestões com o SEU link", "Todos os links (copie",
@@ -820,7 +845,13 @@ def _mensagens_pendentes() -> tuple[list[dict], bool]:
     bruto = os.environ.get("UPDATE_JSON", "").strip()
     if bruto:
         try:
-            return [json.loads(bruto)], True
+            dados = json.loads(bruto)
+            if isinstance(dados, dict) and str(dados.get("ref", "")).startswith("busca_msg_"):
+                # busca de seguidor: a mensagem ficou guardada no Supabase (não aparece nos registros públicos)
+                guardada = (supabase.ler_config(dados["ref"]) or {}).get("valor") or ""
+                supabase.apagar_config(dados["ref"])
+                return ([json.loads(guardada)] if guardada else []), True
+            return [dados], True
         except ValueError:
             print("UPDATE_JSON inválido", file=sys.stderr)
             return [], True
@@ -875,6 +906,10 @@ def rodar_uma_vez() -> int:
         ranking.se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001
         print("Top 5:", erro, file=sys.stderr)
+    try:
+        aindavale.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Ainda vale:", erro, file=sys.stderr)
     try:
         top.postar_se_for_hora()
     except Exception as erro:  # noqa: BLE001

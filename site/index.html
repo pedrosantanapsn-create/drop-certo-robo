@@ -265,6 +265,20 @@
 
   // Contador de cliques: anota produto, loja e horário (nenhum dado do visitante).
   // A tabela "cliques" só aceita gravar; quem lê é o robô, para o relatório.
+  // De onde a pessoa veio (bio do Instagram/TikTok, Telegram) — só o nome da rede, nada da pessoa.
+  const origem = (function(){
+    let o = '';
+    try { o = sessionStorage.getItem('origem') || ''; } catch (_) {}
+    const q = new URLSearchParams(location.search);
+    const pedido = (q.get('origem') || q.get('utm_source') || '').toLowerCase();
+    const ref = (document.referrer || '').toLowerCase();
+    if (/insta/.test(pedido) || /instagram\.com/.test(ref)) o = 'insta';
+    else if (/tiktok/.test(pedido) || /tiktok\.com/.test(ref)) o = 'tiktok';
+    else if (/telegram|tg/.test(pedido) || /t\.me|telegram/.test(ref)) o = 'telegram';
+    try { if (o) sessionStorage.setItem('origem', o); } catch (_) {}
+    return o;
+  })();
+
   function contarClique(e){
     const a = e.target.closest && e.target.closest('a[data-id]');
     if (!a) return;
@@ -273,7 +287,7 @@
       produto_id: a.dataset.id,
       nome: (p.nome || '').slice(0, 200),
       link: (a.getAttribute('href') || '').slice(0, 500),
-      loja: loja(a.getAttribute('href')).replace(/^(no|na) /, '').slice(0, 40)
+      loja: (loja(a.getAttribute('href')).replace(/^(no|na) /, '') + (origem ? ' [' + origem + ']' : '')).slice(0, 40)
     }).then(({ error }) => { if (error) console.warn('clique não registrado:', error.message); });
   }
   document.addEventListener('click', contarClique);

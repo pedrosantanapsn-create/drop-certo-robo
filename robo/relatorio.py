@@ -13,6 +13,7 @@ O relatório automático chega toda segunda-feira às 9h (horário de Brasília)
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
@@ -20,7 +21,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from . import config, fila, supabase
+from . import config, fila, shopee, supabase
+from .produto import formatar_preco
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 CHAVE_HISTORICO = "historico"
@@ -139,8 +141,17 @@ def montar(dias: int = 7) -> str:
     else:
         do_canal = [c for c in cliques if str(c.get("loja") or "").endswith("(canal)")]
         linhas.append(f"🖱️ Cliques: {len(cliques)}  (canal do Telegram {len(do_canal)} · site {len(cliques) - len(do_canal)})")
+        origens = Counter()
         for c in cliques:
-            c["loja"] = str(c.get("loja") or "").replace(" (canal)", "")
+            texto_loja = str(c.get("loja") or "")
+            achado = re.search(r"\[(\w+)\]", texto_loja)
+            if achado:
+                origens[achado.group(1)] += 1
+            c["loja"] = re.sub(r"\s*\[\w+\]", "", texto_loja.replace(" (canal)", ""))
+        if origens:
+            linhas.append("   • Site — de onde a pessoa veio: " + ", ".join(
+                f"{ {'insta': 'Instagram', 'tiktok': 'TikTok', 'telegram': 'Telegram'}.get(o, o)} {n}"
+                for o, n in origens.most_common()))
         if cliques:
             por_produto = Counter((c.get("nome") or c.get("link") or "?")[:60] for c in cliques)
             linhas.append("   🏆 Mais clicados:")
@@ -157,7 +168,22 @@ def montar(dias: int = 7) -> str:
     linhas.append(f"🗓️ Na fila agora: {pendentes} oferta(s)" if pendentes
                   else "🗓️ Fila vazia — mande links para a semana!")
     linhas.append("")
-    linhas.append("ℹ️ Vendas e comissões aparecem só no painel de afiliado de cada loja.")
+    # Vendas da Shopee pela API (cada link leva a marca da rede: canal, site, bot…)
+    try:
+        vendas = [v for v in shopee.vendas(int(desde.timestamp()), int(agora.timestamp())) if not v["cancelado"]]
+    except Exception as erro:  # noqa: BLE001
+        vendas = None
+        print("Vendas Shopee:", erro)
+    if vendas is not None and shopee.ativo():
+        total = sum(v["comissao"] for v in vendas)
+        linhas.append(f"💰 Vendas na Shopee: {len(vendas)} pedido(s) · comissão estimada {formatar_preco(total) or 'R$ 0,00'}")
+        if vendas:
+            nomes = {"canal": "Canal", "site": "Site", "bot": "Bot de busca", "aindavale": "Ainda vale",
+                     "dropcerto": "Fila/sugestões", "dropcerto_custo": "Top 5", "dropcerto_bug": "Erro de preço"}
+            por_origem = Counter(nomes.get(v["subid"], v["subid"]) for v in vendas)
+            linhas.append("   • Por origem: " + ", ".join(f"{o} {n}" for o, n in por_origem.most_common()))
+        linhas.append("")
+    linhas.append("ℹ️ Vendas do Mercado Livre e da Amazon aparecem só no painel de afiliado de cada loja.")
     return "\n".join(linhas)
 
 

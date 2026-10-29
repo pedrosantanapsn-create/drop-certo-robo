@@ -348,13 +348,23 @@ def esta_na_hora() -> bool:
     return proxima is not None and datetime.now(FUSO) >= proxima
 
 
+def _nota_do_item(item: dict) -> int:
+    achado = re.search(r"^nota:\s*(\d+)", str(item.get("texto") or ""), re.M)
+    return int(achado.group(1)) if achado else 0
+
+
 def retirar_proximo() -> dict | None:
     """Tira o primeiro item da fila e já agenda o seguinte."""
     lista = itens()
     if not lista:
         _marcar_proxima(None)
         return None
-    item = lista.pop(0)
+    indice = 0
+    if em_pico(datetime.now(FUSO)):      # no pico sai primeiro a oferta de maior nota (fila automática)
+        notas = [_nota_do_item(i) for i in lista]
+        if max(notas) > 0:
+            indice = notas.index(max(notas))
+    item = lista.pop(indice)
     if "_chave" in item:
         supabase.apagar_config(item["_chave"])
     else:

@@ -51,6 +51,8 @@ class Produto:
     site_id: str = ""                # id do produto no site (para o link rastreado do canal)
     chave_preco: str = ""            # chave no histórico de preços (shopee:123 / ml:MLB123)
     alerta: str = ""                 # "bug" = possível erro de preço (post especial no canal)
+    origem: str = ""                 # "auto" = fila automática (só vai às redes com nota boa)
+    link_canal: str = ""             # link da Shopee marcado "canal" (para saber de onde vêm as vendas)
 
     @property
     def desconto(self) -> int | None:
@@ -121,6 +123,10 @@ def ler_mensagem(texto: str) -> dict:
             dados["observacao"] = valor
         elif chave == "alerta":
             dados["alerta"] = valor.lower()
+        elif chave == "origem":
+            dados["origem"] = valor.lower()
+        elif chave == "nota":
+            continue                  # nota prévia da fila automática (usada só para escolher a ordem)
         elif chave in ("cupom", "cupon", "codigo", "código", "cupom de desconto"):
             partes = valor.split(None, 1)
             if partes:
@@ -334,6 +340,7 @@ def buscar_produto(dados: dict) -> Produto:
         cupom=dados.get("cupom", ""),
         cupom_info=dados.get("cupom_info", ""),
         alerta=dados.get("alerta", ""),
+        origem=dados.get("origem", ""),
     )
     if not produto.link:
         raise ValueError("Não encontrei nenhum link na mensagem.")

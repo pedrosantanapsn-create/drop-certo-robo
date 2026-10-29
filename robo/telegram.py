@@ -63,6 +63,12 @@ def enviar_foto(chat_id, foto: Path, legenda: str = "", html: bool = False) -> d
                    caption=legenda if html else legenda[:1024], **extra)
 
 
+def enviar_foto_url(chat_id, url: str, legenda: str = "", html: bool = False) -> dict:
+    """Foto por endereço (ex.: foto do produto no site)."""
+    extra = {"parse_mode": "HTML"} if html else {}
+    return _chamar("sendPhoto", chat_id=chat_id, photo=url, caption=legenda if html else legenda[:1024], **extra)
+
+
 def enviar_video(chat_id, video: Path, legenda: str = "", capa: Path | None = None) -> dict:
     arquivos = {"video": video}
     if capa:

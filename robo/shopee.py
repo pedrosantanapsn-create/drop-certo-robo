@@ -83,7 +83,8 @@ def ler(link: str) -> dict:
     loja, item = ids
     dados = _consultar(
         f"{{productOfferV2(shopId:{loja},itemId:{item},limit:1){{nodes{{"
-        "productName price priceMin priceMax priceDiscountRate imageUrl}}}")
+        "productName price priceMin priceMax priceDiscountRate imageUrl "
+        "commissionRate sales ratingStar productLink}}}")
     nos = ((dados.get("productOfferV2") or {}).get("nodes")) or []
     if not nos:
         raise RuntimeError("a Shopee não devolveu esse produto (fora do programa de afiliados?)")
@@ -92,7 +93,9 @@ def ler(link: str) -> dict:
     desconto = _preco(no.get("priceDiscountRate")) or 0
     antigo = round(preco / (1 - desconto / 100), 2) if preco and 0 < desconto < 95 else None
     return {"nome": no.get("productName"), "preco": preco, "preco_antigo": antigo, "imagem": no.get("imageUrl"),
-            "chave_preco": f"shopee:{item}"}
+            "chave_preco": f"shopee:{item}", "comissao": _preco(no.get("commissionRate")),
+            "nota_loja": _preco(no.get("ratingStar")), "vendas": _preco(no.get("sales")),
+            "link_produto": no.get("productLink") or ""}
 
 
 # ---------------------------------------------------------------------------
@@ -127,3 +130,34 @@ def link_afiliado(url: str, sub_id: str = "dropcerto") -> str:
     if not link:
         raise RuntimeError("a Shopee não gerou o link de afiliada")
     return link
+
+
+# ---------------------------------------------------------------------------
+# Vendas (relatório de conversões da API de afiliados)
+# ---------------------------------------------------------------------------
+def vendas(desde_ts: int, ate_ts: int) -> list[dict]:
+    """Pedidos feitos pelos seus links no período: [{subid, comissao, itens, status}]."""
+    if not ativo():
+        return []
+    saida, pagina = [], ""
+    for _ in range(10):
+        extra = f',scrollId:{_texto(pagina)}' if pagina else ""
+        dados = _consultar(
+            f"{{conversionReport(purchaseTimeStart:{desde_ts},purchaseTimeEnd:{ate_ts},limit:200{extra})"
+            "{nodes{utmContent totalCommission estimatedTotalCommission orders{orderStatus items{itemName qty}}}"
+            " pageInfo{hasNextPage scrollId}}}")
+        rel = dados.get("conversionReport") or {}
+        for n in rel.get("nodes") or []:
+            itens = [i for o in (n.get("orders") or []) for i in (o.get("items") or [])]
+            status = {str(o.get("orderStatus") or "") for o in (n.get("orders") or [])}
+            saida.append({
+                "subid": (str(n.get("utmContent") or "").split("-")[0] or "sem marca"),
+                "comissao": _preco(n.get("estimatedTotalCommission") or n.get("totalCommission")) or 0.0,
+                "itens": [str(i.get("itemName") or "")[:60] for i in itens],
+                "cancelado": bool(status) and all("CANCEL" in s.upper() for s in status),
+            })
+        info = rel.get("pageInfo") or {}
+        pagina = info.get("scrollId") or ""
+        if not (info.get("hasNextPage") and pagina):
+            break
+    return saida

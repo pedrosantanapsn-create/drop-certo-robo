@@ -118,6 +118,10 @@ jobs:
           TOP=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.top_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # "Ainda vale!" (18h)
+          AINDAVALE=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.aindavale_proximo&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
           # Cupom agendado (ex.: cupom que libera à meia-noite)
           CUPOM=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.cupom_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -131,6 +135,9 @@ jobs:
             echo "Mensagem recebida pelo modo instantâneo."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif echo "$RESPOSTA" | grep -q '"update_id"'; then
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$AINDAVALE" ] && [ "$(date +%s)" -ge "$AINDAVALE" ]; then
+            echo "Hora do Ainda vale."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$CUPOM" ] && [ "$(date +%s)" -ge "$CUPOM" ]; then
             echo "Hora de um cupom agendado."
