@@ -1,0 +1,33 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -q -r requirements.txt pillow
+      - name: dados
+        run: |
+          python - <<'PY'
+          import requests, json, collections
+          from datetime import datetime, timedelta, timezone
+          from robo import supabase, config
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
+          ini=(datetime.now(timezone.utc)-timedelta(days=14)).isoformat()
+          h=supabase._cabecalhos()
+          c=requests.get(f"{config.SUPABASE_URL}/rest/v1/cliques",headers=h,params={"select":"*","criado_em":f"gte.{ini}"},timeout=30).json()
+          w(f"cliques 14d: {len(c) if isinstance(c,list) else c}")
+          if isinstance(c,list) and c:
+              w("colunas: "+",".join(c[0].keys()))
+              w("por loja: "+str(collections.Counter(x.get('loja') for x in c).most_common(8)))
+              w("por hora: "+str(sorted(collections.Counter((datetime.fromisoformat(x['criado_em']).astimezone(timezone(timedelta(hours=-3))).hour) for x in c if x.get('criado_em')).items())))
+          p=requests.get(f"{config.SUPABASE_URL}/rest/v1/{config.SUPABASE_TABELA}",headers=h,params={"select":"id","criado_em":f"gte.{ini}"},timeout=30).json()
+          w(f"produtos no site 14d: {len(p) if isinstance(p,list) else p}")
+          hist=json.loads((supabase.ler_config("historico_precos") or {}).get("valor") or "{}")
+          w(f"historico: {len(hist)} produtos; com >=3 dias: {sum(1 for v in hist.values() if len(v)>=3)}")
+          PY
