@@ -26,19 +26,6 @@ jobs:
           from robo.fila import FUSO
           def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
           try:
-              n = sugestoes.buscar_shopee(quantas=3, marcar=False, so_marca=True)
-              for x in n:
-                  w(f"prev {x.get('productName','')[:40]} nota={reabastecer._nota_previa(str(x.get('productName','')), sugestoes._num(x.get('priceMin'),None), sugestoes._num(x.get('priceDiscountRate')), x.get('_id',''), {'comissao': sugestoes._num(x.get('commissionRate'),None),'nota_loja': sugestoes._num(x.get('ratingStar'),None),'vendas': sugestoes._num(x.get('sales'),None)})}")
-              if n:
-                  d = shopee.ler(n[0]['_link'])
-                  w("ler: " + str({k: d.get(k) for k in ('comissao','nota_loja','vendas','link_produto','chave_preco')}))
-                  w("subid canal: " + shopee.link_afiliado(d['link_produto'], 'canal'))
-          except Exception as e: w(f"shopee ERRO {e!r}")
-          try: w("vendas30: " + str(shopee.vendas(int(time.time())-30*86400, int(time.time()))[:3]))
-          except Exception as e: w(f"vendas ERRO {e!r}")
-          try: w("relatorio: " + relatorio.montar(7)[-500:])
-          except Exception as e: w(f"relatorio ERRO {e!r}")
-          try:
               p, t, r = busca.entender("quero um ssd 1tb até 350")
               it = ranking.buscar_custo(p, t, r, quantos=3, sub_id="bot")
               w(f"busca {p},{t},{r}: " + " ; ".join(f"{i['nome'][:40]} {i['preco']} {i['loja']} {str(i['link'])[:40]} | {i.get('motivo','')}" for i in it))

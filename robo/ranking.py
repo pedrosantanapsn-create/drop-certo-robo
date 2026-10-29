@@ -25,7 +25,7 @@ from pathlib import Path
 
 import requests
 
-from . import (arte, config, gemini, instagram, mercadolivre, rastreio, relatorio, shopee,
+from . import (arte, config, gemini, instagram, marcas, mercadolivre, rastreio, relatorio, shopee,
                sugestoes, supabase, telegram, tiktok, video)
 from .fila import FUSO
 from .produto import formatar_preco
@@ -240,6 +240,14 @@ def _ficha_ml(produto_id: str) -> str:
     return "; ".join(attrs)
 
 
+RE_CAPACIDADE = re.compile(r"\b\d+\s?(?:gb|tb)\b", re.I)
+
+
+def _varias_versoes(nome: str) -> bool:
+    """Anúncio com várias capacidades ("120GB 240GB 1TB"): o preço mostrado é o da menor — engana."""
+    return len({m.group(0).lower().replace(" ", "") for m in RE_CAPACIDADE.finditer(nome or "")}) >= 3
+
+
 def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quantos: int = 5,
                  sub_id: str = "dropcerto_custo") -> list[dict]:
     """Candidatos que cumprem o pedido; o Gemini escolhe os 5 de melhor custo-benefício."""
@@ -270,7 +278,7 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                     if n.get("itemId") in vistos or not preco or (teto and preco > teto):
                         continue
                     vistos.add(n.get("itemId"))
-                    if (nota < 4.3 or vendas < 15 or sugestoes.RE_NAO_PC.search(nome)
+                    if (nota < 4.3 or vendas < 15 or sugestoes.RE_NAO_PC.search(nome) or _varias_versoes(nome)
                             or not _atende(nome, requisitos) or not _e_do_tipo(nome, palavra)):
                         continue
                     candidatos.append({"nome": nome, "preco": preco, "nota": nota, "vendas": vendas, "ficha": nome,
@@ -305,7 +313,8 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
             print(f"::warning::Custo ML: {str(erro)[:120]}")
     # tira repetidos e limita a 16 para a IA comparar
     unicos: list[dict] = []
-    for c in sorted(candidatos, key=lambda c: -((c["nota"] or 4.5) * 20 + math.log10((c["vendas"] or 100) + 1) * 8)):
+    for c in sorted(candidatos, key=lambda c: -((c["nota"] or 4.5) * 20 + math.log10((c["vendas"] or 100) + 1) * 8
+                                                + (12 if marcas.conhecida(c["nome"]) else 0))):
         if not any(_parecidos(c["nome"], u["nome"]) for u in unicos):
             unicos.append(c)
         if len(unicos) >= 16:

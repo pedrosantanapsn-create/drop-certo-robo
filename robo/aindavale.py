@@ -39,7 +39,7 @@ def _candidatos(agora: datetime) -> list[dict]:
     cliques = Counter(str(c.get("produto_id") or "") for c in r.json() if c.get("produto_id"))
     if not cliques:
         return []
-    ids = ",".join(i for i in cliques if i.isdigit())[:3000]
+    ids = ",".join(f'"{i}"' for i in list(cliques)[:150] if i.replace("-", "").isalnum())
     if not ids:
         return []
     colunas = ",".join(c for c in ("id", config.COL_NOME, config.COL_PRECO, config.COL_PRECO_ANTIGO,
