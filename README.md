@@ -45,6 +45,9 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | 10h–23h | Fila: 1 post a cada 30 min; no pico (11h30–13h30 e 19h–23h) a cada 20 min |
 | Cada post | Canal no formato compacto (foto do produto, nome, preço, cupom, link limpo); arte + vídeo (4 modelos em rodízio) + legenda → Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
 | Fila acabou | Fila automática: 5 Shopee + 5 Mercado Livre, **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
+| Cada oferta | **Nota de 0 a 100** (desconto real pelo histórico, marca, nota e vendas na loja, comissão, peça de PC, cupom). Da fila automática, nota abaixo de 45 vai só para o site; no pico sai primeiro a de maior nota |
+| Cada oferta | **Desconto falso**: se o "de R$" nunca apareceu no histórico de 30 dias, o post sai sem "de R$" e sem "% OFF" (CDC art. 37) |
+| 18h | **"🔁 Ainda vale!"**: reposta no canal 1 oferta que teve clique e continua com o mesmo preço (Shopee/ML, conferido pela API) |
 | Toda busca/conferência | Histórico de preços próprio (60 dias): "📉 Menor preço em 30 dias" e alerta de **possível erro de preço** (≥ 50% abaixo da mediana) no bot com `/add B1` |
 | Horário marcado | Cupons agendados (`hora: 00:00`) saem no canal sozinhos |
 | 6h | Conferência de preços (APIs/página), ofertas esgotadas saem do site (2 conferências seguidas), checagem de saúde das conexões |
@@ -70,6 +73,17 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | áudio + `/musica` · `/musicas` · `/tirar_musica N` | biblioteca de músicas de fundo (Pixabay, sem Content ID) |
 | `/cupom CODIGO descrição` + `loja:` `validade:` passos `1.` `2.` `hora: 00:00` | post de cupom com passo a passo, na hora ou agendado · `/cupons` · `/cancelar_cupom CODIGO` |
 | `/regras` | publica e fixa as regras do canal |
+
+**Bot de busca para seguidores:** qualquer pessoa manda no privado do @Dropcerto22bot algo como
+`ssd 1tb até 300` e recebe as 3 melhores opções de custo-benefício (Shopee + ML) com o seu link.
+Estranhos só conseguem buscar; limite de 5 buscas por hora por pessoa e 150 por dia
+(`BUSCAS_POR_HORA`, `BUSCAS_POR_DIA`, desligar com `BUSCA_PUBLICA=false`). Roda no `busca.yml` (leve).
+A mensagem do seguidor não vai para os registros públicos do GitHub (fica no Supabase e é apagada).
+
+**De onde vêm as vendas:** links da Shopee saem marcados por rede (`canal`, `site`, `bot`, `aindavale`);
+o relatório de segunda mostra os pedidos e a comissão da Shopee por origem (API de conversões).
+No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (link da bio com
+`?origem=insta` / `?origem=tiktok`, ou automático pelo endereço de origem) — só o nome da rede.
 | `/site link` + `preco:` | só no site, sem postar de novo |
 | `/relatorio [dias]` `/conferir` | relatório e conferência na hora |
 | `/ml` `/instagram` `/tiktok` `/voz` `/instantaneo` | conferir ligações |
@@ -94,6 +108,10 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` | true / 5 / 5 | fila automática |
 | `PALAVRAS_PC` / `PALAVRAS_SHOPEE` / `PALAVRAS_ML` | peças de PC + periféricos | o que buscar |
 | `QUEDA_MINIMA` / `AVISAR_QUEDAS` | 10 / true | aviso de queda de preço |
+| `NOTA_MINIMA` | 45 | nota mínima para oferta da fila automática ir às redes |
+| `MARCAR_ORIGEM_SHOPEE` | true | links da Shopee marcados por rede |
+| `BUSCA_PUBLICA` / `BUSCAS_POR_HORA` / `BUSCAS_POR_DIA` | true / 5 / 150 | bot de busca para seguidores |
+| `AINDA_VALE` | true | repost "Ainda vale!" das 18h |
 | `TOP_DO_DIA` / `RASTREAR_CLIQUES` | true / true | top das 21h e cliques do canal |
 | `AMAZON_TAG` | certodrop-20 | sua tag da Amazon |
 | `ML_MATT_WORD` / `ML_MATT_TOOL` | seus códigos | link de afiliada do ML |
@@ -103,7 +121,8 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 
 **Supabase:** tabelas `produtos` (site), `config` (estado do robô), `cliques` (só inserção pública);
 bucket `produtos` (fotos, quadro); função `telegram-robo` (modo instantâneo, Verify JWT desligado,
-segredo `GITHUB_TOKEN_ROBO`).
+segredo `GITHUB_TOKEN_ROBO`). A função é publicada sozinha pelo `funcao.yml` quando muda
+(precisa do segredo `SUPABASE_ACCESS_TOKEN` no GitHub).
 
 ## 6. Regras que o robô segue (legislação brasileira)
 

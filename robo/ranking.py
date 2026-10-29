@@ -245,6 +245,8 @@ RE_CAPACIDADE = re.compile(r"\b\d+\s?(?:gb|tb)\b", re.I)
 
 def _varias_versoes(nome: str) -> bool:
     """Anúncio com várias capacidades ("120GB 240GB 1TB"): o preço mostrado é o da menor — engana."""
+    if re.search(r"\b\d{2,4}\s*(?:gb|tb)?\s*/\s*\d{2,4}\s*(?:gb|tb)?\s*/", nome or "", re.I):
+        return True                       # "128 / 256 / 512 / 1TB"
     return len({m.group(0).lower().replace(" ", "") for m in RE_CAPACIDADE.finditer(nome or "")}) >= 3
 
 
