@@ -98,7 +98,7 @@ def loja_do_link(link: str) -> dict | None:
         return None
     dom = _dominio(link)
     for loja in _carregar()["lojas"]:
-        if any(dom == d or dom.endswith("." + d) for d in loja["dominios"]):
+        if any(dom == d.lstrip("*.") or dom.endswith("." + d.lstrip("*.")) for d in loja["dominios"]):
             return loja
     return None
 
