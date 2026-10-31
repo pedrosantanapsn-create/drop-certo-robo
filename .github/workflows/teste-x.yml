@@ -1,0 +1,33 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 pillow
+      - run: |
+          python - <<'PY'
+          import requests
+          from urllib.parse import urljoin
+          from robo import amazon, mercadolivre
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:900])
+          H={"User-Agent":"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36","Accept-Language":"pt-BR"}
+          for u in ["https://aoferta.net/0007WRHC-Amazon","https://meli.la/1jkmt89","https://amzn.to/4lM3PHH"]:
+              cadeia=[u]; url=u
+              for _ in range(7):
+                  try: r=requests.get(url,allow_redirects=False,timeout=20,headers=H)
+                  except Exception as e: cadeia.append(f"ERRO {e}"); break
+                  loc=r.headers.get("Location")
+                  if not loc:
+                      cadeia.append(f"[{r.status_code} sem Location; html {len(r.text)}: {r.text[:200]}]"); break
+                  url=urljoin(url,loc); cadeia.append(url[:220])
+              w(" -> ".join(cadeia))
+          w("amazon: " + str(amazon.link_com_minha_tag("https://aoferta.net/0007WRHC-Amazon")))
+          w("ml codigos: " + str(mercadolivre.codigos_do_link("https://meli.la/1jkmt89")))
+          PY
