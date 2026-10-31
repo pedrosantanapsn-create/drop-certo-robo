@@ -19,7 +19,7 @@
 <script>
 (function(){
   // Só leva para lojas conhecidas (evita que alguém use a página para mandar para golpes)
-  var PERMITIDOS = /(^|\.)(meli\.la|mercadolivre\.com\.br|mercadolibre\.com|amazon\.com\.br|amzn\.to|link\.amazon|a\.co|shopee\.com\.br|s\.shopee\.com\.br|shp\.ee|tiktok\.com|magazineluiza\.com\.br|magalu\.com|aliexpress\.com|s\.click\.aliexpress\.com|kabum\.com\.br)$/i;
+  var PERMITIDOS = /(^|\.)(meli\.la|mercadolivre\.com\.br|mercadolibre\.com|amazon\.com\.br|amzn\.to|link\.amazon|a\.co|shopee\.com\.br|s\.shopee\.com\.br|shp\.ee|tiktok\.com|magazineluiza\.com\.br|magalu\.com|aliexpress\.com|s\.click\.aliexpress\.com|kabum\.com\.br|awin1\.com|tidd\.ly|casasbahia\.com\.br|pontofrio\.com\.br)$/i;
   var q = new URLSearchParams(location.search);
   function de64(t){ try{ t=(t||'').replace(/-/g,'+').replace(/_/g,'/'); while(t.length%4) t+='='; return decodeURIComponent(escape(atob(t))); }catch(e){ return ''; } }
   var destino = de64(q.get('u')), nome = de64(q.get('n')), pid = q.get('p');
@@ -28,7 +28,7 @@
   document.getElementById('ir').href = destino;
   function loja(u){ u=u.toLowerCase();
     if (/meli\.la|mercadoli/.test(u)) return 'Mercado Livre'; if (/amzn|amazon|a\.co\//.test(u)) return 'Amazon';
-    if (/shopee|shp\.ee/.test(u)) return 'Shopee'; if (/tiktok/.test(u)) return 'TikTok Shop'; return 'outra loja'; }
+    if (/shopee|shp\.ee/.test(u)) return 'Shopee'; if (/tiktok/.test(u)) return 'TikTok Shop'; if (/casasbahia/.test(u)) return 'Casas Bahia'; if (/kabum/.test(u)) return 'KaBuM!'; return 'outra loja'; }
   var foi = false; function ir(){ if (!foi){ foi = true; location.replace(destino); } }
   setTimeout(ir, 700);                       // nunca segura a pessoa mais que 0,7 s
   try{

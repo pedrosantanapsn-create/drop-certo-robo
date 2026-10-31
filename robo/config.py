@@ -67,6 +67,7 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 # --- Shopee: API oficial de afiliados (lê o produto sem precisar de print) --
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
+AWIN_TOKEN = _env("AWIN_TOKEN")                       # Awin → API Credentials (Casas Bahia, KaBuM!…)
 
 # Palavras dos mais vendidos do Mercado Livre (/ofertas_ml). Vazio = as mesmas da Shopee
 PALAVRAS_ML = _env("PALAVRAS_ML", "")

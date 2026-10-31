@@ -1,0 +1,21 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      AWIN_TOKEN: ${{ secrets.AWIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 pillow
+      - run: |
+          python - <<'PY'
+          from robo import awin
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
+          w(f"token presente: {awin.ativo()}")
+          if awin.ativo():
+              try: w(awin.resumo())
+              except Exception as e: w(f"ERRO {e}")
+          PY

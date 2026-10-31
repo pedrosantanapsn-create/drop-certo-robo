@@ -16,12 +16,12 @@ import json
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 import requests
 
-from . import config, fila, shopee, supabase
+from . import awin, config, fila, shopee, supabase
 from .produto import formatar_preco
 
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -38,11 +38,15 @@ LOJAS = [
     (("magazineluiza", "magalu"), "Magalu"),
     (("aliexpress", "a.aliexpress"), "AliExpress"),
     (("kabum",), "KaBuM!"),
+    (("casasbahia",), "Casas Bahia"),
+    (("pontofrio",), "Ponto"),
     (("tiktok.com",), "TikTok Shop"),
 ]
 
 
 def loja(link: str) -> str:
+    if "awin1.com" in (link or ""):            # link da Awin: a loja vem no endereço de destino (ued=)
+        link = unquote(parse_qs(urlparse(link).query).get("ued", [link])[0])
     dominio = urlparse(link if "://" in link else f"https://{link}").netloc.lower()
     for pedacos, nome in LOJAS:
         if any(p in dominio for p in pedacos):
@@ -183,6 +187,21 @@ def montar(dias: int = 7) -> str:
             por_origem = Counter(nomes.get(v["subid"], v["subid"]) for v in vendas)
             linhas.append("   • Por origem: " + ", ".join(f"{o} {n}" for o, n in por_origem.most_common()))
         linhas.append("")
+    # Vendas pela Awin (Casas Bahia, KaBuM!…)
+    if awin.ativo():
+        try:
+            vendas_awin = [v for v in awin.vendas(dias) if v["status"].lower() != "declined"]
+            total = sum(v["comissao"] for v in vendas_awin)
+            linhas.append(f"💰 Vendas na Awin: {len(vendas_awin)} · comissão {formatar_preco(total) or 'R$ 0,00'}"
+                          " (pendente até a loja confirmar)")
+            if vendas_awin:
+                por_loja = Counter(v["loja"] for v in vendas_awin)
+                linhas.append("   • Por loja: " + ", ".join(f"{l} {n}" for l, n in por_loja.most_common()))
+                por_origem = Counter(v["clickref"] or "sem marca" for v in vendas_awin)
+                linhas.append("   • Por origem: " + ", ".join(f"{o} {n}" for o, n in por_origem.most_common()))
+            linhas.append("")
+        except Exception as erro:  # noqa: BLE001
+            print("Vendas Awin:", erro)
     linhas.append("ℹ️ Vendas do Mercado Livre e da Amazon aparecem só no painel de afiliado de cada loja.")
     return "\n".join(linhas)
 

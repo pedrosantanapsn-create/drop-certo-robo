@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, alertas, amazon, arte, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -67,6 +67,7 @@ Comandos:
 /voz — testa a narração dos vídeos
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
+/awin — sua conta Awin: ID de afiliada e lojas aceitas (Casas Bahia, KaBuM!…)
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /custo fone com dongle até 300 — vídeo Top 5 de custo-benefício (ficha técnica + preço + nota)
@@ -157,6 +158,21 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                 produto.url_final = amazon.resolver(produto.link)[0]
             except Exception:  # noqa: BLE001
                 pass
+
+    # Lojas da Awin (Casas Bahia, KaBuM!…): troca o link normal pelo SEU link de afiliada
+    if awin.ativo() and not awin.e_link_awin(produto.link):
+        try:
+            link_site, link_canal, aviso = awin.converter(produto.url_final or produto.link)
+            if aviso and not link_site:
+                telegram.enviar_texto(chat_id, aviso)
+                shutil.rmtree(pasta, ignore_errors=True)
+                return
+            if aviso:
+                produto.link, produto.link_canal = link_site, link_canal
+                status.append(f"• Awin: {aviso}")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• Awin: não consegui gerar o link ({str(erro)[:100]})")
+            print(f"::warning::Awin: {str(erro)[:200]}")
 
     if re.search(r"mercadolivre\.com\.br/(p/|MLB)", produto.link, re.I) and "meli.la" not in produto.link \
             and not re.search(r"matt_|forceInApp|social/", produto.link):
@@ -460,6 +476,11 @@ def tratar(mensagem: dict) -> None:
         comando, texto = "/ml", "/ml " + texto.split()[1][3:]     # volta da autorização do ML
     if comando in ("/start", "/ajuda", "/help"):
         telegram.enviar_texto(chat_id, AJUDA)
+    elif comando == "/awin":
+        try:
+            telegram.enviar_texto(chat_id, awin.resumo())
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Awin: {str(erro)[:200]}")
     elif comando == "/ml":
         codigo = " ".join(texto.split()[1:]).strip()
         if codigo:
