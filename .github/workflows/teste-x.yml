@@ -1,0 +1,38 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      AWIN_TOKEN: ${{ secrets.AWIN_TOKEN }}
+      AWIN_FEED_KEY: ${{ secrets.AWIN_FEED_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 pillow
+      - run: |
+          python - <<'PY'
+          import requests
+          from robo import awin
+          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
+          w(f"feed key: {awin.feed_ativo()} token: {awin.ativo()}")
+          try:
+              fs = awin.feeds()
+              w("feeds: " + str([(f['loja'], f['produtos'], bool(f['url'])) for f in fs][:10]))
+              if fs and fs[0]['url']:
+                  r = requests.get(fs[0]['url'], timeout=120)
+                  c = r.content
+                  import gzip
+                  if c[:2]==b'\x1f\x8b': c=gzip.decompress(c)
+                  w("cabecalho feed: " + c[:400].decode('utf-8','replace'))
+          except Exception as e: w(f"feeds ERRO {e!r}")
+          try:
+              it = awin.buscar_produtos("ssd", loja="kabum", limite=5)
+              w("ssd kabum: " + " ; ".join(f"{i['nome'][:40]} {i['preco']} de {i['preco_antigo']} link {i['link'][:45]}" for i in it))
+          except Exception as e: w(f"busca ERRO {e!r}")
+          try:
+              s, c, a = awin.converter("https://www.kabum.com.br/produto/520369/ssd-kingston-nv3-1tb")
+              w(f"converter: {a} | {s[:70]}")
+          except Exception as e: w(f"converter ERRO {e!r}")
+          PY
