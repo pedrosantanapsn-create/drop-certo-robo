@@ -12,9 +12,13 @@ o robô apaga o "de R$" e o "% OFF" do post.
 """
 from __future__ import annotations
 
+import re
+
 from . import config, marcas
 from .produto import Produto, formatar_preco
 
+RE_SETUP = re.compile(r"monitor|teclado|mouse|headset|fone gamer|webcam|microfone|cadeira gamer|"
+                      r"notebook|controle|gamer", re.I)
 DIAS_CONFIAVEIS = 7        # histórico mínimo para afirmar algo sobre o preço
 
 
@@ -65,6 +69,9 @@ def calcular(produto: Produto, info: dict, extras: dict | None = None, falso: bo
     if eh_pc(produto.nome):
         pontos += 10
         motivos.append("peça de PC")
+    elif RE_SETUP.search(produto.nome or ""):
+        pontos += 8
+        motivos.append("setup/periférico")
     if 40 <= preco <= 2500:
         pontos += 5
 
