@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -102,6 +102,39 @@ def nova_pasta() -> Path:
     return pasta
 
 
+LOJAS_CONHECIDAS = re.compile(r"amazon\.|amzn\.|a\.co/|meli\.la|mercadoli|shopee|shp\.ee|kabum|awin1\.com|tidd\.ly|"
+                             r"terabyteshop|casasbahia|magazineluiza|magalu|aliexpress|tiktok\.com|pontofrio", re.I)
+
+
+def _abrir_encurtador(link: str) -> str:
+    """Link encurtado de outro canal (aoferta.net, bit.ly…): segue os redirecionamentos até a loja."""
+    from urllib.parse import urljoin
+    import requests
+    url = link
+    for _ in range(6):
+        if LOJAS_CONHECIDAS.search(url):
+            return url
+        try:
+            r = requests.get(url, allow_redirects=False, timeout=20,
+                             headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "pt-BR"})
+        except Exception:  # noqa: BLE001
+            return link
+        proximo = r.headers.get("Location")
+        if not proximo:
+            return link
+        url = urljoin(url, proximo)
+    return url if LOJAS_CONHECIDAS.search(url) else link
+
+
+def _parecidos(a: str, b: str) -> bool:
+    """Os dois nomes são do mesmo produto? (palavras importantes em comum)"""
+    pa = {p for p in re.findall(r"[a-z0-9]{3,}", a.lower())}
+    pb = {p for p in re.findall(r"[a-z0-9]{3,}", b.lower())}
+    if not pa or not pb:
+        return True
+    return len(pa & pb) / min(len(pa), len(pb)) >= 0.35
+
+
 def processar_oferta(mensagem: dict, chat_id) -> None:
     texto = mensagem.get("text") or mensagem.get("caption") or ""
     dados = ler_mensagem(texto)
@@ -114,6 +147,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     status: list[str] = []
 
     # 1. Dados do produto
+    ml_trocado = False           # link do ML veio de outro canal e foi trocado pelo seu
     extras: dict = {}            # nota/vendas/comissão da loja (Shopee) para a nota da oferta
     link_produto = ""            # endereço da Shopee para gerar links marcados por rede
     try:
@@ -147,6 +181,12 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• API da Shopee: {str(erro)[:120]}")
             print(f"::warning::API da Shopee: {str(erro)[:200]}")
 
+    if not LOJAS_CONHECIDAS.search(produto.link):
+        aberto = _abrir_encurtador(produto.link)
+        if aberto != produto.link:
+            status.append("• Link encurtado de outro canal: abri até a loja")
+            produto.link = aberto
+
     # Amazon: confere se o link tem a SUA tag de associado (sem ela, não há comissão)
     if amazon.e_amazon(produto.link):
         novo_link, texto_tag = amazon.link_com_minha_tag(produto.link)
@@ -175,6 +215,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         produto.loja_nome = "Terabyte"
 
     # Lojas da Awin (Casas Bahia, KaBuM!…): troca o link normal pelo SEU link de afiliada
+    if awin.ativo() and awin.e_link_awin(produto.link):
+        destino_awin = awin.destino_se_for_de_outro(produto.link)   # link da Awin de outro canal
+        if destino_awin:
+            status.append("• Awin: o link era de outra pessoa — gerando o seu")
+            produto.link, produto.url_final = destino_awin, ""
     if awin.ativo() and not awin.e_link_awin(produto.link):
         try:
             link_site, link_canal, aviso = awin.converter(produto.url_final or produto.link)
@@ -189,19 +234,30 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• Awin: não consegui gerar o link ({str(erro)[:100]})")
             print(f"::warning::Awin: {str(erro)[:200]}")
 
-    if re.search(r"mercadolivre\.com\.br/(p/|MLB)", produto.link, re.I) and "meli.la" not in produto.link \
-            and not re.search(r"matt_|forceInApp|social/", produto.link):
-        telegram.enviar_texto(chat_id, "⚠️ Esse é o link normal do Mercado Livre, sem o seu afiliado — "
-                              "vendas por ele NÃO pagam comissão.\n\nAbra o produto, toque em "
-                              "\"Compartilhar\" na barra de afiliados, copie o link meli.la e mande de novo.\n"
-                              "🛑 Não postei.")
-        shutil.rmtree(pasta, ignore_errors=True)
-        return
+    # Mercado Livre: link de OUTRA pessoa (copiado de outro canal) ou sem afiliado → vira o SEU
+    if mercadolivre.e_mercadolivre(produto.link):
+        try:
+            novo_ml, texto_ml = mercadolivre.link_meu(produto.link)
+        except Exception as erro:  # noqa: BLE001
+            novo_ml, texto_ml = produto.link, f"não consegui conferir o afiliado ({str(erro)[:60]})"
+        if not novo_ml:
+            telegram.enviar_texto(chat_id, f"⚠️ Mercado Livre: {texto_ml} — vendas por esse link NÃO pagariam "
+                                  "comissão para você.\n\nAbra o produto no app do ML, toque em \"Compartilhar\" "
+                                  "na barra de afiliados e mande o seu meli.la.\n🛑 Não postei.")
+            shutil.rmtree(pasta, ignore_errors=True)
+            return
+        if texto_ml:
+            status.append(f"• Mercado Livre: {texto_ml}")
+        if novo_ml != produto.link:
+            produto.link, produto.url_final = novo_ml, ""
+            ml_trocado = True
 
     # Mercado Livre com a API oficial: nome, preço com promoção e fotos sem depender da página
-    if mercadolivre.e_mercadolivre(produto.link) and not dados.get("preco"):
+    if mercadolivre.e_mercadolivre(produto.link) and (not dados.get("preco") or ml_trocado):
         try:
             oficial = mercadolivre.ler(produto.link)
+            if oficial.get("preco") and dados.get("preco"):
+                oficial = {**oficial, "preco": dados["preco"], "preco_antigo": dados.get("preco_antigo")}
             if oficial.get("preco"):
                 if oficial.get("nome") and not dados.get("nome") and (
                         not produto.nome or produto.nome_do_link or produto.bloqueado):
@@ -213,6 +269,13 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                     produto.imagens = oficial["imagens"]
                 produto.bloqueado = False
                 status.append("• Dados lidos pela API oficial do Mercado Livre ✅")
+                if dados.get("nome") and oficial.get("nome") and not _parecidos(dados["nome"], oficial["nome"]):
+                    telegram.enviar_texto(chat_id, "⚠️ Mercado Livre: o link de outro canal leva para uma página com "
+                                          f"vários produtos e eu achei \"{str(oficial['nome'])[:70]}\", que não parece "
+                                          f"ser \"{dados['nome'][:70]}\".\n\nAbra o produto no app do ML e mande o "
+                                          "SEU meli.la (Compartilhar na barra de afiliados).\n🛑 Não postei.")
+                    shutil.rmtree(pasta, ignore_errors=True)
+                    return
                 if oficial.get("ativo") is False:
                     status.append("• ⚠️ O Mercado Livre diz que este anúncio está pausado/esgotado")
         except Exception as erro:  # noqa: BLE001
@@ -323,11 +386,17 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         status.append(f"• Nota abaixo de {config.NOTA_MINIMA} (fila automática): fica só no site — "
                       "não gastei o alcance do canal, Reels e TikTok")
 
-    # Shopee: um link por rede (canal / site) para o relatório mostrar de onde vêm as VENDAS
-    if link_produto and config.MARCAR_ORIGEM_SHOPEE:
+    # Shopee: SEMPRE gera o seu link (mesmo se o link veio de outro canal) — um por rede (canal / site)
+    if not link_produto and shopee.ativo() and shopee.e_shopee(produto.link):
+        ids_sp = shopee.ids_do_link(produto.link)
+        if ids_sp:
+            link_produto = f"https://shopee.com.br/product/{ids_sp[0]}/{ids_sp[1]}"
+    if link_produto:
         try:
-            produto.link_canal = shopee.link_afiliado(link_produto, "canal")
-            produto.link = shopee.link_afiliado(link_produto, "site")
+            marcar = config.MARCAR_ORIGEM_SHOPEE
+            produto.link_canal = shopee.link_afiliado(link_produto, "canal" if marcar else "dropcerto")
+            produto.link = shopee.link_afiliado(link_produto, "site" if marcar else "dropcerto")
+            status.append("• Shopee: link gerado com o SEU código de afiliada ✅")
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Links por rede da Shopee: {str(erro)[:150]}")
 
@@ -478,6 +547,18 @@ def tratar(mensagem: dict) -> None:
             return
         if len(links) > 1:
             texto = "/agendar " + texto
+    # Post copiado/encaminhado de outro canal de ofertas: pega link, nome, preço e cupom
+    # (o link é trocado pelo SEU na hora de postar)
+    if not texto.startswith("/") and copiar.e_post_copiado(texto):
+        ofertas_copiadas = copiar.separar(texto)
+        if ofertas_copiadas:
+            telegram.enviar_texto(chat_id, f"📋 Post de outro canal: achei {len(ofertas_copiadas)} oferta(s). "
+                                  "Vou trocar os links pelos SEUS.")
+            if len(ofertas_copiadas) > 1:
+                texto = "/agendar " + "\n".join(ofertas_copiadas)
+            else:
+                texto = ofertas_copiadas[0]
+                mensagem = {**mensagem, "text": texto}
     comando = texto.split()[0].lower() if texto else ""
     print(f"::notice::Mensagem: {len(texto.splitlines())} linha(s), "
           f"{len(fila.separar_ofertas(texto))} oferta(s) com link")

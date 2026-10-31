@@ -235,3 +235,42 @@ def link_afiliado(produto_id: str) -> str:
     if config.ML_MATT_WORD and config.ML_MATT_TOOL:
         return f"{base}?matt_word={config.ML_MATT_WORD}&matt_tool={config.ML_MATT_TOOL}"
     return base
+
+
+# ---------------------------------------------------------------------------
+# Trocar o link de OUTRA pessoa (ou o link normal, sem afiliado) pelo SEU
+# ---------------------------------------------------------------------------
+def matt_do_link(link: str) -> str | None:
+    """matt_word do link (segue só os redirecionamentos do meli.la). None = não tem."""
+    from urllib.parse import parse_qs, urlparse
+    url = link if "://" in link else f"https://{link}"
+    for _ in range(6):
+        palavra = (parse_qs(urlparse(url).query).get("matt_word") or [None])[0]
+        if palavra:
+            return palavra
+        try:
+            r = requests.get(url, allow_redirects=False, timeout=20, headers=CABECALHOS_WEB)
+        except requests.RequestException:
+            return None
+        proximo = r.headers.get("Location")
+        if not proximo:
+            return None
+        url = urljoin(url, proximo)
+    return None
+
+
+def link_meu(link: str) -> tuple[str | None, str]:
+    """(SEU link de afiliada, texto). None = não deu para trocar com segurança (não postar)."""
+    palavra = matt_do_link(link)
+    if palavra and palavra == config.ML_MATT_WORD:
+        return link, "link de afiliada do Mercado Livre conferido ✅"
+    if not (config.ML_MATT_WORD and config.ML_MATT_TOOL):
+        return (link, "") if palavra else (None, "faltam os seus códigos de afiliada do ML (ML_MATT_WORD/ML_MATT_TOOL)")
+    item, catalogo = codigos_do_link(link)
+    motivo = f"o link era de outra pessoa ({palavra})" if palavra else "o link não tinha afiliado"
+    if catalogo:
+        return link_afiliado(catalogo), f"{motivo} — troquei pelo seu ✅"
+    if item:
+        return (f"https://produto.mercadolivre.com.br/MLB-{item[3:]}?"
+                f"matt_word={config.ML_MATT_WORD}&matt_tool={config.ML_MATT_TOOL}"), f"{motivo} — troquei pelo seu ✅"
+    return None, f"{motivo} e não consegui achar o produto para trocar pelo seu"

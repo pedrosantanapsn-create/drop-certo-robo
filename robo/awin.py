@@ -415,3 +415,29 @@ def mensagem_cupons(lista: list[dict]) -> str:
         linhas.append("")
     linhas.append("Para divulgar um: /cupom CODIGO descrição + o link (mande /cupom para ver o modelo).")
     return "\n".join(linhas)
+
+
+def destino_se_for_de_outro(link: str) -> str:
+    """Link da Awin de OUTRA pessoa → endereço da loja (para gerar o seu). '' se o link já é seu."""
+    from urllib.parse import parse_qs, unquote, urljoin
+    if not e_link_awin(link):
+        return ""
+    params = parse_qs(urlparse(link).query)
+    afiliado = (params.get("awinaffid") or params.get("a") or [""])[0]
+    if afiliado and ativo() and str(afiliado) == str(_carregar()["publisher"]):
+        return ""
+    if params.get("ued"):
+        return unquote(params["ued"][0])
+    url = link
+    for _ in range(6):                      # pclick / tidd.ly: segue até a loja
+        try:
+            r = requests.get(url, allow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+        except requests.RequestException:
+            return ""
+        proximo = r.headers.get("Location")
+        if not proximo:
+            return url if not e_link_awin(url) else ""
+        url = urljoin(url, proximo)
+        if not e_link_awin(url) and "awin" not in urlparse(url).netloc:
+            return url
+    return ""
