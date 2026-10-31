@@ -6,6 +6,7 @@ texto pronto — o post sai do mesmo jeito.
 from __future__ import annotations
 
 import json
+import random
 import re
 
 
@@ -64,8 +65,34 @@ def _limpar_json(texto: str) -> dict:
     return json.loads(texto[inicio : fim + 1])
 
 
+# Chamada para seguir, falada no fim de todo vídeo (varia para não ficar repetitivo)
+CHAMADAS_SEGUIR = [
+    "Segue o perfil pra não perder os próximos achados!",
+    "Me segue que todo dia tem achado novo!",
+    "Segue a gente pra ver mais ofertas assim!",
+    "Já segue o perfil pra pegar as próximas promoções!",
+    "Segue o Drop Certo pra não perder nenhuma oferta!",
+]
+
+
+def chamada_seguir() -> str:
+    return random.choice(CHAMADAS_SEGUIR)
+
+
+def _com_seguir(textos: dict) -> dict:
+    fala = str(textos.get("narracao") or "").strip()
+    if fala and not re.search(r"\bsegu[ei]|\bsiga\b", fala, re.I):
+        textos["narracao"] = fala.rstrip(" .!") + ". " + chamada_seguir()
+    return textos
+
+
 def gerar_textos(p: Produto) -> tuple[dict, str]:
     """Retorna (textos, origem) — origem é 'gemini' ou 'modelo pronto'."""
+    textos, origem = _gerar_textos(p)
+    return _com_seguir(textos), origem
+
+
+def _gerar_textos(p: Produto) -> tuple[dict, str]:
     padrao = _texto_padrao(p)
     if not config.GEMINI_API_KEY:
         return padrao, "modelo pronto (sem chave Gemini)"
@@ -198,6 +225,7 @@ def montar_legenda(p: Produto, t: dict, com_link: bool) -> str:
         partes.append(f"🛒 {p.link}")
     else:
         partes.append(f"🛒 Link na bio · {config.ARROBA}")
+        partes.append("👉 Siga o perfil para não perder os próximos achados!")
     aviso = config.AVISO_LEGAL
     if amazon.e_amazon(p.link):
         aviso += "\n" + amazon.AVISO          # exigência do Programa de Associados da Amazon

@@ -456,7 +456,7 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
                 fala += f", nota {str(round(item['nota'], 1)).replace('.', ',')}"
             falas.append(fala + ".")
         cenas.append((arte.cena_ranking_fim(pasta / "fim.png"), 0.8))
-        falas.append("Qual você levaria? Links no canal e na bio.")
+        falas.append("Qual você levaria? Links no canal e na bio. Segue o perfil pra ver o próximo Top 5!")
         caminho, com_voz = video.renderizar(cenas, " ".join(falas), pasta, "top5.mp4")
         status.append("• Vídeo: pronto" + (" com narração" if com_voz else " (sem narração)"))
 
@@ -465,7 +465,7 @@ def publicar(palavra: str, titulo: str, teto: float | None, itens: list[dict], e
                         for p in range(1, len(itens) + 1)]
         hashtags = "#top5 #achadinhos #tecnologia #custobeneficio #oferta"
         legenda_redes = "\n".join([f"🏆 Top {len(itens)} {titulo_video}", f"(ranking {criterio})", "",
-                                   *linhas_lista, "", f"🛒 Links no canal do Telegram e na bio · {config.ARROBA}",
+                                   *linhas_lista, "", f"🛒 Links no canal do Telegram e na bio · {config.ARROBA}", "👉 Siga o perfil para não perder o próximo Top 5!",
                                    "", config.AVISO_LEGAL, hashtags])
 
         # Canal do Telegram: capa + lista com os 5 links rastreados

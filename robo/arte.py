@@ -411,6 +411,8 @@ def cena_ranking_fim(destino: Path) -> Path:
     d.rounded_rectangle((VW / 2 - w / 2 - 50, 720, VW / 2 + w / 2 + 50, 850), 65, fill=config.COR_DESTAQUE)
     d.text((VW / 2, 785), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
     d.text((VW / 2, 960), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE, anchor="mm")
+    d.text((VW / 2, 1070), "Siga para o próximo Top 5", font=fonte("semibold", 44),
+           fill=config.COR_TEXTO, anchor="mm")
     _rodape_video(d)
     img.save(destino)
     return destino
