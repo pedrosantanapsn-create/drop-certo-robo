@@ -103,7 +103,7 @@ ML_MATT_TOOL = _env("ML_MATT_TOOL", "66102052")
 
 # --- Fila automática: quando a fila acaba, o robô coloca ofertas novas sozinho ---
 FILA_AUTOMATICA = _env_bool("FILA_AUTOMATICA", True)
-FILA_AUTO_SHOPEE = int(_env("FILA_AUTO_SHOPEE", "5") or 5)
+FILA_AUTO_SHOPEE = int(_env("FILA_AUTO_SHOPEE", "3") or 3)
 # Nota da oferta (0-100): oferta da fila automática abaixo disso vai só para o site
 NOTA_MINIMA = int(_env("NOTA_MINIMA", "45") or 45)
 # Links da Shopee marcados por rede (canal/site/bot…) para o relatório de vendas por origem
@@ -114,7 +114,7 @@ BUSCAS_POR_HORA = int(_env("BUSCAS_POR_HORA", "5") or 5)        # por pessoa
 BUSCAS_POR_DIA = int(_env("BUSCAS_POR_DIA", "150") or 150)       # todas as pessoas juntas
 # "Ainda vale!": repostar no canal oferta que teve clique e continua com o mesmo preço
 AINDA_VALE = _env_bool("AINDA_VALE", True)
-FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "5") or 5)
+FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "3") or 3)
 
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)

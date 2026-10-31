@@ -45,7 +45,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 |---|---|
 | 10h–23h | Fila: 1 post a cada 30 min; no pico (11h30–13h30 e 19h–23h) a cada 20 min |
 | Cada post | Canal no formato compacto (foto do produto, nome, preço, cupom, link limpo); arte + vídeo (4 modelos em rodízio) + legenda → Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
-| Fila acabou | Fila automática: 5 Shopee + 5 Mercado Livre, **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
+| Fila acabou | Fila automática: 3 Shopee + 3 Mercado Livre + 3 KaBuM, alternando as lojas, **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
 | Cada oferta | **Nota de 0 a 100** (desconto real pelo histórico, marca, nota e vendas na loja, comissão, peça de PC, cupom). Da fila automática, nota abaixo de 45 vai só para o site; no pico sai primeiro a de maior nota |
 | Cada oferta | **Desconto falso**: se o "de R$" nunca apareceu no histórico de 30 dias, o post sai sem "de R$" e sem "% OFF" (CDC art. 37) |
 | 18h | **"🔁 Ainda vale!"**: reposta no canal 1 oferta que teve clique e continua com o mesmo preço (Shopee/ML, conferido pela API) |
@@ -100,7 +100,7 @@ No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (li
 | `INSTAGRAM_MAX_DIA` / `INSTAGRAM_SO_PICO` / `INSTAGRAM_INTERVALO_H` | 6 / false / 1 | limite de Reels |
 | `TIKTOK_MAX_DIA` / `TIKTOK_SO_PICO` / `TIKTOK_INTERVALO_H` | 5 / false / 1.5 | limite do TikTok |
 | `HORARIOS_PICO` | 11:30-13:30,19:00-23:00 | horários de pico |
-| `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` | true / 5 / 5 | fila automática |
+| `FILA_AUTOMATICA` / `FILA_AUTO_SHOPEE` / `FILA_AUTO_ML` / `FILA_AUTO_AWIN` | true / 3 / 3 / 3 | fila automática (KaBuM pela Awin) |
 | `PALAVRAS_PC` / `PALAVRAS_SHOPEE` / `PALAVRAS_ML` | peças de PC + periféricos | o que buscar |
 | `QUEDA_MINIMA` / `AVISAR_QUEDAS` | 10 / true | aviso de queda de preço |
 | `NOTA_MINIMA` | 45 | nota mínima para oferta da fila automática ir às redes |

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import time
+from itertools import zip_longest
 from datetime import datetime, timedelta
 
 from . import awin, config, fila, marcas, mercadolivre, nota, precos, shopee, sugestoes, supabase
@@ -116,9 +117,10 @@ def se_for_hora(enviar) -> int:
                "(ou mande links / use /ofertas_pc).")
         return 0
     # intercala as lojas para variar o feed
-    meio = len([l for l in linhas if l.startswith("🛍️")])
-    ordem = [i for par in zip(range(meio), range(meio, len(textos))) for i in par]
-    ordem += [i for i in range(len(textos)) if i not in ordem]
+    grupos: dict[str, list[int]] = {}
+    for i, linha in enumerate(linhas):            # 🛍️ Shopee · 🛒 Mercado Livre · 🏬 KaBuM (Awin)
+        grupos.setdefault(linha.split(" ", 1)[0], []).append(i)
+    ordem = [i for rodada in zip_longest(*grupos.values()) for i in rodada if i is not None]
     textos = [textos[i] for i in ordem]
     linhas = [linhas[i] for i in ordem]
     total, proxima, ignorados = fila.adicionar(textos)
