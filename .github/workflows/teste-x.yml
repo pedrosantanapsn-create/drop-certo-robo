@@ -17,22 +17,17 @@ jobs:
           from robo import awin
           def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
           w(f"feed key: {awin.feed_ativo()} token: {awin.ativo()}")
-          try:
-              fs = awin.feeds()
-              w("feeds: " + str([(f['loja'], f['produtos'], bool(f['url'])) for f in fs][:10]))
-              if fs and fs[0]['url']:
-                  r = requests.get(fs[0]['url'], timeout=120)
-                  c = r.content
-                  import gzip
-                  if c[:2]==b'\x1f\x8b': c=gzip.decompress(c)
-                  w("cabecalho feed: " + c[:400].decode('utf-8','replace'))
-          except Exception as e: w(f"feeds ERRO {e!r}")
-          try:
-              it = awin.buscar_produtos("ssd", loja="kabum", limite=5)
-              w("ssd kabum: " + " ; ".join(f"{i['nome'][:40]} {i['preco']} de {i['preco_antigo']} link {i['link'][:45]}" for i in it))
-          except Exception as e: w(f"busca ERRO {e!r}")
-          try:
-              s, c, a = awin.converter("https://www.kabum.com.br/produto/520369/ssd-kingston-nv3-1tb")
-              w(f"converter: {a} | {s[:70]}")
-          except Exception as e: w(f"converter ERRO {e!r}")
+          import csv, io, gzip
+          fs = awin.feeds()
+          c = requests.get(fs[0]['url'], timeout=120).content
+          if c[:2]==b'\x1f\x8b': c=gzip.decompress(c)
+          t = c.decode('utf-8','replace')
+          d = csv.Sniffer().sniff(t[:5000], delimiters=",;\t|")
+          w(f"sniff delim={d.delimiter!r} quote={d.quotechar!r}")
+          n=0
+          for row in csv.DictReader(io.StringIO(t)):
+              if 'ssd' in (row.get('product_name') or '').lower():
+                  w(f"{row.get('product_name','')[:40]} | search={row.get('search_price')} | c1={row.get('custom_1')} c2={row.get('custom_2')} c3={row.get('custom_3')}")
+                  n+=1
+                  if n>=4: break
           PY
