@@ -489,8 +489,8 @@ def tratar(mensagem: dict) -> None:
         pedido = partes[1] if len(partes) > 1 else ""
         loja = "casas bahia" if comando == "/casasbahia" else ""
         if not awin.feed_ativo():
-            telegram.enviar_texto(chat_id, "Falta o segredo AWIN_FEED_KEY no GitHub (Awin → Ferramentas → "
-                                  "Create-a-Feed → API Key).")
+            telegram.enviar_texto(chat_id, "Falta o segredo AWIN_FEED_KEY no GitHub (Awin → Ferramentas → Crie um Feed → "
+                                  "copie o endereço da Lista de Feed).")
         elif not pedido:
             telegram.enviar_texto(chat_id, "Use assim: /awin_ofertas ssd 1tb  (ou /awin_ofertas monitor até 900)\n"
                                   "Só Casas Bahia: /casasbahia ssd")

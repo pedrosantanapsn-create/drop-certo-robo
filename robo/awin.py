@@ -204,75 +204,114 @@ def feed_ativo() -> bool:
     return bool(config.AWIN_FEED_KEY)
 
 
+def _lista_url() -> str:
+    """AWIN_FEED_KEY pode ser o endereço inteiro da "Lista de Feed" (formato novo) ou só a chave (antigo)."""
+    chave = config.AWIN_FEED_KEY.strip()
+    return chave if chave.startswith("http") else FEEDS.format(chave=chave)
+
+
+def _campo(linha: dict, *nomes: str) -> str:
+    """Valor da primeira coluna que existir (os feeds antigo e novo usam nomes diferentes)."""
+    baixas = {k.strip().lower(): v for k, v in linha.items() if k}
+    for nome in nomes:
+        valor = baixas.get(nome.lower())
+        if valor not in (None, ""):
+            return str(valor).strip()
+    return ""
+
+
+def _ler_csv(conteudo: bytes):
+    """Linhas de um CSV (com ou sem gzip, vírgula/ponto e vírgula/tab)."""
+    import csv
+    import gzip
+    import io
+    if conteudo[:2] == b"\x1f\x8b":
+        conteudo = gzip.decompress(conteudo)
+    texto = conteudo.decode("utf-8", errors="replace").lstrip("\ufeff")
+    try:
+        dialeto = csv.Sniffer().sniff(texto[:5000], delimiters=",;\t|")
+    except csv.Error:
+        dialeto = csv.excel
+    return csv.DictReader(io.StringIO(texto), dialect=dialeto)
+
+
 def feeds() -> list[dict]:
-    """Feeds das lojas que aceitaram você: [{fid, loja, loja_id, produtos}]."""
+    """Feeds das lojas que aceitaram você: [{fid, loja, loja_id, produtos, url}]."""
     if not feed_ativo():
         return []
-    import csv
-    import io
-    r = requests.get(FEEDS.format(chave=config.AWIN_FEED_KEY), timeout=60)
+    r = requests.get(_lista_url(), timeout=60)
     if r.status_code >= 300:
-        raise RuntimeError(f"feeds da Awin {r.status_code} (confira o AWIN_FEED_KEY)")
+        raise RuntimeError(f"lista de feeds da Awin {r.status_code} (confira o AWIN_FEED_KEY)")
     saida = []
-    for linha in csv.DictReader(io.StringIO(r.text)):
-        status = (linha.get("Membership Status") or "").lower()
-        if status and status not in ("active", "joined"):
+    for linha in _ler_csv(r.content):
+        status = _campo(linha, "Membership Status", "membership_status", "status").lower()
+        if status and status not in ("active", "joined", "ativo"):
             continue
-        saida.append({"fid": linha.get("Feed ID"), "loja": linha.get("Advertiser Name", ""),
-                      "loja_id": linha.get("Advertiser ID"), "produtos": int(linha.get("No of products") or 0)})
-    return [f for f in saida if f["fid"]]
+        saida.append({"fid": _campo(linha, "Feed ID", "feed_id", "fid"),
+                      "loja": _campo(linha, "Advertiser Name", "advertiser_name"),
+                      "loja_id": _campo(linha, "Advertiser ID", "advertiser_id"),
+                      "produtos": int(float(_campo(linha, "No of products", "number_of_products") or 0)),
+                      "url": _campo(linha, "URL", "url", "Download URL")})
+    return [f for f in saida if f["fid"] or f["url"]]
 
 
 def _num(valor) -> float | None:
+    achado = re.search(r"\d[\d.,]*", str(valor or ""))
+    if not achado:
+        return None
+    bruto = achado.group(0)
+    if "," in bruto and "." in bruto:          # 1.299,90 ou 1,299.90
+        bruto = bruto.replace(".", "").replace(",", ".") if bruto.rfind(",") > bruto.rfind(".") else bruto.replace(",", "")
+    elif "," in bruto:
+        bruto = bruto.replace(",", ".")
     try:
-        v = float(str(valor).replace(",", "."))
+        v = float(bruto)
         return v if v > 0 else None
-    except (TypeError, ValueError):
+    except ValueError:
         return None
 
 
 def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, limite: int = 8) -> list[dict]:
     """Produtos dos feeds com a palavra no nome, em estoque, ordenados pelo desconto.
 
-    Cada item: {nome, preco, preco_antigo, desconto, link (já é o SEU link de afiliada), imagem, loja, marca}.
+    Cada item: {nome, preco, preco_antigo, desconto, link, imagem, loja, marca, id}.
+    O link é o SEU link de afiliada quando o feed já traz (aw_deep_link); senão é o link da loja
+    e o robô converte pelo Link Builder na hora de postar.
     """
-    import csv
-    import gzip
-    import io
-
     termos = [t for t in re.findall(r"[a-zà-ú0-9]{2,}", palavra.lower())]
     achados: list[dict] = []
     for feed in feeds():
         if loja and loja.lower() not in feed["loja"].lower():
             continue
-        url = BAIXAR.format(chave=config.AWIN_FEED_KEY, fid=feed["fid"], colunas=COLUNAS)
-        with requests.get(url, stream=True, timeout=180) as r:
-            if r.status_code >= 300:
-                print(f"::warning::Feed Awin {feed['loja']}: {r.status_code}")
+        url = feed["url"] or BAIXAR.format(chave=config.AWIN_FEED_KEY, fid=feed["fid"], colunas=COLUNAS)
+        r = requests.get(url, timeout=180)
+        if r.status_code >= 300:
+            print(f"::warning::Feed Awin {feed['loja']}: {r.status_code}")
+            continue
+        for n, p in enumerate(_ler_csv(r.content)):
+            if n > MAX_LINHAS:
+                break
+            nome = _campo(p, "product_name", "title", "name")
+            if termos and not all(t in nome.lower() for t in termos):
                 continue
-            r.raw.decode_content = False
-            leitor = csv.DictReader(io.TextIOWrapper(gzip.GzipFile(fileobj=r.raw), encoding="utf-8", errors="replace"))
-            for n, p in enumerate(leitor):
-                if n > MAX_LINHAS:
-                    break
-                nome = p.get("product_name") or ""
-                baixo = nome.lower()
-                if termos and not all(t in baixo for t in termos):
-                    continue
-                if str(p.get("in_stock", "1")).strip() in ("0", "false", "no"):
-                    continue
-                preco = _num(p.get("search_price"))
-                if not preco or (teto and preco > teto):
-                    continue
-                antigo = _num(p.get("rrp_price")) or _num(p.get("product_price_old"))
-                antigo = antigo if antigo and antigo > preco * 1.02 else None
-                achados.append({
-                    "nome": nome.strip(), "preco": preco, "preco_antigo": antigo,
-                    "desconto": round((1 - preco / antigo) * 100) if antigo else 0,
-                    "link": p.get("aw_deep_link") or "", "imagem": p.get("merchant_image_url") or p.get("aw_image_url") or "",
-                    "loja": p.get("merchant_name") or feed["loja"], "marca": p.get("brand_name") or "",
-                    "id": p.get("aw_product_id") or "",
-                })
+            estoque = _campo(p, "in_stock", "availability", "stock_status").lower()
+            if estoque in ("0", "false", "no", "out of stock", "out_of_stock", "fora de estoque"):
+                continue
+            venda = _num(_campo(p, "sale_price", "search_price", "display_price", "store_price"))
+            cheio = _num(_campo(p, "rrp_price", "product_price_old", "price"))
+            preco = venda or cheio
+            if not preco or (teto and preco > teto):
+                continue
+            antigo = cheio if cheio and cheio > preco * 1.02 else None
+            achados.append({
+                "nome": nome, "preco": preco, "preco_antigo": antigo,
+                "desconto": round((1 - preco / antigo) * 100) if antigo else 0,
+                "link": _campo(p, "aw_deep_link", "tracking_url", "link", "merchant_deep_link"),
+                "imagem": _campo(p, "merchant_image_url", "aw_image_url", "image_link", "image_url"),
+                "loja": _campo(p, "merchant_name") or feed["loja"],
+                "marca": _campo(p, "brand_name", "brand"),
+                "id": _campo(p, "aw_product_id", "id", "merchant_product_id"),
+            })
     from . import marcas
     achados = [a for a in achados if a["link"]]
     achados.sort(key=lambda a: (-(a["desconto"] + (15 if marcas.conhecida(a["nome"]) or a["marca"] else 0)), a["preco"]))
@@ -293,7 +332,9 @@ def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, lim
 
 def texto_fila(item: dict, origem: str = "fila") -> str:
     """Texto da oferta para a fila: link + preço + nome + foto (o robô não precisa abrir a loja)."""
-    link = item["link"] + ("&" if "?" in item["link"] else "?") + f"clickref={origem}"
+    link = item["link"]
+    if e_link_awin(link):
+        link += ("&" if "?" in link else "?") + f"clickref={origem}"
     linhas = [link, f"nome: {item['nome'][:150]}", f"loja: {item['loja']}", f"preco: {item['preco']:.2f}".replace(".", ",")]
     if item.get("preco_antigo"):
         linhas.append(f"de: {item['preco_antigo']:.2f}".replace(".", ","))

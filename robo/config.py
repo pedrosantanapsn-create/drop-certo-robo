@@ -68,7 +68,7 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
 AWIN_TOKEN = _env("AWIN_TOKEN")                       # Awin → API Credentials (Casas Bahia, KaBuM!…)
-AWIN_FEED_KEY = _env("AWIN_FEED_KEY")                 # Awin → Create-a-Feed → API Key (busca de produtos)
+AWIN_FEED_KEY = _env("AWIN_FEED_KEY")                 # endereço da "Lista de Feed" (Awin → Ferramentas → Crie um Feed)
 FILA_AUTO_AWIN = int(_env("FILA_AUTO_AWIN", "3") or 3)   # produtos da Awin na fila automática
 PALAVRAS_AWIN = _env("PALAVRAS_AWIN", "ssd,memoria ram,placa de video,processador,monitor gamer,headset gamer,notebook gamer,mouse gamer")
 
