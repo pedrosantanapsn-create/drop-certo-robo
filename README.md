@@ -37,6 +37,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | **Mercado Livre** | API oficial (produtos de catálogo) | meli.la seu ou link com `matt_word`/`matt_tool` | `/ofertas_ml`, fila automática |
 | **Amazon** | print (Gemini lê nome e preço e recorta o produto) | tag `certodrop-20` colocada sozinha | `/ofertas_amazon` (Promobit) |
 | **Awin** (Casas Bahia, KaBuM!…) | feed de produtos da loja (nome, preço, foto) ou página/print | gerado pela API da Awin (Link Builder) ou já vem no feed; só lojas que aceitaram você | `/awin_ofertas`, `/casasbahia`, `/awin_cupons`, fila automática (3) |
+| **Terabyte** | print (o site bloqueia robôs) ou `preco:` | código de parceira `?p=` colocado sozinho (`TERABYTE_PARCEIRO`) | — |
 | **TikTok Shop** | nome e foto da página; preço por print ou `preco:` | o link que você compartilha | — |
 
 ## 3. O que roda sozinho

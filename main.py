@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -164,6 +164,16 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             except Exception:  # noqa: BLE001
                 pass
 
+    # Terabyte: coloca o seu código de parceira (?p=) em qualquer link da loja
+    if terabyte.e_terabyte(produto.link):
+        produto.link, texto_tb = terabyte.link_com_meu_codigo(produto.link)
+        status.append(f"• Terabyte: {texto_tb}")
+        if texto_tb.startswith("⚠️"):
+            telegram.enviar_texto(chat_id, texto_tb + "\n🛑 Não postei.")
+            shutil.rmtree(pasta, ignore_errors=True)
+            return
+        produto.loja_nome = "Terabyte"
+
     # Lojas da Awin (Casas Bahia, KaBuM!…): troca o link normal pelo SEU link de afiliada
     if awin.ativo() and not awin.e_link_awin(produto.link):
         try:
@@ -262,6 +272,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if produto.nome_do_link:
         status.append("• Nome tirado do link (mande um print da página para sair melhor)")
 
+    if terabyte.e_terabyte(produto.link) and produto.preco is None:
+        status.append("• Terabyte: o site bloqueia o robô — mande o link com um print da página "
+                      "(ou a linha \"preco: 1.299,90\") para sair com preço")
     if "tiktok.com" in produto.link.lower() and produto.preco is None:
         # O TikTok Shop mostra nome e foto para o robô, mas não o preço
         status.append("• TikTok Shop: o preço não aparece para o robô — mande o link com "

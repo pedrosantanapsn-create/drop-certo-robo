@@ -21,7 +21,7 @@ def _loja(link: str) -> str:
                         ("mercadolivre", "Mercado Livre"), ("amazon", "Amazon"), ("amzn", "Amazon"),
                         ("tiktok", "TikTok Shop"), ("magazineluiza", "Magalu"), ("magalu", "Magalu"),
                         ("kabum", "KaBuM!"), ("aliexpress", "AliExpress"), ("casasbahia", "Casas Bahia"),
-                        ("pontofrio", "Ponto"), ("extra.com", "Extra")):
+                        ("pontofrio", "Ponto"), ("extra.com", "Extra"), ("terabyteshop", "Terabyte")):
         if chave in l:
             return nome
     return "loja"

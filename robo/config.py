@@ -67,6 +67,8 @@ FOTO_LIMPA = _env_bool("FOTO_LIMPA", True)
 # --- Shopee: API oficial de afiliados (lê o produto sem precisar de print) --
 SHOPEE_APP_ID = _env("SHOPEE_APP_ID")
 SHOPEE_APP_SECRET = _env("SHOPEE_APP_SECRET")
+TERABYTE_PARCEIRO = _env("TERABYTE_PARCEIRO", "3559600")   # seu código de parceira da Terabyte (?p=)
+TERABYTE_TAG = _env("TERABYTE_TAG", "certodrop")
 AWIN_TOKEN = _env("AWIN_TOKEN")                       # Awin → API Credentials (Casas Bahia, KaBuM!…)
 AWIN_FEED_KEY = _env("AWIN_FEED_KEY")                 # endereço da "Lista de Feed" (Awin → Ferramentas → Crie um Feed)
 FILA_AUTO_AWIN = int(_env("FILA_AUTO_AWIN", "3") or 3)   # produtos da Awin na fila automática

@@ -40,6 +40,7 @@ LOJAS = [
     (("kabum",), "KaBuM!"),
     (("casasbahia",), "Casas Bahia"),
     (("pontofrio",), "Ponto"),
+    (("terabyteshop",), "Terabyte"),
     (("tiktok.com",), "TikTok Shop"),
 ]
 
