@@ -10,24 +10,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install -q requests beautifulsoup4 pillow
+      - run: pip install -q -r requirements.txt
       - run: |
           python - <<'PY'
-          import requests
           from robo import awin
           def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
-          w(f"feed key: {awin.feed_ativo()} token: {awin.ativo()}")
-          import csv, io, gzip
-          fs = awin.feeds()
-          c = requests.get(fs[0]['url'], timeout=120).content
-          if c[:2]==b'\x1f\x8b': c=gzip.decompress(c)
-          t = c.decode('utf-8','replace')
-          d = csv.Sniffer().sniff(t[:5000], delimiters=",;\t|")
-          w(f"sniff delim={d.delimiter!r} quote={d.quotechar!r}")
-          n=0
-          for row in csv.DictReader(io.StringIO(t)):
-              if 'ssd' in (row.get('product_name') or '').lower():
-                  w(f"{row.get('product_name','')[:40]} | search={row.get('search_price')} | c1={row.get('custom_1')} c2={row.get('custom_2')} c3={row.get('custom_3')}")
-                  n+=1
-                  if n>=4: break
+          for q in ("ssd 1tb", "placa de video", "mouse gamer"):
+              try:
+                  it = awin.buscar_produtos(q, loja="kabum", limite=4)
+                  w(q + ": " + " ; ".join(f"{i['nome'][:45]} R${i['preco']} {i['prazo']}" for i in it))
+              except Exception as e: w(f"{q} ERRO {e!r}")
+          try: w(awin.mensagem_cupons(awin.cupons())[:600])
+          except Exception as e: w(f"cupons ERRO {e!r}")
           PY

@@ -231,11 +231,11 @@ def _ler_csv(conteudo: bytes):
     if conteudo[:2] == b"\x1f\x8b":
         conteudo = gzip.decompress(conteudo)
     texto = conteudo.decode("utf-8", errors="replace").lstrip("\ufeff")
-    try:
-        dialeto = csv.Sniffer().sniff(texto[:5000], delimiters=",;\t|")
+    try:     # só o separador; o resto do padrão Excel (aspas dobradas) evita erro com 2.5" nos nomes
+        separador = csv.Sniffer().sniff(texto[:5000], delimiters=",;\t|").delimiter
     except csv.Error:
-        dialeto = csv.excel
-    return csv.DictReader(io.StringIO(texto), dialect=dialeto)
+        separador = ","
+    return csv.DictReader(io.StringIO(texto), delimiter=separador)
 
 
 def feeds() -> list[dict]:
@@ -306,7 +306,13 @@ def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, lim
             if not preco or (teto and preco > teto):
                 continue
             antigo = cheio if cheio and cheio > preco * 1.02 else None
+            prazo = ""                         # KaBuM: search_price é à vista; custom_3 é o total parcelado
+            meses = re.search(r"(\d+)", _campo(p, "custom_1")) if "install" in _campo(p, "custom_1").lower() else None
+            total = _num(_campo(p, "custom_3"))
+            if meses and total and total > preco * 1.01:
+                prazo = f"{meses.group(1)}x — total R$ {total:.2f}".replace(".", ",")
             achados.append({
+                "prazo": prazo,
                 "nome": nome, "preco": preco, "preco_antigo": antigo,
                 "desconto": round((1 - preco / antigo) * 100) if antigo else 0,
                 "link": _campo(p, "aw_deep_link", "tracking_url", "link", "merchant_deep_link"),
@@ -316,8 +322,18 @@ def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, lim
                 "id": _campo(p, "aw_product_id", "id", "merchant_product_id"),
             })
     from . import marcas
-    achados = [a for a in achados if a["link"]]
-    achados.sort(key=lambda a: (-(a["desconto"] + (15 if marcas.conhecida(a["nome"]) or a["marca"] else 0)), a["preco"]))
+    from .ranking import RE_ACESSORIO
+    pediu_acessorio = bool(RE_ACESSORIO.search(palavra))
+    primeiro = termos[0] if termos else ""
+
+    def relevancia(a: dict) -> float:
+        inicio = " ".join(a["nome"].lower().split()[:4])
+        return (a["desconto"] + (15 if marcas.conhecida(a["nome"]) or a["marca"] else 0)
+                + (20 if primeiro and primeiro in inicio else 0))
+
+    achados = [a for a in achados if a["link"]
+               and (pediu_acessorio or not RE_ACESSORIO.search(" ".join(a["nome"].split()[:5])))]
+    achados.sort(key=lambda a: (-relevancia(a), a["preco"]))
     vistos, saida = set(), []
     for a in achados:                       # sem repetir o mesmo produto
         chave = re.sub(r"\W+", "", a["nome"].lower())[:50]
@@ -343,6 +359,8 @@ def texto_fila(item: dict, origem: str = "fila") -> str:
         linhas.append(f"de: {item['preco_antigo']:.2f}".replace(".", ","))
     if item.get("imagem"):
         linhas.append(f"foto: {item['imagem']}")
+    if item.get("prazo"):
+        linhas.append(f"obs: preço à vista; parcelado em {item['prazo']}")
     return "\n".join(linhas)
 
 
@@ -355,7 +373,8 @@ def mensagem_produtos(itens: list[dict], titulo: str) -> str:
         linhas += [
             f"A{i}. {it['nome'][:90]}",
             f"💰 {formatar_preco(it['preco'])}" + (f" (antes {formatar_preco(it['preco_antigo'])} · -{it['desconto']}%)"
-                                                  if it.get("preco_antigo") else "") + f" · {it['loja']}",
+                                                  if it.get("preco_antigo") else "")
+            + (" à vista" if it.get("prazo") else "") + f" · {it['loja']}",
             "",
         ]
     linhas += ["➕ Pôr na fila: /add A1 A3  ·  todos: /add awin",
