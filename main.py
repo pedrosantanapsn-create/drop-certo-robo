@@ -484,10 +484,10 @@ def tratar(mensagem: dict) -> None:
         comando, texto = "/ml", "/ml " + texto.split()[1][3:]     # volta da autorização do ML
     if comando in ("/start", "/ajuda", "/help"):
         telegram.enviar_texto(chat_id, AJUDA)
-    elif comando in ("/awin_ofertas", "/awinofertas", "/casasbahia"):
+    elif comando in ("/awin_ofertas", "/awinofertas", "/casasbahia", "/casas_bahia", "/kabum"):
         partes = texto.split(None, 1)
         pedido = partes[1] if len(partes) > 1 else ""
-        loja = "casas bahia" if comando == "/casasbahia" else ""
+        loja = {"/casasbahia": "casas bahia", "/casas_bahia": "casas bahia", "/kabum": "kabum"}.get(comando, "")
         if not awin.feed_ativo():
             telegram.enviar_texto(chat_id, "Falta o segredo AWIN_FEED_KEY no GitHub (Awin → Ferramentas → Crie um Feed → "
                                   "copie o endereço da Lista de Feed).")
@@ -699,6 +699,8 @@ def tratar(mensagem: dict) -> None:
     elif comando == "/colunas":
         telegram.enviar_texto(chat_id, supabase.listar_colunas() if supabase.ativo()
                               else "Supabase não configurado.")
+    elif comando.startswith("/") and not fila.RE_LINK.search(texto):
+        telegram.enviar_texto(chat_id, f"Não conheço o comando {comando}. Mande /ajuda para ver a lista.")
     else:
         processar_oferta(mensagem, chat_id)
 

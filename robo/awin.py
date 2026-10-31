@@ -58,7 +58,7 @@ def _post(caminho: str, corpo: dict) -> dict:
 
 def _dominio(url: str) -> str:
     host = urlparse(url if "://" in url else f"https://{url}").netloc.lower()
-    return host.split(":")[0].removeprefix("www.").removeprefix("m.")
+    return host.split(":")[0].lstrip("*.").removeprefix("www.").removeprefix("m.")
 
 
 def _carregar() -> dict:
@@ -160,8 +160,11 @@ def resumo() -> str:
     if pendentes:
         linhas += ["", f"⏳ Aguardando aprovação ({len(pendentes)}):"]
         linhas += [f"   • {l['nome']}" for l in pendentes]
-    linhas += ["", "Para postar: mande o link NORMAL do produto (ex.: casasbahia.com.br/…).",
-               "O robô troca sozinho pelo seu link de afiliada."]
+    exemplo = aceitas[0]["dominios"][0] if aceitas and aceitas[0]["dominios"] else "site da loja"
+    linhas += ["", f"Para postar: mande o link NORMAL do produto (ex.: {exemplo}/…).",
+               "O robô troca sozinho pelo seu link de afiliada.",
+               "Buscar produtos: /kabum ssd 1tb · /awin_ofertas monitor até 900 · cupons: /awin_cupons",
+               "Loja que não aparece aqui ainda não aceitou você (veja em Anunciantes → Meus programas na Awin)."]
     return "\n".join(linhas)
 
 
