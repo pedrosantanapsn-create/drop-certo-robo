@@ -47,7 +47,7 @@ def legenda(produto: Produto, menor30: bool = False, link: str = "", topo: str =
                       + (f" — {escape(produto.cupom_info)}" if produto.cupom_info else ""))
     linhas.append("")
     url = rastreio.link(link or produto.link, produto.site_id, produto.nome)
-    linhas.append(f'🛒 <a href="{escape(url)}">Comprar na {escape(_loja(produto.link))}</a>')
+    linhas.append(f'🛒 <a href="{escape(url)}">Comprar na {escape(produto.loja_nome or _loja(produto.link))}</a>')
     linhas.append("")
     agora = datetime.now(fila.FUSO).strftime("%d/%m %H:%M")
     linhas.append(f"<i>Preço visto em {agora}, pode mudar.</i>")

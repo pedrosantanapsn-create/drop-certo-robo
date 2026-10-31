@@ -34,6 +34,7 @@ jobs:
       SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
       SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
       AWIN_TOKEN: ${{ secrets.AWIN_TOKEN }}
+      AWIN_FEED_KEY: ${{ secrets.AWIN_FEED_KEY }}
       ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
       ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
       # Ajustes opcionais (Settings > Secrets and variables > Actions > Variables)

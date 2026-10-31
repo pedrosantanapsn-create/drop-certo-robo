@@ -52,6 +52,7 @@ class Produto:
     chave_preco: str = ""            # chave no histórico de preços (shopee:123 / ml:MLB123)
     alerta: str = ""                 # "bug" = possível erro de preço (post especial no canal)
     origem: str = ""                 # "auto" = fila automática (só vai às redes com nota boa)
+    loja_nome: str = ""              # nome da loja quando o link não mostra (feed da Awin)
     link_canal: str = ""             # link da Shopee marcado "canal" (para saber de onde vêm as vendas)
 
     @property
@@ -123,6 +124,10 @@ def ler_mensagem(texto: str) -> dict:
             dados["observacao"] = valor
         elif chave == "alerta":
             dados["alerta"] = valor.lower()
+        elif chave == "loja":
+            dados["loja"] = valor.strip()
+        elif chave in ("foto", "imagem"):
+            dados["imagem"] = valor.strip()
         elif chave == "origem":
             dados["origem"] = valor.lower()
         elif chave == "nota":
@@ -341,6 +346,7 @@ def buscar_produto(dados: dict) -> Produto:
         cupom_info=dados.get("cupom_info", ""),
         alerta=dados.get("alerta", ""),
         origem=dados.get("origem", ""),
+        loja_nome=dados.get("loja", ""),
     )
     if not produto.link:
         raise ValueError("Não encontrei nenhum link na mensagem.")

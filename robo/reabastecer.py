@@ -13,10 +13,11 @@ Desligar: variável FILA_AUTOMATICA = false no GitHub.
 """
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timedelta
 
-from . import config, fila, mercadolivre, nota, precos, shopee, sugestoes, supabase
+from . import awin, config, fila, marcas, mercadolivre, nota, precos, shopee, sugestoes, supabase
 from .produto import Produto, formatar_preco
 
 CHAVE = "reabastecer_proximo"
@@ -86,6 +87,30 @@ def se_for_hora(enviar) -> int:
                               f"(-{round(n['desconto'])}%) · nota {pontos}")
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Fila automática ML: {str(erro)[:150]}")
+    if awin.feed_ativo() and config.FILA_AUTO_AWIN:
+        try:
+            ja = set(sugestoes._vistas())
+            escolhidos = []
+            for palavra in [p.strip() for p in config.PALAVRAS_AWIN.split(",") if p.strip()]:
+                for it in awin.buscar_produtos(palavra, limite=3):
+                    chave = f"awin:{it['id']}"
+                    if chave in ja or not (it["desconto"] >= 10 and (it["marca"] or marcas.conhecida(it["nome"]))):
+                        continue
+                    ja.add(chave)
+                    escolhidos.append((chave, it))
+                    break
+                if len(escolhidos) >= config.FILA_AUTO_AWIN:
+                    break
+            for chave, it in escolhidos:
+                pontos = _nota_previa(it["nome"], it["preco"], float(it["desconto"]), chave, {})
+                textos.append(f"{awin.texto_fila(it)}\norigem: auto\nnota: {pontos}")
+                linhas.append(f"🏬 {it['nome'][:55]} — {formatar_preco(it['preco'])} (-{it['desconto']}%) "
+                              f"· {it['loja']} · nota {pontos}")
+            if escolhidos and supabase.ativo():
+                supabase.gravar_config(sugestoes.CHAVE_VISTAS,
+                                       json.dumps((sugestoes._vistas() + [c for c, _ in escolhidos])[-400:]))
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Fila automática Awin: {str(erro)[:150]}")
     if not textos:
         enviar("🤖 A fila acabou e não achei ofertas novas boas agora. Tento de novo em 2 h "
                "(ou mande links / use /ofertas_pc).")

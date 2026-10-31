@@ -186,3 +186,169 @@ def vendas(dias: int = 7) -> list[dict]:
             "clickref": str((t.get("clickRefs") or {}).get("clickRef") or ""),
         })
     return saida
+
+
+# ---------------------------------------------------------------------------
+# Busca de produtos (feeds de produtos da Awin) — igual ao /shopee
+# Precisa do segredo AWIN_FEED_KEY (Awin → Ferramentas → Create-a-Feed → "API Key").
+# ---------------------------------------------------------------------------
+FEEDS = "https://productdata.awin.com/datafeed/list/apikey/{chave}"
+COLUNAS = ("aw_deep_link,product_name,aw_product_id,merchant_image_url,aw_image_url,search_price,"
+           "rrp_price,product_price_old,brand_name,in_stock,merchant_name,merchant_id,merchant_category")
+BAIXAR = ("https://productdata.awin.com/datafeed/download/apikey/{chave}/language/any/fid/{fid}"
+          "/columns/{colunas}/format/csv/delimiter/%2C/compression/gzip/adultcontent/1/")
+MAX_LINHAS = 400_000            # protege o tempo da rodada em feeds gigantes
+
+
+def feed_ativo() -> bool:
+    return bool(config.AWIN_FEED_KEY)
+
+
+def feeds() -> list[dict]:
+    """Feeds das lojas que aceitaram você: [{fid, loja, loja_id, produtos}]."""
+    if not feed_ativo():
+        return []
+    import csv
+    import io
+    r = requests.get(FEEDS.format(chave=config.AWIN_FEED_KEY), timeout=60)
+    if r.status_code >= 300:
+        raise RuntimeError(f"feeds da Awin {r.status_code} (confira o AWIN_FEED_KEY)")
+    saida = []
+    for linha in csv.DictReader(io.StringIO(r.text)):
+        status = (linha.get("Membership Status") or "").lower()
+        if status and status not in ("active", "joined"):
+            continue
+        saida.append({"fid": linha.get("Feed ID"), "loja": linha.get("Advertiser Name", ""),
+                      "loja_id": linha.get("Advertiser ID"), "produtos": int(linha.get("No of products") or 0)})
+    return [f for f in saida if f["fid"]]
+
+
+def _num(valor) -> float | None:
+    try:
+        v = float(str(valor).replace(",", "."))
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, limite: int = 8) -> list[dict]:
+    """Produtos dos feeds com a palavra no nome, em estoque, ordenados pelo desconto.
+
+    Cada item: {nome, preco, preco_antigo, desconto, link (já é o SEU link de afiliada), imagem, loja, marca}.
+    """
+    import csv
+    import gzip
+    import io
+
+    termos = [t for t in re.findall(r"[a-zà-ú0-9]{2,}", palavra.lower())]
+    achados: list[dict] = []
+    for feed in feeds():
+        if loja and loja.lower() not in feed["loja"].lower():
+            continue
+        url = BAIXAR.format(chave=config.AWIN_FEED_KEY, fid=feed["fid"], colunas=COLUNAS)
+        with requests.get(url, stream=True, timeout=180) as r:
+            if r.status_code >= 300:
+                print(f"::warning::Feed Awin {feed['loja']}: {r.status_code}")
+                continue
+            r.raw.decode_content = False
+            leitor = csv.DictReader(io.TextIOWrapper(gzip.GzipFile(fileobj=r.raw), encoding="utf-8", errors="replace"))
+            for n, p in enumerate(leitor):
+                if n > MAX_LINHAS:
+                    break
+                nome = p.get("product_name") or ""
+                baixo = nome.lower()
+                if termos and not all(t in baixo for t in termos):
+                    continue
+                if str(p.get("in_stock", "1")).strip() in ("0", "false", "no"):
+                    continue
+                preco = _num(p.get("search_price"))
+                if not preco or (teto and preco > teto):
+                    continue
+                antigo = _num(p.get("rrp_price")) or _num(p.get("product_price_old"))
+                antigo = antigo if antigo and antigo > preco * 1.02 else None
+                achados.append({
+                    "nome": nome.strip(), "preco": preco, "preco_antigo": antigo,
+                    "desconto": round((1 - preco / antigo) * 100) if antigo else 0,
+                    "link": p.get("aw_deep_link") or "", "imagem": p.get("merchant_image_url") or p.get("aw_image_url") or "",
+                    "loja": p.get("merchant_name") or feed["loja"], "marca": p.get("brand_name") or "",
+                    "id": p.get("aw_product_id") or "",
+                })
+    from . import marcas
+    achados = [a for a in achados if a["link"]]
+    achados.sort(key=lambda a: (-(a["desconto"] + (15 if marcas.conhecida(a["nome"]) or a["marca"] else 0)), a["preco"]))
+    vistos, saida = set(), []
+    for a in achados:                       # sem repetir o mesmo produto
+        chave = re.sub(r"\W+", "", a["nome"].lower())[:50]
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        saida.append(a)
+        if a["id"]:
+            from . import precos
+            precos.registrar(f"awin:{a['id']}", a["preco"])      # histórico próprio (desconto falso etc.)
+        if len(saida) >= limite:
+            break
+    return saida
+
+
+def texto_fila(item: dict, origem: str = "fila") -> str:
+    """Texto da oferta para a fila: link + preço + nome + foto (o robô não precisa abrir a loja)."""
+    link = item["link"] + ("&" if "?" in item["link"] else "?") + f"clickref={origem}"
+    linhas = [link, f"nome: {item['nome'][:150]}", f"loja: {item['loja']}", f"preco: {item['preco']:.2f}".replace(".", ",")]
+    if item.get("preco_antigo"):
+        linhas.append(f"de: {item['preco_antigo']:.2f}".replace(".", ","))
+    if item.get("imagem"):
+        linhas.append(f"foto: {item['imagem']}")
+    return "\n".join(linhas)
+
+
+def mensagem_produtos(itens: list[dict], titulo: str) -> str:
+    from .produto import formatar_preco
+    if not itens:
+        return f"{titulo}\n\nNão achei produtos com essa palavra nos feeds das lojas que aceitaram você."
+    linhas = [titulo, ""]
+    for i, it in enumerate(itens, 1):
+        linhas += [
+            f"A{i}. {it['nome'][:90]}",
+            f"💰 {formatar_preco(it['preco'])}" + (f" (antes {formatar_preco(it['preco_antigo'])} · -{it['desconto']}%)"
+                                                  if it.get("preco_antigo") else "") + f" · {it['loja']}",
+            "",
+        ]
+    linhas += ["➕ Pôr na fila: /add A1 A3  ·  todos: /add awin",
+               "ℹ️ Preço do feed da loja (atualizado pela loja 1x por dia, mais ou menos): confira antes de postar."]
+    return "\n".join(linhas)
+
+
+# ---------------------------------------------------------------------------
+# Cupons e promoções das lojas que aceitaram você (Offers API)
+# ---------------------------------------------------------------------------
+def cupons(limite: int = 15) -> list[dict]:
+    dados = _post(f"/publisher/{_carregar()['publisher']}/promotions", {
+        "filters": {"membership": "joined", "status": "active"},
+        "pagination": {"page": 1, "pageSize": 100}})
+    saida = []
+    for p in dados.get("data") or []:
+        voucher = p.get("voucher") or {}
+        saida.append({"loja": (p.get("advertiser") or {}).get("name", ""), "titulo": p.get("title", ""),
+                      "codigo": voucher.get("code") or "", "fim": str(p.get("endDate") or "")[:10],
+                      "regras": p.get("terms") or p.get("description") or "",
+                      "link": p.get("urlTracking") or p.get("url") or ""})
+    saida.sort(key=lambda c: (not c["codigo"], c["fim"] or "9999"))
+    return saida[:limite]
+
+
+def mensagem_cupons(lista: list[dict]) -> str:
+    if not lista:
+        return "🎟️ Nenhum cupom ou promoção ativa agora nas lojas Awin que aceitaram você."
+    linhas = ["🎟️ Cupons e promoções das suas lojas Awin:", ""]
+    for c in lista:
+        linhas.append(f"• {c['loja']} — {c['titulo'][:90]}")
+        if c["codigo"]:
+            linhas.append(f"   Código: {c['codigo']}" + (f" · até {c['fim']}" if c["fim"] else ""))
+        elif c["fim"]:
+            linhas.append(f"   Até {c['fim']}")
+        if c["link"]:
+            linhas.append(f"   🔗 {c['link']}")
+        linhas.append("")
+    linhas.append("Para divulgar um: /cupom CODIGO descrição + o link (mande /cupom para ver o modelo).")
+    return "\n".join(linhas)

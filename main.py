@@ -68,6 +68,8 @@ Comandos:
 /ofertas — sugere ofertas de tecnologia para postar (sai sozinho todo dia às 10h)
 /ml — liga/confere a API oficial do Mercado Livre
 /awin — sua conta Awin: ID de afiliada e lojas aceitas (Casas Bahia, KaBuM!…)
+/awin_ofertas ssd 1tb · /casasbahia monitor até 900 — busca produtos nas lojas Awin (já com seu link)
+/awin_cupons — cupons e promoções ativas das suas lojas Awin
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /custo fone com dongle até 300 — vídeo Top 5 de custo-benefício (ficha técnica + preço + nota)
@@ -121,6 +123,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                           preco_antigo=dados.get("preco_antigo"), observacao=dados.get("observacao", ""),
                           cupom=dados.get("cupom", ""), cupom_info=dados.get("cupom_info", ""))
         status.append(f"• Leitura do anúncio falhou ({str(erro)[:60]})")
+
+    if str(dados.get("imagem", "")).startswith("http") and dados["imagem"] not in produto.imagens:
+        produto.imagens = [dados["imagem"], *produto.imagens]      # foto que veio do feed (Awin)
 
     # Shopee com a API oficial de afiliados: nome, preço e foto sem precisar de print
     if shopee.ativo() and shopee.e_shopee(produto.link) and not dados.get("preco"):
@@ -272,6 +277,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
 
     # Histórico de preços próprio, desconto falso e nota da oferta
     menor30, info = False, {}
+    if not produto.chave_preco and "awin1.com/pclick" in produto.link:
+        id_awin = re.search(r"[?&]p=(\d+)", produto.link)
+        produto.chave_preco = f"awin:{id_awin.group(1)}" if id_awin else ""
     if not produto.chave_preco and amazon.e_amazon(produto.link):
         asin = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", produto.link + " " + (produto.url_final or ""))
         produto.chave_preco = f"amazon:{asin.group(1)}" if asin else ""
@@ -476,6 +484,30 @@ def tratar(mensagem: dict) -> None:
         comando, texto = "/ml", "/ml " + texto.split()[1][3:]     # volta da autorização do ML
     if comando in ("/start", "/ajuda", "/help"):
         telegram.enviar_texto(chat_id, AJUDA)
+    elif comando in ("/awin_ofertas", "/awinofertas", "/casasbahia"):
+        partes = texto.split(None, 1)
+        pedido = partes[1] if len(partes) > 1 else ""
+        loja = "casas bahia" if comando == "/casasbahia" else ""
+        if not awin.feed_ativo():
+            telegram.enviar_texto(chat_id, "Falta o segredo AWIN_FEED_KEY no GitHub (Awin → Ferramentas → "
+                                  "Create-a-Feed → API Key).")
+        elif not pedido:
+            telegram.enviar_texto(chat_id, "Use assim: /awin_ofertas ssd 1tb  (ou /awin_ofertas monitor até 900)\n"
+                                  "Só Casas Bahia: /casasbahia ssd")
+        else:
+            palavra, teto, _ = ranking.separar_pedido(pedido)
+            telegram.enviar_texto(chat_id, f"🔎 Procurando \"{palavra}\" nas lojas Awin… (pode levar 1–2 min)")
+            try:
+                itens = awin.buscar_produtos(palavra, loja=loja, teto=teto)
+                sugestoes._guardar("A", [awin.texto_fila(i) for i in itens])
+                telegram.enviar_texto(chat_id, awin.mensagem_produtos(itens, f"🏬 Awin — {palavra}"))
+            except Exception as erro:  # noqa: BLE001
+                telegram.enviar_texto(chat_id, f"❌ Awin: {str(erro)[:200]}")
+    elif comando in ("/awin_cupons", "/awincupons"):
+        try:
+            telegram.enviar_texto(chat_id, awin.mensagem_cupons(awin.cupons()))
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Cupons da Awin: {str(erro)[:200]}")
     elif comando == "/awin":
         try:
             telegram.enviar_texto(chat_id, awin.resumo())
