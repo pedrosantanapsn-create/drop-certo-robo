@@ -67,6 +67,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 | link (ou vários, um por linha) | posta na hora (1 link) ou põe na fila (vários) |
 | print + link na legenda | Amazon / TikTok Shop: lê preço e recorta o produto |
 | `preco:` `de:` `nome:` `cupom:` `alerta: bug` | linhas embaixo do link para completar/corrigir (`alerta: bug` = post "⚠️ POSSÍVEL ERRO DE PREÇO") |
+| post copiado/encaminhado de outro canal | pega link, nome, preço e cupom; troca o link pelo SEU (Amazon, ML, Shopee, KaBuM/Awin, Terabyte, encurtadores tipo aoferta.net); ignora links de Prime/grupos; vários posts = fila |
 | `/fila` `/agora` `/limpar` `/intervalo` | fila de posts |
 | `/ofertas` `/shopee` `/ofertas_ml` `/ofertas_amazon` `/ofertas_pc` | sugestões (com bloco de links para copiar) |
 | `/add S1 M3` · `/add todos` | põe na fila itens da última sugestão |
