@@ -295,8 +295,8 @@ def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, lim
             if n > MAX_LINHAS:
                 break
             nome = _campo(p, "product_name", "title", "name")
-            if termos and not all(t in nome.lower() for t in termos):
-                continue
+            if termos and not all(re.search(rf"\b{re.escape(t)}\b", nome.lower()) for t in termos):
+                continue                       # palavra inteira: "mouse" não pega "mousepad"
             estoque = _campo(p, "in_stock", "availability", "stock_status").lower()
             if estoque in ("0", "false", "no", "out of stock", "out_of_stock", "fora de estoque"):
                 continue
@@ -309,7 +309,7 @@ def buscar_produtos(palavra: str, loja: str = "", teto: float | None = None, lim
             prazo = ""                         # KaBuM: search_price é à vista; custom_3 é o total parcelado
             meses = re.search(r"(\d+)", _campo(p, "custom_1")) if "install" in _campo(p, "custom_1").lower() else None
             total = _num(_campo(p, "custom_3"))
-            if meses and total and total > preco * 1.01:
+            if meses and int(meses.group(1)) > 1 and total and total > preco * 1.01:
                 prazo = f"{meses.group(1)}x — total R$ {total:.2f}".replace(".", ",")
             achados.append({
                 "prazo": prazo,
