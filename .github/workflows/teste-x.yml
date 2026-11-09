@@ -18,8 +18,21 @@ jobs:
       - run: pip install -q -r requirements.txt
       - run: |
           python - > /tmp/saida.txt 2>&1 <<'PY'
-          from robo import sugestoes
-          s = sugestoes.buscar_shopee(quantas=3, so_marca=True, marcar=False)
-          print("RESULTADO: shopee so_marca:", len(s), " ; ".join(str(x.get('productName'))[:40] for x in s))
+          import time
+          from robo import shopee
+          campos = shopee.CAMPOS_BUSCA.split()
+          for lim in (20, 10, 5):
+              for ordem in (2, 5):
+                  q='{productOfferV2(keyword:"mouse gamer",sortType:%d,page:1,limit:%d){nodes{itemId}}}' % (ordem, lim)
+                  try: shopee._consultar_uma_vez(q); print(f"RESULTADO: lim{lim} ordem{ordem} OK")
+                  except Exception as e: print(f"RESULTADO: lim{lim} ordem{ordem} ERRO")
+                  time.sleep(1)
+          ruins=[]
+          for c in campos:
+              q='{productOfferV2(keyword:"mouse gamer",limit:5){nodes{itemId %s}}}' % c
+              try: shopee._consultar_uma_vez(q)
+              except Exception: ruins.append(c)
+              time.sleep(0.5)
+          print("RESULTADO: campos com erro:", ruins, "de", len(campos))
           PY
-          grep "RESULTADO\|Shopee busca" /tmp/saida.txt | head -8 | while read -r l; do echo "::warning::${l:0:900}"; done
+          grep "RESULTADO\|Shopee busca" /tmp/saida.txt | head -12 | while read -r l; do echo "::warning::${l:0:900}"; done
