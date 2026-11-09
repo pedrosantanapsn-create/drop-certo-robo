@@ -51,7 +51,7 @@ def ids_do_link(link: str) -> tuple[int, int] | None:
     return None
 
 
-def _consultar(consulta: str, tentativas: int = 4) -> dict:
+def _consultar(consulta: str, tentativas: int = 6) -> dict:
     """Chama a API; o "System Error [10000]" da Shopee é instável: tenta de novo com espera."""
     for vez in range(tentativas):
         try:
@@ -59,7 +59,7 @@ def _consultar(consulta: str, tentativas: int = 4) -> dict:
         except RuntimeError as erro:
             if "10000" not in str(erro) and "System Error" not in str(erro) or vez == tentativas - 1:
                 raise
-            time.sleep(2 + vez * 3)
+            time.sleep(3 + vez)        # a busca da Shopee falha ~metade das vezes (nov/2026); links curtos não
     return {}
 
 
