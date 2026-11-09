@@ -12,40 +12,38 @@ jobs:
       SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
       AWIN_TOKEN: ${{ secrets.AWIN_TOKEN }}
       AWIN_FEED_KEY: ${{ secrets.AWIN_FEED_KEY }}
-      ML_MATT_WORD: ${{ vars.ML_MATT_WORD }}
-      ML_MATT_TOOL: ${{ vars.ML_MATT_TOOL }}
-      FILA_AUTO_SHOPEE: ${{ vars.FILA_AUTO_SHOPEE }}
-      FILA_AUTO_ML: ${{ vars.FILA_AUTO_ML }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: pip install -q -r requirements.txt
       - run: |
-          python - <<'PY'
-          import json
-          from robo import config, sugestoes, shopee, mercadolivre, awin, supabase, marcas
-          def w(x): print("::warning::" + str(x).replace("\n"," | ")[:950])
-          w(f"ativos: shopee={shopee.ativo()} ml={mercadolivre.ativo()} matt={bool(config.ML_MATT_WORD)} awin_feed={awin.feed_ativo()} qtd={config.FILA_AUTO_SHOPEE}/{config.FILA_AUTO_ML}/{config.FILA_AUTO_AWIN}")
-          w(f"vistas: {len(sugestoes._vistas())}")
+          python - > /tmp/saida.txt 2>&1 <<'PY'
+          from robo import config, sugestoes, shopee, mercadolivre, awin, marcas
+          out=[]
+          vistas=set(sugestoes._vistas())
           try:
-              vistas=set(sugestoes._vistas())
-              s = sugestoes.buscar_shopee(quantas=10, so_marca=True, marcar=False)
-              w(f"shopee so_marca (sem filtro de vistas): {len(s)}, ja vistas: {sum(1 for x in s if x.get('_id') in vistas)} ids={[x.get('_id') for x in s][:4]} vistas_ex={list(vistas)[:4]}")
-              s2 = sugestoes.buscar_shopee(quantas=3, so_marca=False, marcar=False)
-              w(f"shopee sem marca: {len(s2)} " + " ; ".join(str(x.get('productName'))[:40] for x in s2))
-          except Exception as e: w(f"shopee ERRO {e!r}")
+              d = shopee._consultar('{productOfferV2(keyword:"ssd",limit:3){nodes{itemId productName}}}')
+              out.append("shopee simples: " + str(d)[:200])
+          except Exception as e: out.append(f"shopee simples ERRO {e!r}"[:300])
           try:
-              m = sugestoes.buscar_ml(quantas=3, so_marca=True)
-              w(f"ml so_marca: {len(m)}")
-              m2 = sugestoes.buscar_ml(quantas=3, so_marca=False)
-              w(f"ml sem marca: {len(m2)} " + " ; ".join(str(x.get('nome'))[:40] for x in m2))
-          except Exception as e: w(f"ml ERRO {e!r}")
+              d = shopee._consultar('{productOfferV2(keyword:"ssd",sortType:2,limit:3){nodes{itemId productName}}}')
+              out.append("shopee sort2: " + str(d)[:200])
+          except Exception as e: out.append(f"shopee sort2 ERRO {e!r}"[:300])
           try:
-              tot=0; bons=0
-              for p in config.PALAVRAS_AWIN.split(",")[:4]:
+              m = sugestoes.buscar_ml(quantas=10, so_marca=True)
+              out.append(f"ml so_marca: {len(m)} novos (ja vistos removidos?) " + " ; ".join(str(x.get('nome'))[:35] for x in m[:5]))
+              m2 = sugestoes.buscar_ml(quantas=10, so_marca=False)
+              out.append(f"ml sem marca: {len(m2)}")
+          except Exception as e: out.append(f"ml ERRO {e!r}")
+          try:
+              tot=0; bons=0; comdesc=0
+              for p in config.PALAVRAS_AWIN.split(","):
                   it = awin.buscar_produtos(p.strip(), limite=5); tot+=len(it)
+                  comdesc += sum(1 for i in it if i["desconto"]>=10)
                   bons += sum(1 for i in it if i["desconto"]>=10 and (i["marca"] or marcas.conhecida(i["nome"])))
-              w(f"awin: {tot} achados, {bons} com desconto>=10 e marca")
-          except Exception as e: w(f"awin ERRO {e!r}")
+              out.append(f"awin: {tot} achados, {comdesc} com desconto>=10, {bons} com desconto e marca")
+          except Exception as e: out.append(f"awin ERRO {e!r}")
+          for l in out: print("RESULTADO:", l)
           PY
+          grep RESULTADO /tmp/saida.txt | while read -r l; do echo "::warning::${l:0:900}"; done
