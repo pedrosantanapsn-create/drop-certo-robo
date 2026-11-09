@@ -31,13 +31,18 @@ jobs:
               out.append("shopee sort2: " + str(d)[:200])
           except Exception as e: out.append(f"shopee sort2 ERRO {e!r}"[:300])
           import time
-          for q in ['{shopeeOfferV2(limit:2){nodes{offerName}}}',
-                    '{shopOfferV2(limit:2){nodes{shopName}}}',
-                    '{productOfferV2(itemId:22867312467,shopId:1012637045){nodes{productName}}}',
-                    'mutation{generateShortLink(input:{originUrl:"https://shopee.com.br/product/1012637045/22867312467",subIds:["t"]}){shortLink}}',
-                    '{conversionReport(purchaseTimeStart:%d,purchaseTimeEnd:%d,limit:1){nodes{utmContent}}}' % (int(time.time())-86400*3, int(time.time()))]:
-              try: out.append(q[:30]+" OK "+str(shopee._consultar(q))[:150])
-              except Exception as e: out.append(q[:30]+f" ERRO {e}"[:200])
+          qs = ['{productOfferV2(keyword:"ssd",page:1,limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(keyword:"mouse",limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(sortType:2,limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(listType:1,limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(productCatId:100644,limit:3){nodes{itemId productName}}}',
+                '{productOfferV2(keyword:"ssd",limit:3){nodes{itemId}}}',
+                '{productOfferV2(keyword:"ssd",limit:3,isAMSOffer:true){nodes{itemId productName}}}']
+          for q in qs:
+              try: out.append(q[15:60]+" OK "+str(shopee._consultar(q))[:160])
+              except Exception as e: out.append(q[15:60]+f" ERRO {e}"[:200])
+              time.sleep(1)
           for l in out: print("RESULTADO:", l)
           PY
           grep RESULTADO /tmp/saida.txt | while read -r l; do echo "::warning::${l:0:900}"; done
