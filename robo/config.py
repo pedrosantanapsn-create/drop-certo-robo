@@ -116,7 +116,7 @@ BUSCAS_POR_HORA = int(_env("BUSCAS_POR_HORA", "5") or 5)        # por pessoa
 BUSCAS_POR_DIA = int(_env("BUSCAS_POR_DIA", "150") or 150)       # todas as pessoas juntas
 # "Ainda vale!": repostar no canal oferta que teve clique e continua com o mesmo preço
 AINDA_VALE = _env_bool("AINDA_VALE", True)
-FILA_AUTO_ML = int(_env("FILA_AUTO_ML", "3") or 3)
+FILA_AUTO_ML = 0      # Mercado Livre fora da fila automática (pedido em 09/11/2026); /ofertas_ml continua
 
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------
 SUGERIR_OFERTAS = _env_bool("SUGERIR_OFERTAS", True)

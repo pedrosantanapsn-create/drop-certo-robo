@@ -78,7 +78,6 @@ jobs:
       VOLUME_MUSICA: ${{ vars.VOLUME_MUSICA }}
       RASTREAR_CLIQUES: ${{ vars.RASTREAR_CLIQUES }}
       FILA_AUTO_SHOPEE: ${{ vars.FILA_AUTO_SHOPEE }}
-      FILA_AUTO_ML: ${{ vars.FILA_AUTO_ML }}
       VOZ_KOKORO: ${{ vars.VOZ_KOKORO }}
       VELOCIDADE_VOZ: ${{ vars.VELOCIDADE_VOZ }}
       ARROBA: ${{ vars.ARROBA }}
