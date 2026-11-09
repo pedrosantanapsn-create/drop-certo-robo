@@ -51,7 +51,19 @@ def ids_do_link(link: str) -> tuple[int, int] | None:
     return None
 
 
-def _consultar(consulta: str) -> dict:
+def _consultar(consulta: str, tentativas: int = 4) -> dict:
+    """Chama a API; o "System Error [10000]" da Shopee é instável: tenta de novo com espera."""
+    for vez in range(tentativas):
+        try:
+            return _consultar_uma_vez(consulta)
+        except RuntimeError as erro:
+            if "10000" not in str(erro) and "System Error" not in str(erro) or vez == tentativas - 1:
+                raise
+            time.sleep(2 + vez * 3)
+    return {}
+
+
+def _consultar_uma_vez(consulta: str) -> dict:
     corpo = json.dumps({"query": consulta}, separators=(",", ":"))
     agora = str(int(time.time()))
     assinatura = hashlib.sha256(

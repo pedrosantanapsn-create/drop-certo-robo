@@ -80,7 +80,12 @@ def se_for_hora(enviar) -> int:
             print(f"::warning::Fila automática Shopee: {str(erro)[:150]}")
     if mercadolivre.ativo() and config.FILA_AUTO_ML and config.ML_MATT_WORD:
         try:
-            for n in sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML, so_marca=True):
+            achados_ml = sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML, so_marca=True)
+            if len(achados_ml) < config.FILA_AUTO_ML:     # poucas de marca: completa (a nota decide se vai às redes)
+                ids_ml = {n.get("_id") for n in achados_ml}
+                achados_ml += [n for n in sugestoes.buscar_ml(quantas=config.FILA_AUTO_ML)
+                               if n.get("_id") not in ids_ml][:config.FILA_AUTO_ML - len(achados_ml)]
+            for n in achados_ml:
                 pontos = _nota_previa(str(n["nome"]), n["preco"], float(n.get("desconto") or 0),
                                       n.get("_id", ""), {})
                 textos.append(f"{n['link']}\norigem: auto\nnota: {pontos}")
@@ -92,10 +97,16 @@ def se_for_hora(enviar) -> int:
         try:
             ja = set(sugestoes._vistas())
             escolhidos = []
+            # O feed da KaBuM não traz o preço "de": vale marca conhecida; desconto (feed ou histórico) sobe na ordem
             for palavra in [p.strip() for p in config.PALAVRAS_AWIN.split(",") if p.strip()]:
-                for it in awin.buscar_produtos(palavra, limite=3):
+                candidatos = awin.buscar_produtos(palavra, limite=6)
+                for it in candidatos:
+                    info = precos.analise(f"awin:{it['id']}", it["preco"]) if it["id"] else {}
+                    queda = round((1 - it["preco"] / info["mediana"]) * 100) if info.get("mediana") else 0
+                    it["_ordem"] = max(it["desconto"], queda) + (10 if info.get("menor30") else 0)
+                for it in sorted(candidatos, key=lambda c: -c["_ordem"]):
                     chave = f"awin:{it['id']}"
-                    if chave in ja or not (it["desconto"] >= 10 and (it["marca"] or marcas.conhecida(it["nome"]))):
+                    if chave in ja or not (it["marca"] or marcas.conhecida(it["nome"])):
                         continue
                     ja.add(chave)
                     escolhidos.append((chave, it))

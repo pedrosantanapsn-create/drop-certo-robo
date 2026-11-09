@@ -10,7 +10,6 @@ jobs:
       ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
       SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
       SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
-      AWIN_TOKEN: ${{ secrets.AWIN_TOKEN }}
       AWIN_FEED_KEY: ${{ secrets.AWIN_FEED_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -19,30 +18,8 @@ jobs:
       - run: pip install -q -r requirements.txt
       - run: |
           python - > /tmp/saida.txt 2>&1 <<'PY'
-          from robo import config, sugestoes, shopee, mercadolivre, awin, marcas
-          out=[]
-          vistas=set(sugestoes._vistas())
-          try:
-              d = shopee._consultar('{productOfferV2(keyword:"ssd",limit:3){nodes{itemId productName}}}')
-              out.append("shopee simples: " + str(d)[:200])
-          except Exception as e: out.append(f"shopee simples ERRO {e!r}"[:300])
-          try:
-              d = shopee._consultar('{productOfferV2(keyword:"ssd",sortType:2,limit:3){nodes{itemId productName}}}')
-              out.append("shopee sort2: " + str(d)[:200])
-          except Exception as e: out.append(f"shopee sort2 ERRO {e!r}"[:300])
-          import time
-          qs = ['{productOfferV2(keyword:"ssd",page:1,limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(keyword:"mouse",limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(sortType:2,limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(listType:1,limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(productCatId:100644,limit:3){nodes{itemId productName}}}',
-                '{productOfferV2(keyword:"ssd",limit:3){nodes{itemId}}}',
-                '{productOfferV2(keyword:"ssd",limit:3,isAMSOffer:true){nodes{itemId productName}}}']
-          for q in qs:
-              try: out.append(q[15:60]+" OK "+str(shopee._consultar(q))[:160])
-              except Exception as e: out.append(q[15:60]+f" ERRO {e}"[:200])
-              time.sleep(1)
-          for l in out: print("RESULTADO:", l)
+          from robo import sugestoes
+          s = sugestoes.buscar_shopee(quantas=3, so_marca=True, marcar=False)
+          print("RESULTADO: shopee so_marca:", len(s), " ; ".join(str(x.get('productName'))[:40] for x in s))
           PY
-          grep RESULTADO /tmp/saida.txt | while read -r l; do echo "::warning::${l:0:900}"; done
+          grep "RESULTADO\|Shopee busca" /tmp/saida.txt | head -8 | while read -r l; do echo "::warning::${l:0:900}"; done
