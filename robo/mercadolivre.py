@@ -260,17 +260,14 @@ def matt_do_link(link: str) -> str | None:
 
 
 def link_meu(link: str) -> tuple[str | None, str]:
-    """(SEU link de afiliada, texto). None = não deu para trocar com segurança (não postar)."""
+    """Confere o link do ML SEM trocar nada: o link montado pelo robô (matt_word direto) não contou
+    como afiliado na prática, então só o SEU meli.la vale.
+
+    (link, texto) = pode postar · (None, texto) = não postar (link de outra pessoa ou sem afiliado).
+    """
     palavra = matt_do_link(link)
-    if palavra and palavra == config.ML_MATT_WORD:
-        return link, "link de afiliada do Mercado Livre conferido ✅"
-    if not (config.ML_MATT_WORD and config.ML_MATT_TOOL):
-        return (link, "") if palavra else (None, "faltam os seus códigos de afiliada do ML (ML_MATT_WORD/ML_MATT_TOOL)")
-    item, catalogo = codigos_do_link(link)
-    motivo = f"o link era de outra pessoa ({palavra})" if palavra else "o link não tinha afiliado"
-    if catalogo:
-        return link_afiliado(catalogo), f"{motivo} — troquei pelo seu ✅"
-    if item:
-        return (f"https://produto.mercadolivre.com.br/MLB-{item[3:]}?"
-                f"matt_word={config.ML_MATT_WORD}&matt_tool={config.ML_MATT_TOOL}"), f"{motivo} — troquei pelo seu ✅"
-    return None, f"{motivo} e não consegui achar o produto para trocar pelo seu"
+    if palavra and config.ML_MATT_WORD and palavra != config.ML_MATT_WORD:
+        return None, f"o link é de OUTRA pessoa (afiliado \"{palavra}\")"
+    if "meli.la" in link.lower() or palavra:
+        return link, "link de afiliada do Mercado Livre mantido como você mandou ✅"
+    return None, "o link é o normal do Mercado Livre, sem o seu afiliado"

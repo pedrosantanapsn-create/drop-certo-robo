@@ -243,7 +243,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         if not novo_ml:
             telegram.enviar_texto(chat_id, f"⚠️ Mercado Livre: {texto_ml} — vendas por esse link NÃO pagariam "
                                   "comissão para você.\n\nAbra o produto no app do ML, toque em \"Compartilhar\" "
-                                  "na barra de afiliados e mande o seu meli.la.\n🛑 Não postei.")
+                                  "na barra de afiliados e mande o SEU meli.la (pode colar junto o preço e o cupom "
+                                  "do outro canal).\n🛑 Não postei.")
             shutil.rmtree(pasta, ignore_errors=True)
             return
         if texto_ml:
