@@ -30,20 +30,14 @@ jobs:
               d = shopee._consultar('{productOfferV2(keyword:"ssd",sortType:2,limit:3){nodes{itemId productName}}}')
               out.append("shopee sort2: " + str(d)[:200])
           except Exception as e: out.append(f"shopee sort2 ERRO {e!r}"[:300])
-          try:
-              m = sugestoes.buscar_ml(quantas=10, so_marca=True)
-              out.append(f"ml so_marca: {len(m)} novos (ja vistos removidos?) " + " ; ".join(str(x.get('nome'))[:35] for x in m[:5]))
-              m2 = sugestoes.buscar_ml(quantas=10, so_marca=False)
-              out.append(f"ml sem marca: {len(m2)}")
-          except Exception as e: out.append(f"ml ERRO {e!r}")
-          try:
-              tot=0; bons=0; comdesc=0
-              for p in config.PALAVRAS_AWIN.split(","):
-                  it = awin.buscar_produtos(p.strip(), limite=5); tot+=len(it)
-                  comdesc += sum(1 for i in it if i["desconto"]>=10)
-                  bons += sum(1 for i in it if i["desconto"]>=10 and (i["marca"] or marcas.conhecida(i["nome"])))
-              out.append(f"awin: {tot} achados, {comdesc} com desconto>=10, {bons} com desconto e marca")
-          except Exception as e: out.append(f"awin ERRO {e!r}")
+          import time
+          for q in ['{shopeeOfferV2(limit:2){nodes{offerName}}}',
+                    '{shopOfferV2(limit:2){nodes{shopName}}}',
+                    '{productOfferV2(itemId:22867312467,shopId:1012637045){nodes{productName}}}',
+                    'mutation{generateShortLink(input:{originUrl:"https://shopee.com.br/product/1012637045/22867312467",subIds:["t"]}){shortLink}}',
+                    '{conversionReport(purchaseTimeStart:%d,purchaseTimeEnd:%d,limit:1){nodes{utmContent}}}' % (int(time.time())-86400*3, int(time.time()))]:
+              try: out.append(q[:30]+" OK "+str(shopee._consultar(q))[:150])
+              except Exception as e: out.append(q[:30]+f" ERRO {e}"[:200])
           for l in out: print("RESULTADO:", l)
           PY
           grep RESULTADO /tmp/saida.txt | while read -r l; do echo "::warning::${l:0:900}"; done
