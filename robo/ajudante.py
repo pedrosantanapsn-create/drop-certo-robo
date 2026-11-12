@@ -124,6 +124,8 @@ def _mensagem_busca(qual: str, dados: dict) -> str:
         nome, preco = str(it.get("nome") or "").strip(), _num(it.get("preco"))
         if not (nome and preco and it.get("link")) or (teto and preco > teto):
             continue
+        if re.search(r"open\s*b(ox)?\b|reembalad|recondicionad|usad[oa]\b|seminov|vitrine", nome, re.I):
+            continue                    # Open Box / usado: não é produto novo, fica fora da lista
         if palavras and not all(re.search(rf"\b{re.escape(p)}", nome.lower()) for p in palavras):
             continue
         antigo = _num(it.get("preco_antigo"))
