@@ -29,7 +29,14 @@ from playwright.sync_api import TimeoutError as Demorou
 from playwright.sync_api import sync_playwright
 
 PASTA = Path(__file__).resolve().parent
-PERFIL = PASTA / "perfil-edge"          # o login fica guardado aqui (não apague; não mande para ninguém)
+# Navegador do ajudante: Chrome (padrão). Para usar o Edge, crie o arquivo navegador.txt escrito: edge
+ARQUIVO_NAVEGADOR = PASTA / "navegador.txt"
+NAVEGADOR = (ARQUIVO_NAVEGADOR.read_text(encoding="utf-8").strip().lower()
+             if ARQUIVO_NAVEGADOR.exists() else "chrome")
+CANAL = "msedge" if NAVEGADOR.startswith("edge") else "chrome"
+NOME_NAVEGADOR = "Edge" if CANAL == "msedge" else "Chrome"
+# o login fica guardado nesta pasta (não apague; não mande para ninguém)
+PERFIL = PASTA / ("perfil-edge" if CANAL == "msedge" else "perfil-chrome")
 ERROS = PASTA / "erros"
 ARQUIVO_SENHA = PASTA / "senha.txt"
 
@@ -107,10 +114,15 @@ def sinal_de_vida(precisa_login: bool = False) -> None:
 # Navegador (Edge com um perfil só do ajudante)
 # ---------------------------------------------------------------------------
 def abrir_edge(pw):
+    """Abre o navegador do ajudante (Chrome ou Edge) com o perfil próprio dele."""
     PERFIL.mkdir(exist_ok=True)
-    return pw.chromium.launch_persistent_context(
-        str(PERFIL), channel="msedge", headless=False, locale="pt-BR",
-        viewport={"width": 1280, "height": 850}, args=["--start-maximized"])
+    try:
+        return pw.chromium.launch_persistent_context(
+            str(PERFIL), channel=CANAL, headless=False, locale="pt-BR",
+            viewport={"width": 1280, "height": 850}, args=["--start-maximized"])
+    except Exception as erro:  # noqa: BLE001
+        sys.exit(f"Não consegui abrir o {NOME_NAVEGADOR}. Ele está instalado neste computador?\n"
+                 f"(Para usar o Edge, crie o arquivo navegador.txt com a palavra: edge)\n\nDetalhe: {str(erro)[:200]}")
 
 
 def precisa_login(pagina) -> bool:
@@ -221,7 +233,7 @@ def modo_login() -> None:
         contexto = abrir_edge(pw)
         pagina = contexto.pages[0] if contexto.pages else contexto.new_page()
         pagina.goto(GERADOR, wait_until="domcontentloaded")
-        print("\n>>> Entre na SUA conta do Mercado Livre na janela do Edge que abriu.")
+        print("\n>>> Entre na SUA conta do Mercado Livre na janela do navegador que abriu.")
         print(">>> Se pedir código por SMS/e-mail, digite você mesma.")
         print(">>> Quando aparecer o painel de Afiliados (gerador de links), volte aqui.\n")
         input("Aperte ENTER aqui depois de terminar o login... ")

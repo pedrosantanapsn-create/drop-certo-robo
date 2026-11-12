@@ -3,6 +3,6 @@ __pycache__/
 *.pyc
 .env
 modelos/
-ajudante/perfil-edge/
+ajudante/perfil-*/
 ajudante/senha.txt
 ajudante/erros/
