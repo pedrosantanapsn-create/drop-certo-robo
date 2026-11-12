@@ -6,7 +6,8 @@ echo ============================================
 echo   Drop Certo - instalando o ajudante
 echo ============================================
 echo.
-where python >nul 2>nul
+rem O Windows tem um "python" falso que so abre a loja: por isso testamos a versao de verdade
+python --version >nul 2>nul
 if errorlevel 1 (
   echo O Python nao esta instalado neste computador.
   echo.
