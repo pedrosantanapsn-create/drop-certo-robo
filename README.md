@@ -94,7 +94,10 @@ O Mercado Livre só gera o meli.la para quem está logada, então o robô do Git
 A pasta `ajudante/` tem um programa para Windows + Edge que roda no computador da dona, com o login
 feito por ela, e gera o meli.la dos produtos que o robô pedir (tabela `ajudante_pedidos`).
 
-- Instalar: rodar `supabase/ajudante.sql` no Supabase (mostra a senha do ajudante) → baixar a pasta
+- **Jeito recomendado: extensão** (`ajudante/extensao/`) no navegador normal da dona, já logado no ML:
+  `edge://extensions` → Modo do desenvolvedor → "Carregar sem compactação" → pasta `extensao` → clicar no
+  ícone e colar a senha do ajudante. Gera pelo "Gerador de links" de afiliados (plano B: botão Compartilhar).
+- Alternativa (programa com navegador separado; o ML pode recusar o login nele): rodar `supabase/ajudante.sql` no Supabase (mostra a senha do ajudante) → baixar a pasta
   `ajudante/` → `1 - Instalar.bat` → colar a senha em `senha.txt` → `2 - Fazer login.bat` →
   `3 - Ligar ajudante.bat`.
 - O robô pede links em dois casos: link do ML de outro canal/sem afiliado que você manda, e 3 ofertas
