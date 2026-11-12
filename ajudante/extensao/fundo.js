@@ -16,6 +16,10 @@ chrome.runtime.onInstalled.addListener(() => chrome.alarms.create("olhar", { per
 chrome.runtime.onStartup.addListener(() => chrome.alarms.create("olhar", { periodInMinutes: 1 }));
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === "olhar") rodada(); });
 chrome.runtime.onMessage.addListener((msg, _de, responder) => {
+  if (msg && msg.tipo === "testarBusca") {
+    executarNaAba(msg.url, naPaginaBusca, [msg.loja]).then((r) => responder(r)).catch((e) => responder({ itens: [], erro: String(e) }));
+    return true;
+  }
   if (msg && msg.tipo === "testar") {
     gerarMeli(msg.url).then((r) => responder(r)).catch((e) => responder({ link: "", erro: String(e) }));
     return true;                                   // resposta assíncrona
@@ -111,6 +115,57 @@ async function naPaginaProduto() {
   for (let i = 0; i < 30; i++) { const l = acharMeli(); if (l) return { link: l }; await esperar(500); }
   return { link: "", erro: "a janela Gerar link não mostrou o meli.la" };
 }
+
+// Lê a lista de produtos de uma página de busca (Terabyte ou Amazon) do jeito que ela aparece para você.
+async function naPaginaBusca(loja) {
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const num = (t) => { const m = String(t || "").match(/([\d.]+,\d{2})/); return m ? parseFloat(m[1].replace(/\./g, "").replace(",", ".")) : null; };
+  await esperar(2500);
+  window.scrollTo(0, 1500); await esperar(800); window.scrollTo(0, 0);     // carrega as fotos de baixo
+  const itens = [];
+  if (loja === "busca_amazon") {
+    document.querySelectorAll('div[data-component-type="s-search-result"][data-asin]').forEach((c) => {
+      const asin = c.getAttribute("data-asin");
+      if (!asin || /patrocinado/i.test(c.innerText || "")) return;
+      const nome = ((c.querySelector("h2") || {}).innerText || "").trim();
+      const preco = num((c.querySelector(".a-price:not(.a-text-price) .a-offscreen") || {}).textContent);
+      const antigo = num((c.querySelector(".a-price.a-text-price .a-offscreen") || {}).textContent);
+      const img = c.querySelector("img.s-image");
+      if (nome && preco) itens.push({ id: asin, nome, preco, preco_antigo: antigo, link: "https://www.amazon.com.br/dp/" + asin,
+                                      imagem: img ? img.src : "" });
+    });
+  } else {
+    const vistos = new Set();
+    document.querySelectorAll('a[href*="/produto/"]').forEach((a) => {
+      const href = a.href.split("?")[0].split("#")[0];
+      if (vistos.has(href)) return;
+      let cartao = a;
+      for (let i = 0; i < 7; i++) {
+        if (/R\$\s*\d/.test(cartao.innerText || "") && cartao.querySelector("img")) break;
+        cartao = cartao.parentElement;
+        if (!cartao) return;
+      }
+      const texto = cartao.innerText || "";
+      if (!/R\$\s*\d/.test(texto)) return;
+      if (new Set([...cartao.querySelectorAll('a[href*="/produto/"]')].map((x) => x.href.split("?")[0])).size > 1) return;
+      if (/esgotad|indispon[ií]vel|avise-me|todos vendidos/i.test(texto)) return;
+      const semParcelas = texto.replace(/\d+\s*x\s*(de\s*)?R\$\s*[\d.]+,\d{2}/gi, " ");
+      const valores = [...semParcelas.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map((m) => num(m[1])).filter(Boolean);
+      if (!valores.length) return;
+      const preco = Math.min(...valores), maior = Math.max(...valores);
+      const img = cartao.querySelector("img");
+      const nome = (a.getAttribute("title") || (img && img.getAttribute("alt")) || a.innerText || "").trim();
+      if (!nome) return;
+      vistos.add(href);
+      itens.push({ id: href, nome, preco, preco_antigo: maior > preco ? maior : null, link: href,
+                   imagem: img ? (img.getAttribute("data-src") || img.currentSrc || img.src || "") : "" });
+    });
+  }
+  if (itens.length) return { itens: itens.slice(0, 24) };
+  const exemplo = document.querySelector('a[href*="/produto/"], div[data-component-type="s-search-result"]');
+  return { itens: [], erro: "não achei produtos na página (" + location.href.slice(0, 80) + ")",
+           amostra: (exemplo ? (exemplo.closest("div") || exemplo).outerHTML : (document.body.innerText || "")).slice(0, 500) };
+}
 // ---------------------------------------------------------------------------------------------
 
 async function executarNaAba(endereco, funcao, args) {
@@ -151,13 +206,30 @@ async function rodada() {
       chrome.action.setBadgeText({ text: "!" });
       return;
     }
-    const r = await fetch(TABELA + "?status=eq.pendente&loja=eq.ml&select=id,chave,url,dados&order=criado_em.asc&limit=3",
+    const r = await fetch(TABELA + "?status=eq.pendente&loja=in.(ml,busca_terabyte,busca_amazon)&select=id,loja,chave,url,dados&order=criado_em.asc&limit=3",
                           { headers: await cabecalhos() });
     const pedidos = r.ok ? await r.json() : [];
     let { feitos = [], total = 0 } = await ler(["feitos", "total"]);
     for (const p of pedidos) {
       feitos = feitos.filter((t) => Date.now() - t < 3600000);
       if (feitos.length >= MAX_POR_HORA) break;
+      if (String(p.loja).startsWith("busca_")) {              // busca na Terabyte / Amazon
+        const b = await executarNaAba(p.url, naPaginaBusca, [p.loja]);
+        feitos.push(Date.now());
+        const dados = p.dados || {};
+        if (b.itens && b.itens.length) {
+          dados.resultado = b.itens;
+          await responder(p.id, { status: "pronto", dados });
+          total += 1;
+          await guardar({ ultimo: "busca: " + (dados.termo || "") + " (" + b.itens.length + " produtos)", ultimoQuando: Date.now(), total });
+        } else {
+          await responder(p.id, { status: "erro", erro: (b.erro || "sem resultado") + (b.amostra ? " | amostra: " + b.amostra : "") });
+          await guardar({ ultimoErro: b.erro || "", ultimoErroQuando: Date.now() });
+        }
+        await guardar({ feitos });
+        await dormir(PAUSA_ENTRE_LINKS_MS);
+        continue;
+      }
       const res = await gerarMeli(p.url);
       feitos.push(Date.now());
       if (res.login) {

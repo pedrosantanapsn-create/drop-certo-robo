@@ -70,6 +70,7 @@ Comandos:
 /awin — sua conta Awin: ID de afiliada e lojas aceitas (Casas Bahia, KaBuM!…)
 /awin_ofertas ssd 1tb · /casasbahia monitor até 900 — busca produtos nas lojas Awin (já com seu link)
 /awin_cupons — cupons e promoções ativas das suas lojas Awin
+/terabyte ssd 1tb · /amazon_busca monitor até 900 — busca feita pelo ajudante (extensão no Edge); /add T1 Z2
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
 /custo fone com dongle até 300 — vídeo Top 5 de custo-benefício (ficha técnica + preço + nota)
@@ -708,6 +709,25 @@ def tratar(mensagem: dict) -> None:
         except Exception as erro:  # noqa: BLE001
             resposta = f"❌ Amazon: {str(erro)[:200]}"
         telegram.enviar_texto(chat_id, resposta)
+    elif comando in ("/terabyte", "/amazon_busca", "/amazonbusca", "/buscar_amazon"):
+        qual = "terabyte" if comando == "/terabyte" else "amazon"
+        pedido = texto.split(None, 1)[1].strip() if len(texto.split()) > 1 else ""
+        if not pedido:
+            telegram.enviar_texto(chat_id, f"Use assim: {comando} ssd 1tb  (ou {comando} monitor até 900)")
+        elif not (ajudante.ativo() and ajudante.usado_recentemente(7)):
+            telegram.enviar_texto(chat_id, "Essa busca é feita pelo ajudante (a extensão no seu Edge), e ele não "
+                                  "deu sinal nos últimos dias. Abra o Edge e tente de novo em 1 minuto.")
+        else:
+            palavra, teto, _ = ranking.separar_pedido(pedido)
+            try:
+                ajudante.pedir_busca(qual, palavra, teto)
+                telegram.enviar_texto(chat_id, f"🧩 Pedi ao ajudante para procurar \"{palavra}\" na "
+                                      f"{ajudante.BUSCAS[qual]['nome']}. " + (
+                                          "Ele está ligado: a lista chega em até uns 10 minutos."
+                                          if ajudante.ligado() else
+                                          "Ele está DESLIGADO agora: a lista chega depois que você abrir o Edge."))
+            except Exception as erro:  # noqa: BLE001
+                telegram.enviar_texto(chat_id, f"❌ Busca: {str(erro)[:200]}")
     elif comando in ("/ofertas_ml", "/ofertasml", "/ml_ofertas") or (
             comando == "/ofertas" and texto.split()[1:2] in (["ml"], ["ML"], ["mercadolivre"])):
         palavras = [p for p in texto.split()[1:] if p.lower() not in ("ml", "mercadolivre")]

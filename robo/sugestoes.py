@@ -383,7 +383,7 @@ def escolhidos(pedido: list[str]) -> tuple[list[str], list[str]]:
             links += atual.get("A", [])
         elif item in ("ML", "MERCADOLIVRE"):
             links += atual.get("M", [])
-        elif re.fullmatch(r"[SMBA]\d+(-\d+)?", item):
+        elif re.fullmatch(r"[SMBATZ]\d+(-\d+)?", item):
             lista = atual.get(item[0], [])
             ini, _, fim = item[1:].partition("-")
             for n in range(int(ini), int(fim or ini) + 1):

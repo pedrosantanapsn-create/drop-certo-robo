@@ -252,6 +252,10 @@ def _passo(agora: datetime, pendentes: int) -> timedelta:
 # ---------------------------------------------------------------------------
 # Operações usadas pelo robô
 # ---------------------------------------------------------------------------
+# linha de campo ("foto: https://…", "nome: …"): a palavra-chave vem antes dos dois-pontos
+RE_CAMPO = re.compile(r"^(foto|imagem|nome|preco|preço|de|cupom|obs|loja|alerta|origem|nota|validade)\s*:", re.I)
+
+
 def separar_ofertas(texto: str) -> list[str]:
     """Quebra a mensagem em ofertas: cada linha com link começa uma oferta;
     linhas sem link logo abaixo (preco:, nome:, obs:) ficam junto dela."""
@@ -261,6 +265,9 @@ def separar_ofertas(texto: str) -> list[str]:
         if not linha:
             continue
         links = RE_LINK.findall(linha)
+        if ofertas and RE_CAMPO.match(linha):
+            ofertas[-1].append(linha)        # "foto: https://…", "obs: …": é campo da oferta, não oferta nova
+            continue
         if len(links) > 1:
             # vários links na mesma linha (separados por espaço): cada um vira uma oferta
             ofertas.extend([l.rstrip(").,;!?")] for l in links)

@@ -34,4 +34,23 @@ el("testar").addEventListener("click", () => {
   });
 });
 
+function testarBusca(loja, base) {
+  const termo = el("busca").value.trim();
+  const caixa = el("testeBusca");
+  caixa.hidden = false; caixa.style.whiteSpace = "pre-wrap";
+  if (!termo) { caixa.textContent = "Escreva o que procurar."; return; }
+  caixa.textContent = "Buscando… (abre uma aba e fecha sozinho)";
+  chrome.runtime.sendMessage({ tipo: "testarBusca", loja, url: base + encodeURIComponent(termo) }, (r) => {
+    if (r && r.itens && r.itens.length) {
+      caixa.textContent = "DEU CERTO! " + r.itens.length + " produtos. Os 3 primeiros:\n" +
+        r.itens.slice(0, 3).map((i) => "• " + i.nome.slice(0, 60) + " — R$ " + i.preco).join("\n");
+    } else {
+      caixa.textContent = "Não consegui: " + ((r && r.erro) || "sem resposta") + "\n" + ((r && r.amostra) || "") +
+        "\nTire um print desta janela e mande para o Claude.";
+    }
+  });
+}
+el("buscaTera").addEventListener("click", () => testarBusca("busca_terabyte", "https://www.terabyteshop.com.br/busca?str="));
+el("buscaAmz").addEventListener("click", () => testarBusca("busca_amazon", "https://www.amazon.com.br/s?k="));
+
 mostrar();
