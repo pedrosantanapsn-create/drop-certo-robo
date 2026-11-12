@@ -961,9 +961,43 @@ def agendar(chat_id, texto: str) -> None:
     if not ofertas:
         telegram.enviar_texto(chat_id, "Não achei links na mensagem. Mande um por linha.")
         return
+    # Links do Mercado Livre sem o SEU afiliado (de outro canal ou link normal): pede o meli.la ao
+    # ajudante AGORA, todos de uma vez. Cada oferta entra na fila sozinha quando o link ficar pronto.
+    pedidas, sem_produto = 0, 0
+    if ajudante.ativo() and ajudante.usado_recentemente(7):
+        ficam = []
+        for oferta in ofertas:
+            link = (fila.RE_LINK.search(oferta) or [""])[0].rstrip(").,")
+            try:
+                if mercadolivre.e_mercadolivre(link) and not mercadolivre.link_meu(link)[0]:
+                    item_ml, catalogo_ml = mercadolivre.codigos_do_link(link)
+                    if catalogo_ml or item_ml:
+                        url_ml = (f"https://www.mercadolivre.com.br/p/{catalogo_ml}" if catalogo_ml
+                                  else f"https://produto.mercadolivre.com.br/MLB-{item_ml[3:]}")
+                        ajudante.pedir(f"ml:{catalogo_ml or item_ml}", url_ml,
+                                       {"texto": oferta, "link_original": link})
+                        pedidas += 1
+                    else:
+                        sem_produto += 1
+                    continue
+            except Exception as erro:  # noqa: BLE001
+                print(f"::warning::Ajudante (lista): {str(erro)[:150]}")
+            ficam.append(oferta)
+        ofertas = ficam
+    aviso_ml = ""
+    if pedidas:
+        aviso_ml += (f"\n🧩 {pedidas} link(s) do Mercado Livre sem o seu afiliado: pedi o SEU meli.la ao ajudante"
+                     + (" (ligado — ficam prontos em alguns minutos)." if ajudante.ligado() else
+                        " (DESLIGADO agora — gera quando o Edge abrir; vale por 48 h).")
+                     + " Entram na fila sozinhos.")
+    if sem_produto:
+        aviso_ml += f"\n⚠️ {sem_produto} link(s) do Mercado Livre eu não consegui identificar o produto — pulei."
+    if not ofertas:
+        telegram.enviar_texto(chat_id, aviso_ml.strip() or "Não sobrou nenhuma oferta para a fila.")
+        return
     total, proxima, ignorados = fila.adicionar(ofertas)
     novas = len(ofertas) - ignorados
-    aviso = f"\n♻️ {ignorados} link(s) repetido(s) ignorado(s)." if ignorados else ""
+    aviso = (f"\n♻️ {ignorados} link(s) repetido(s) ignorado(s)." if ignorados else "") + aviso_ml
     for oferta in ofertas:
         link = (fila.RE_LINK.search(oferta) or [""])[0]
         if amazon.e_amazon(link):
