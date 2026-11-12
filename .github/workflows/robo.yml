@@ -86,6 +86,14 @@ jobs:
       - name: Tem mensagem nova?
         id: checar
         run: |
+          # Modo instantâneo: a mensagem já veio junto. Não confere mais nada e mostra "digitando…" na hora.
+          if [ -n "$UPDATE_JSON" ]; then
+            curl -s -o /dev/null "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendChatAction" \
+              -d chat_id="${ADMIN_CHAT_ID}" -d action=typing || true
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+            echo "mensagem=sim" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           RESPOSTA=$(curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getUpdates?limit=1&timeout=0")
           # Fila de postagens: horário do próximo post guardado no Supabase
           PROXIMA=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.fila_proxima&select=valor" \
@@ -196,22 +204,45 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # Resposta rápida: comandos e listas de links não precisam de vídeo nem de voz. O robô responde
+      # só com o básico instalado (poucos segundos). Se a mensagem precisar de arte/vídeo, ele manda o
+      # "⏳ Recebi!" e pede a rodada completa (código de saída 10).
+      - name: Resposta rápida
+        id: rapida
+        if: steps.checar.outputs.mensagem == 'sim'
+        env:
+          RAPIDO: "1"
+        run: |
+          pip install -q requests beautifulsoup4 Pillow
+          set +e
+          python main.py
+          codigo=$?
+          set -e
+          if [ "$codigo" -eq 10 ]; then
+            echo "completo=sim" >> "$GITHUB_OUTPUT"      # já mandou o "Recebi!"
+          elif [ "$codigo" -eq 11 ]; then
+            echo "completo=sim-sem-aviso" >> "$GITHUB_OUTPUT"
+          else
+            echo "completo=nao" >> "$GITHUB_OUTPUT"
+            exit "$codigo"
+          fi
+
       - name: Instalar dependências
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' && steps.rapida.outputs.completo != 'nao'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-inter espeak-ng
           pip install -q -r requirements.txt
 
       # Voz Kokoro (gratuita, roda no próprio robô): o modelo fica guardado no cache
       - name: Modelo da voz (cache)
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' && steps.rapida.outputs.completo != 'nao'
         uses: actions/cache@v5
         with:
           path: modelos
           key: kokoro-v1.0
 
       - name: Baixar modelo da voz (só na 1ª vez)
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' && steps.rapida.outputs.completo != 'nao'
         run: |
           mkdir -p modelos
           base=https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
@@ -220,5 +251,7 @@ jobs:
           ls -la modelos
 
       - name: Rodar o robô
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' && steps.rapida.outputs.completo != 'nao'
+        env:
+          JA_AVISOU: ${{ steps.rapida.outputs.completo == 'sim' && '1' || '' }}
         run: python main.py

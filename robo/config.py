@@ -117,6 +117,9 @@ BUSCAS_POR_DIA = int(_env("BUSCAS_POR_DIA", "150") or 150)       # todas as pess
 # "Ainda vale!": repostar no canal oferta que teve clique e continua com o mesmo preço
 AINDA_VALE = _env_bool("AINDA_VALE", True)
 # Ajudante do PC (gera o meli.la de verdade no Edge logado da dona) — ver robo/ajudante.py
+# Resposta rápida do modo instantâneo (ver "Resposta rápida" no robo.yml)
+RAPIDO = _env_bool("RAPIDO", False)          # rodada leve: só comandos; arte/vídeo pedem a rodada completa
+JA_AVISOU = _env_bool("JA_AVISOU", False)    # rodada completa depois da leve: não repete o "⏳ Recebi!"
 AJUDANTE = _env_bool("AJUDANTE", True)
 FILA_AUTO_ML_AJUDANTE = int(_env("FILA_AUTO_ML_AJUDANTE", "3") or 3)   # ML na fila automática, só via ajudante
 FILA_AUTO_ML = 0      # Mercado Livre fora da fila automática (pedido em 09/11/2026); /ofertas_ml continua

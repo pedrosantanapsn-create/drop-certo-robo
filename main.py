@@ -135,6 +135,19 @@ def _parecidos(a: str, b: str) -> bool:
     return len(pa & pb) / min(len(pa), len(pb)) >= 0.35
 
 
+class PrecisaCompleto(Exception):
+    """Na rodada rápida: esta mensagem precisa da rodada completa (arte, vídeo, voz, fotos)."""
+
+    def __init__(self, avisou: bool = False):
+        super().__init__("precisa da rodada completa")
+        self.avisou = avisou            # True = o "⏳ Recebi!" já foi mandado
+
+
+# Comandos que precisam de vídeo/voz/fotos (na rodada rápida vão direto para a completa)
+COMANDOS_PESADOS = {"/video_top", "/videotop", "/top5", "/custo", "/custobeneficio", "/custo_beneficio",
+                    "/voz", "/agora", "/site", "/conferir", "/relatorio"}
+
+
 def processar_oferta(mensagem: dict, chat_id) -> None:
     texto = mensagem.get("text") or mensagem.get("caption") or ""
     dados = ler_mensagem(texto)
@@ -142,7 +155,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         telegram.enviar_texto(chat_id, "Não achei um link na mensagem. Mande /ajuda para ver o formato.")
         return
 
-    telegram.enviar_texto(chat_id, "⏳ Recebi! Montando arte, vídeo e legenda…")
+    if not config.JA_AVISOU:
+        telegram.enviar_texto(chat_id, "⏳ Recebi! Montando arte, vídeo e legenda…")
+    if config.RAPIDO:
+        raise PrecisaCompleto(avisou=True)   # o resto precisa de ffmpeg/voz: continua na rodada completa
     pasta = nova_pasta()
     status: list[str] = []
 
@@ -554,6 +570,10 @@ def tratar(mensagem: dict) -> None:
         busca.responder(mensagem)   # outras pessoas: só a busca de ofertas (nenhum comando seu)
         return
 
+    if config.RAPIDO and (any(mensagem.get(k) for k in ("photo", "audio", "voice", "document", "video"))
+                          or (texto.split()[0].lower().split("@")[0] if texto else "") in COMANDOS_PESADOS):
+        raise PrecisaCompleto()
+
     # Mensagem de sugestões copiada inteira e reenviada: usa só os links (um por linha)
     if any(marca in texto for marca in ("sugestões com o SEU link", "Todos os links (copie",
                                         "mais vendidos com desconto", "Ofertas sugeridas para o Drop Certo",
@@ -574,8 +594,9 @@ def tratar(mensagem: dict) -> None:
     if not texto.startswith("/") and copiar.e_post_copiado(texto):
         ofertas_copiadas = copiar.separar(texto)
         if ofertas_copiadas:
-            telegram.enviar_texto(chat_id, f"📋 Post de outro canal: achei {len(ofertas_copiadas)} oferta(s). "
-                                  "Vou trocar os links pelos SEUS.")
+            if not config.JA_AVISOU:
+                telegram.enviar_texto(chat_id, f"📋 Post de outro canal: achei {len(ofertas_copiadas)} oferta(s). "
+                                      "Vou trocar os links pelos SEUS.")
             if len(ofertas_copiadas) > 1:
                 texto = "/agendar " + "\n".join(ofertas_copiadas)
             else:
@@ -1045,6 +1066,8 @@ def rodar_uma_vez() -> int:
             continue
         try:
             tratar(mensagem)
+        except PrecisaCompleto:
+            raise
         except Exception:  # noqa: BLE001
             detalhe = traceback.format_exc()[-700:]
             print(detalhe, file=sys.stderr)
@@ -1157,7 +1180,11 @@ def main() -> None:
                 print("Erro:", erro, file=sys.stderr)
             time.sleep(5)
     else:
-        print(f"Mensagens processadas: {rodar_uma_vez()}")
+        try:
+            print(f"Mensagens processadas: {rodar_uma_vez()}")
+        except PrecisaCompleto as pedido:
+            print("Esta mensagem precisa da rodada completa (arte/vídeo).")
+            sys.exit(10 if pedido.avisou else 11)
 
 
 if __name__ == "__main__":
