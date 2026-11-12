@@ -46,7 +46,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
 |---|---|
 | 10h–23h | Fila: 1 post a cada 30 min; no pico (11h30–13h30 e 19h–23h) a cada 20 min |
 | Cada post | Canal no formato compacto (foto do produto, nome, preço, cupom, link limpo); arte + vídeo (4 modelos em rodízio) + legenda → Reels (máx. 6/dia, 1 h de intervalo) e TikTok (máx. 5/dia, 1h30 de intervalo) |
-| Fila acabou | Fila automática: 3 Shopee + 3 KaBuM, alternando as lojas (Mercado Livre fica de fora), **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
+| Fila acabou | Fila automática: 3 Shopee + 3 KaBuM na hora; com o ajudante em uso, mais 3 Mercado Livre (meli.la), 3 Terabyte e 3 Amazon quando ele devolver; **só marcas conhecidas**, prioridade para peças de PC, para o que está no menor preço em 30 dias e para o que o público mais clica |
 | Cada oferta | **Nota de 0 a 100** (desconto real pelo histórico, marca, nota e vendas na loja, comissão, peça de PC, cupom). Da fila automática, nota abaixo de 45 vai só para o site; no pico sai primeiro a de maior nota |
 | Cada oferta | **Desconto falso**: se o "de R$" nunca apareceu no histórico de 30 dias, o post sai sem "de R$" e sem "% OFF" (CDC art. 37) |
 | 18h | **"🔁 Ainda vale!"**: reposta no canal 1 oferta que teve clique e continua com o mesmo preço (Shopee/ML, conferido pela API) |

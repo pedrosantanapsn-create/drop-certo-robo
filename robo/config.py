@@ -121,6 +121,13 @@ AINDA_VALE = _env_bool("AINDA_VALE", True)
 RAPIDO = _env_bool("RAPIDO", False)          # rodada leve: só comandos; arte/vídeo pedem a rodada completa
 JA_AVISOU = _env_bool("JA_AVISOU", False)    # rodada completa depois da leve: não repete o "⏳ Recebi!"
 AJUDANTE = _env_bool("AJUDANTE", True)
+# Terabyte e Amazon na fila automática: o ajudante faz 1 busca por loja e o robô escolhe as melhores
+FILA_AUTO_TERABYTE = int(_env("FILA_AUTO_TERABYTE", "3") or 3)
+FILA_AUTO_AMAZON = int(_env("FILA_AUTO_AMAZON", "3") or 3)
+PALAVRAS_TERABYTE = _env("PALAVRAS_TERABYTE", "ssd,memoria ram,placa de video,processador,monitor gamer,"
+                         "placa mae,fonte,gabinete gamer,water cooler,headset gamer,teclado mecanico,mouse gamer")
+PALAVRAS_AMAZON = _env("PALAVRAS_AMAZON", "ssd,memoria ram ddr4,placa de video,processador ryzen,monitor gamer,"
+                       "headset gamer,teclado mecanico,mouse gamer,webcam,roteador wifi 6")
 FILA_AUTO_ML_AJUDANTE = int(_env("FILA_AUTO_ML_AJUDANTE", "3") or 3)   # ML na fila automática, só via ajudante
 FILA_AUTO_ML = 0      # Mercado Livre fora da fila automática (pedido em 09/11/2026); /ofertas_ml continua
 

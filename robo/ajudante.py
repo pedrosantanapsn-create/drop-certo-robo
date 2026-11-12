@@ -94,12 +94,15 @@ BUSCAS = {
 }
 
 
-def pedir_busca(qual: str, termo: str, teto: float | None = None) -> bool:
-    """Pede ao ajudante para procurar `termo` na loja (terabyte/amazon). O resultado chega em importar()."""
+def pedir_busca(qual: str, termo: str, teto: float | None = None, auto: int = 0) -> bool:
+    """Pede ao ajudante para procurar `termo` na loja (terabyte/amazon). O resultado chega em importar().
+
+    auto = quantas ofertas pôr direto na fila (fila automática); 0 = só mandar a lista para a dona escolher.
+    """
     b = BUSCAS[qual]
     carimbo = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
     return pedir(f"busca:{qual}:{termo.lower()[:60]}:{carimbo}", b["url"].format(termo=quote_plus(termo)),
-                 {"termo": termo, "teto": teto}, loja=b["loja"])
+                 {"termo": termo, "teto": teto, "auto": auto}, loja=b["loja"])
 
 
 def _num(valor) -> float | None:
@@ -110,13 +113,11 @@ def _num(valor) -> float | None:
         return None
 
 
-def _mensagem_busca(qual: str, dados: dict) -> str:
-    """Lista T1/Z1… com o que o ajudante achou; guarda os textos prontos para o /add."""
+def _filtrar_busca(qual: str, dados: dict) -> list[dict]:
+    """Produtos da busca que servem (palavras no nome, preço, novos), cada um já com o texto da oferta."""
     import re
 
-    from . import amazon, sugestoes, terabyte
-    from .produto import formatar_preco
-    b = BUSCAS[qual]
+    from . import amazon, terabyte
     termo, teto = str(dados.get("termo") or ""), _num(dados.get("teto"))
     palavras = re.findall(r"[a-zà-ú0-9]{2,}", termo.lower())
     itens = []
@@ -130,33 +131,72 @@ def _mensagem_busca(qual: str, dados: dict) -> str:
             continue
         antigo = _num(it.get("preco_antigo"))
         antigo = antigo if antigo and antigo > preco * 1.02 else None
-        itens.append({**it, "nome": nome, "preco": preco, "preco_antigo": antigo,
-                      "desconto": round((1 - preco / antigo) * 100) if antigo else 0})
-    itens.sort(key=lambda i: (-i["desconto"], i["preco"]))
-    itens = itens[:8]
-    if not itens:
-        return f"🧩 {b['nome']} — \"{termo}\": o ajudante não achou produtos com essa busca."
-    textos, linhas = [], [f"🧩 {b['nome']} — {termo} (busca feita no seu navegador)", ""]
-    for n, it in enumerate(itens, 1):
         if qual == "amazon":
             link = amazon.link_com_minha_tag(str(it["link"]))[0] or str(it["link"])
             obs = ""
         else:
             link = terabyte.link_com_meu_codigo(str(it["link"]))[0]
             obs = "\nobs: preço à vista no Pix ou boleto"
-        texto = f"{link}\nnome: {it['nome'][:150]}\npreco: " + f"{it['preco']:.2f}".replace(".", ",")
-        if it["preco_antigo"]:
-            texto += "\nde: " + f"{it['preco_antigo']:.2f}".replace(".", ",")
+        texto = f"{link}\nnome: {nome[:150]}\npreco: " + f"{preco:.2f}".replace(".", ",")
+        if antigo:
+            texto += "\nde: " + f"{antigo:.2f}".replace(".", ",")
         if str(it.get("imagem") or "").startswith("http"):
             texto += f"\nfoto: {it['imagem']}"
-        textos.append(texto + obs)
+        itens.append({**it, "nome": nome, "preco": preco, "preco_antigo": antigo, "texto": texto + obs,
+                      "desconto": round((1 - preco / antigo) * 100) if antigo else 0})
+    itens.sort(key=lambda i: (-i["desconto"], i["preco"]))
+    return itens
+
+
+def _mensagem_busca(qual: str, dados: dict) -> str:
+    """Lista T1/Z1… com o que o ajudante achou; guarda os textos prontos para o /add."""
+    from . import sugestoes
+    from .produto import formatar_preco
+    b = BUSCAS[qual]
+    termo = str(dados.get("termo") or "")
+    itens = _filtrar_busca(qual, dados)[:8]
+    if not itens:
+        return f"🧩 {b['nome']} — \"{termo}\": o ajudante não achou produtos com essa busca."
+    linhas = [f"🧩 {b['nome']} — {termo} (busca feita no seu navegador)", ""]
+    for n, it in enumerate(itens, 1):
         linhas += [f"{b['codigo']}{n}. {it['nome'][:90]}",
                    f"💰 {formatar_preco(it['preco'])}" + (f" (antes {formatar_preco(it['preco_antigo'])} · "
                                                           f"-{it['desconto']}%)" if it["preco_antigo"] else ""), ""]
-    sugestoes._guardar(b["codigo"], textos)
+    sugestoes._guardar(b["codigo"], [it["texto"] for it in itens])
     linhas += [f"➕ Pôr na fila: /add {b['codigo']}1 {b['codigo']}3",
                "ℹ️ Preço visto agora na loja pelo seu navegador; confira antes de postar."]
     return "\n".join(linhas)
+
+
+def _auto_fila(qual: str, dados: dict) -> list[str]:
+    """Fila automática: põe na fila as melhores da busca (marca conhecida, ainda não sugeridas)."""
+    import json
+
+    from . import marcas, reabastecer, sugestoes
+    from .produto import formatar_preco
+    b = BUSCAS[qual]
+    quantas = int(dados.get("auto") or 0)
+    vistas = sugestoes._vistas()
+    ja, escolhidos = set(vistas), []
+    for it in _filtrar_busca(qual, dados):
+        chave = f"{qual}:{it.get('id') or it['link']}"
+        if chave in ja or not marcas.conhecida(it["nome"]):
+            continue
+        ja.add(chave)
+        escolhidos.append((chave, it))
+        if len(escolhidos) >= quantas:
+            break
+    if not escolhidos:
+        return []
+    textos, linhas = [], []
+    for chave, it in escolhidos:
+        pontos = reabastecer._nota_previa(it["nome"], it["preco"], float(it["desconto"]), "", {})
+        textos.append(f"{it['texto']}\norigem: auto\nnota: {pontos}")
+        linhas.append(f"🧩 {b['nome']}: {it['nome'][:50]} — {formatar_preco(it['preco'])}"
+                      + (f" (-{it['desconto']}%)" if it["desconto"] else "") + f" · nota {pontos}")
+    fila.adicionar(textos)
+    supabase.gravar_config(sugestoes.CHAVE_VISTAS, json.dumps((vistas + [c for c, _ in escolhidos])[-400:]))
+    return linhas
 
 
 def pendentes() -> int:
@@ -174,7 +214,13 @@ def importar(avisar) -> int:
         if str(p.get("loja", "")).startswith("busca_"):        # resultado de busca: manda a lista
             qual = str(p["loja"]).replace("busca_", "")
             try:
-                avisar(_mensagem_busca(qual, dados))
+                if dados.get("auto"):                           # fila automática: escolhe e põe na fila
+                    linhas = _auto_fila(qual, dados)
+                    if linhas:
+                        avisar("🤖 Fila automática — coloquei ofertas achadas pelo ajudante:\n\n" + "\n".join(linhas)
+                               + "\n\n/fila para ver · /limpar para cancelar tudo.")
+                else:
+                    avisar(_mensagem_busca(qual, dados))
             except Exception as erro:  # noqa: BLE001
                 avisar(f"🧩 Busca: não consegui montar a lista ({str(erro)[:150]})")
             _mudar(p["id"], {"status": "importado"})

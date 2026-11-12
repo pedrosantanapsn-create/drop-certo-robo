@@ -14,6 +14,7 @@ Desligar: variável FILA_AUTOMATICA = false no GitHub.
 from __future__ import annotations
 
 import json
+import random
 import time
 from itertools import zip_longest
 from datetime import datetime, timedelta
@@ -95,10 +96,26 @@ def se_for_hora(enviar) -> int:
             print(f"::warning::Fila automática ML: {str(erro)[:150]}")
     # Mercado Livre: só com o ajudante do PC (ele gera o meli.la de verdade). Aqui o robô só PEDE os links;
     # quando o ajudante devolver, as ofertas entram na fila sozinhas (ajudante.importar).
-    pedidos_ml = 0
+    pedidos_ml, buscas_pedidas = 0, []
     try:
-        if (mercadolivre.ativo() and config.FILA_AUTO_ML_AJUDANTE and ajudante.ativo()
-                and ajudante.usado_recentemente() and ajudante.pendentes() == 0):
+        ajudante_livre = ajudante.ativo() and ajudante.usado_recentemente() and ajudante.pendentes() == 0
+    except Exception:  # noqa: BLE001
+        ajudante_livre = False
+    # Terabyte e Amazon: o ajudante faz 1 busca em cada loja; as melhores entram na fila quando ele devolver
+    if ajudante_livre:
+        for qual, quantas, palavras in (("terabyte", config.FILA_AUTO_TERABYTE, config.PALAVRAS_TERABYTE),
+                                        ("amazon", config.FILA_AUTO_AMAZON, config.PALAVRAS_AMAZON)):
+            termos = [p.strip() for p in palavras.split(",") if p.strip()]
+            if not (quantas and termos):
+                continue
+            try:
+                termo = random.choice(termos)
+                if ajudante.pedir_busca(qual, termo, auto=quantas):
+                    buscas_pedidas.append(f"{ajudante.BUSCAS[qual]['nome']} ({termo})")
+            except Exception as erro:  # noqa: BLE001
+                print(f"::warning::Fila automática {qual} (ajudante): {str(erro)[:150]}")
+    try:
+        if mercadolivre.ativo() and config.FILA_AUTO_ML_AJUDANTE and ajudante_livre:
             quantas = config.FILA_AUTO_ML_AJUDANTE
             achados_ml = sugestoes.buscar_ml(quantas=quantas, so_marca=True)
             if len(achados_ml) < quantas:
@@ -146,6 +163,9 @@ def se_for_hora(enviar) -> int:
             print(f"::warning::Fila automática Awin: {str(erro)[:150]}")
     aviso_ml = (f"\n🧩 Pedi {pedidos_ml} link(s) do Mercado Livre ao ajudante do PC — entram na fila quando "
                 "ele gerar o seu meli.la.") if pedidos_ml else ""
+    if buscas_pedidas:
+        aviso_ml += ("\n🧩 Pedi ao ajudante para procurar ofertas em: " + ", ".join(buscas_pedidas)
+                     + " — as melhores entram na fila quando ele devolver.")
     if not textos:
         enviar("🤖 A fila acabou e não achei ofertas novas boas agora. Tento de novo em 2 h "
                "(ou mande links / use /ofertas_pc)." + aviso_ml)
