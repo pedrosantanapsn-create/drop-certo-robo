@@ -119,6 +119,7 @@ def abrir_edge(pw):
     try:
         return pw.chromium.launch_persistent_context(
             str(PERFIL), channel=CANAL, headless=False, locale="pt-BR",
+            chromium_sandbox=True,      # mantém a proteção normal do navegador (sem o aviso "--no-sandbox")
             viewport={"width": 1280, "height": 850}, args=["--start-maximized"])
     except Exception as erro:  # noqa: BLE001
         sys.exit(f"Não consegui abrir o {NOME_NAVEGADOR}. Ele está instalado neste computador?\n"
