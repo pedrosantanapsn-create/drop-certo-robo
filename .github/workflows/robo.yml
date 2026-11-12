@@ -123,6 +123,10 @@ jobs:
           AINDAVALE=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.aindavale_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Ajudante do PC: links meli.la prontos (ou erros) esperando para entrar na fila
+          AJUDANTE=$(curl -s "${SUPABASE_URL}/rest/v1/ajudante_pedidos?status=in.(pronto,erro)&loja=neq._sistema&select=id&limit=1" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"id"' | head -1 || true)
           # Cupom agendado (ex.: cupom que libera à meia-noite)
           CUPOM=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.cupom_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -139,6 +143,9 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$AINDAVALE" ] && [ "$(date +%s)" -ge "$AINDAVALE" ]; then
             echo "Hora do Ainda vale."
+            echo "tem=sim" >> "$GITHUB_OUTPUT"
+          elif [ -n "$AJUDANTE" ]; then
+            echo "O ajudante do PC devolveu links."
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           elif [ -n "$CUPOM" ] && [ "$(date +%s)" -ge "$CUPOM" ]; then
             echo "Hora de um cupom agendado."

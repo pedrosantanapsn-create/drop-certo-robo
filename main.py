@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, alertas, amazon, arte, awin, busca, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -240,6 +240,27 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             novo_ml, texto_ml = mercadolivre.link_meu(produto.link)
         except Exception as erro:  # noqa: BLE001
             novo_ml, texto_ml = produto.link, f"não consegui conferir o afiliado ({str(erro)[:60]})"
+        if not novo_ml and ajudante.ativo() and ajudante.usado_recentemente(7):
+            # O ajudante do PC gera o SEU meli.la desse produto; a oferta entra na fila quando ficar pronto
+            try:
+                item_ml, catalogo_ml = mercadolivre.codigos_do_link(produto.link)
+                if catalogo_ml or item_ml:
+                    url_ml = (f"https://www.mercadolivre.com.br/p/{catalogo_ml}" if catalogo_ml
+                              else f"https://produto.mercadolivre.com.br/MLB-{item_ml[3:]}")
+                    original = (mensagem.get("text") or mensagem.get("caption") or produto.link).strip()
+                    novo = ajudante.pedir(f"ml:{catalogo_ml or item_ml}", url_ml,
+                                          {"texto": original, "link_original": dados.get("link") or produto.link})
+                    ligado = ajudante.ligado()
+                    telegram.enviar_texto(chat_id, f"🧩 Mercado Livre: {texto_ml}.\n" + (
+                        "Pedi ao ajudante do PC para gerar o SEU meli.la desse produto"
+                        if novo else "Esse produto já estava pedido ao ajudante") + (
+                        " — ele está ligado, deve ficar pronto em poucos minutos." if ligado else
+                        " — ele está DESLIGADO agora; gera assim que você ligar o ajudante no PC (vale por 48 h).")
+                        + "\nQuando ficar pronto, a oferta entra na fila sozinha.")
+                    shutil.rmtree(pasta, ignore_errors=True)
+                    return
+            except Exception as erro:  # noqa: BLE001
+                print(f"::warning::Ajudante (pedido): {str(erro)[:150]}")
         if not novo_ml:
             telegram.enviar_texto(chat_id, f"⚠️ Mercado Livre: {texto_ml} — vendas por esse link NÃO pagariam "
                                   "comissão para você.\n\nAbra o produto no app do ML, toque em \"Compartilhar\" "
@@ -1036,6 +1057,10 @@ def rodar_uma_vez() -> int:
         # conferência ficam com a rodada de 10 min (evita post repetido quando
         # várias fotos chegam juntas e o robô roda várias vezes ao mesmo tempo).
         return len(atualizacoes)
+    try:
+        ajudante.importar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+    except Exception as erro:  # noqa: BLE001
+        print("Ajudante:", erro, file=sys.stderr)
     try:
         cupons.postar_se_for_hora(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
     except Exception as erro:  # noqa: BLE001

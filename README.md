@@ -88,6 +88,20 @@ No site, o clique registra se a pessoa veio do Instagram, TikTok ou Telegram (li
 **Quadro de ofertas:** `certodrop.netlify.app/quadro.html` (login do admin) — imagem em cima, link embaixo,
 "+" para mais quadros; o robô importa para a fila em até 10 min.
 
+## 4.1 Ajudante do PC (meli.la de verdade)
+
+O Mercado Livre só gera o meli.la para quem está logada, então o robô do GitHub não consegue sozinho.
+A pasta `ajudante/` tem um programa para Windows + Edge que roda no computador da dona, com o login
+feito por ela, e gera o meli.la dos produtos que o robô pedir (tabela `ajudante_pedidos`).
+
+- Instalar: rodar `supabase/ajudante.sql` no Supabase (mostra a senha do ajudante) → baixar a pasta
+  `ajudante/` → `1 - Instalar.bat` → colar a senha em `senha.txt` → `2 - Fazer login.bat` →
+  `3 - Ligar ajudante.bat`.
+- O robô pede links em dois casos: link do ML de outro canal/sem afiliado que você manda, e 3 ofertas
+  do ML quando a fila acaba (`FILA_AUTO_ML_AJUDANTE`). Quando o ajudante devolve, a oferta entra na fila.
+- PC desligado = pedidos esperam (48 h). Login caiu = o robô avisa no Telegram.
+- Risco: automação na conta de afiliado pode ir contra as regras do Mercado Livre (decisão da dona).
+
 ## 5. Configuração
 
 **Secrets (GitHub → Settings → Secrets and variables → Actions):**

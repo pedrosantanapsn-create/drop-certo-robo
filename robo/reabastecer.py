@@ -18,7 +18,7 @@ import time
 from itertools import zip_longest
 from datetime import datetime, timedelta
 
-from . import awin, config, fila, marcas, mercadolivre, nota, precos, shopee, sugestoes, supabase
+from . import ajudante, awin, config, fila, marcas, mercadolivre, nota, precos, shopee, sugestoes, supabase
 from .produto import Produto, formatar_preco
 
 CHAVE = "reabastecer_proximo"
@@ -93,6 +93,27 @@ def se_for_hora(enviar) -> int:
                               f"(-{round(n['desconto'])}%) · nota {pontos}")
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Fila automática ML: {str(erro)[:150]}")
+    # Mercado Livre: só com o ajudante do PC (ele gera o meli.la de verdade). Aqui o robô só PEDE os links;
+    # quando o ajudante devolver, as ofertas entram na fila sozinhas (ajudante.importar).
+    pedidos_ml = 0
+    try:
+        if (mercadolivre.ativo() and config.FILA_AUTO_ML_AJUDANTE and ajudante.ativo()
+                and ajudante.usado_recentemente() and ajudante.pendentes() == 0):
+            quantas = config.FILA_AUTO_ML_AJUDANTE
+            achados_ml = sugestoes.buscar_ml(quantas=quantas, so_marca=True)
+            if len(achados_ml) < quantas:
+                ids_ml = {n.get("_id") for n in achados_ml}
+                achados_ml += [n for n in sugestoes.buscar_ml(quantas=quantas)
+                               if n.get("_id") not in ids_ml][:quantas - len(achados_ml)]
+            for n in achados_ml:
+                url = str(n["link"]).split("?")[0]            # página do produto, sem código montado
+                pontos = _nota_previa(str(n["nome"]), n["preco"], float(n.get("desconto") or 0), n.get("_id", ""), {})
+                if ajudante.pedir(str(n.get("_id") or url), url, {
+                        "texto": f"{url}\norigem: auto\nnota: {pontos}", "link_original": url,
+                        "nome": str(n["nome"])[:120]}):
+                    pedidos_ml += 1
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Fila automática ML (ajudante): {str(erro)[:150]}")
     if awin.feed_ativo() and config.FILA_AUTO_AWIN:
         try:
             ja = set(sugestoes._vistas())
@@ -123,9 +144,11 @@ def se_for_hora(enviar) -> int:
                                        json.dumps((sugestoes._vistas() + [c for c, _ in escolhidos])[-400:]))
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Fila automática Awin: {str(erro)[:150]}")
+    aviso_ml = (f"\n🧩 Pedi {pedidos_ml} link(s) do Mercado Livre ao ajudante do PC — entram na fila quando "
+                "ele gerar o seu meli.la.") if pedidos_ml else ""
     if not textos:
         enviar("🤖 A fila acabou e não achei ofertas novas boas agora. Tento de novo em 2 h "
-               "(ou mande links / use /ofertas_pc).")
+               "(ou mande links / use /ofertas_pc)." + aviso_ml)
         return 0
     # intercala as lojas para variar o feed
     grupos: dict[str, list[int]] = {}
@@ -140,5 +163,5 @@ def se_for_hora(enviar) -> int:
            f"({len(textos) - ignorados}):\n\n" + "\n".join(linhas) +
            f"\n\n⏰ Próximo post: {proxima.strftime('%d/%m às %H:%M')}\n"
            f"No pico sai primeiro a de maior nota; nota abaixo de {config.NOTA_MINIMA} vai só para o site.\n"
-           "Mande /fila para ver · /limpar para cancelar tudo.")
+           "Mande /fila para ver · /limpar para cancelar tudo." + aviso_ml)
     return len(textos) - ignorados
