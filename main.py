@@ -1069,7 +1069,8 @@ def enviar_roteiro(chat_id, mensagem: dict, texto: str) -> None:
         if not fotos:
             telegram.enviar_texto(chat_id, "⚠️ Não consegui pegar a foto do produto nessa loja. Salve a foto principal "
                                   "do anúncio no celular e anexe ela no Gemini (sem a foto, a IA inventa o produto).")
-    for parte in roteiro.montar(produto):
+        partes_roteiro = roteiro.montar(produto, fotos[0] if fotos else None)
+    for parte in partes_roteiro:
         telegram.enviar_html(chat_id, parte)
 
 

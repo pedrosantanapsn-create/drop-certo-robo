@@ -19,7 +19,7 @@ from .produto import Produto, formatar_preco
 
 PEDIDO = """Você ajuda a criar um anúncio em vídeo vertical de um produto. Produto: "{nome}".
 Responda SÓ com JSON, nestes campos:
-- "produto_en": descrição visual curta do produto em inglês (o que é, cores e formato prováveis), máx. 25 palavras
+- "produto_en": descrição visual curta do produto em inglês, máx. 30 palavras. {fonte_visual}
 - "cena_uso_en": em inglês, UMA cena realista de um adulto brasileiro usando esse produto no contexto natural dele
   (onde está, o que faz com o produto, enquadramento). Máx. 40 palavras. Sem marcas de terceiros, sem telas com texto.
 - "movimento_uso_en": em inglês, um movimento simples e único para animar essa cena por 8 segundos (ex.: a pessoa
@@ -36,14 +36,31 @@ PADRAO = {"produto_en": "the product from the reference photo",
 
 FIEL = ("Keep the product EXACTLY as in the attached reference photo: same shape, colors, proportions, buttons and "
         "brand markings. Do not redesign it, do not add or remove parts.")
+SO_PRODUTO = ("Use only the main product from the reference photo; ignore any text, price tags, badges, extra "
+              "accessories, hands or background that appear in that photo.")
 SEM_TEXTO = "No text, no letters, no captions, no subtitles, no watermark, no extra logos anywhere in the frame."
 
 
-def _detalhes(nome: str) -> dict:
+def _detalhes(nome: str, foto=None) -> dict:
     try:
-        dados, _ = gemini.chamar([{"text": PEDIDO.format(nome=nome[:160])}], temperatura=0.5, rodadas=2)
+        partes, fonte_visual = [], "Sem foto: descreva o que é, com cores e formato prováveis."
+        if foto:                  # o Gemini OLHA a foto: descreve o produto como ele é de verdade
+            import base64
+            from io import BytesIO
+
+            from PIL import Image, ImageOps
+            with Image.open(foto) as img:
+                ref = ImageOps.exif_transpose(img).convert("RGB")
+                ref.thumbnail((900, 900))
+                buf = BytesIO()
+                ref.save(buf, "JPEG", quality=85)
+            partes.append({"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(buf.getvalue()).decode()}})
+            fonte_visual = ("Descreva o produto PRINCIPAL exatamente como aparece na foto anexada (formato, cores reais, "
+                            "material, detalhes marcantes). Ignore textos, selos, brindes e acessórios extras da foto.")
+        partes.append({"text": PEDIDO.format(nome=nome[:160], fonte_visual=fonte_visual)})
+        dados, _ = gemini.chamar(partes, temperatura=0.5, rodadas=2)
         lido = json.loads(dados["candidates"][0]["content"]["parts"][0]["text"])
-        ok = {k: lido[k] for k in PADRAO if lido.get(k)}
+        ok = {k: (lido[k].strip().rstrip(".") if isinstance(lido[k], str) else lido[k]) for k in PADRAO if lido.get(k)}
         if isinstance(ok.get("beneficios"), list):
             ok["beneficios"] = [str(b)[:28] for b in ok["beneficios"][:3]]
         else:
@@ -54,16 +71,16 @@ def _detalhes(nome: str) -> dict:
         return dict(PADRAO)
 
 
-def montar(p: Produto) -> list[str]:
+def montar(p: Produto, foto=None) -> list[str]:
     """Mensagens (HTML) do kit. Os comandos vêm em blocos: toque para copiar."""
-    d = _detalhes(p.nome)
+    d = _detalhes(p.nome, foto)
     nome = escape(p.nome[:90])
     bloco = lambda t: f"<pre>{escape(t)}</pre>"  # noqa: E731
 
-    img1 = (f"Create a photorealistic vertical 9:16 lifestyle advertising photo. Product: {d['produto_en']}. {FIEL} "
+    img1 = (f"Create a photorealistic vertical 9:16 lifestyle advertising photo. Product: {d['produto_en']}. {FIEL} {SO_PRODUTO} "
             f"Scene: {d['cena_uso_en']}. Soft natural light, shallow depth of field, warm tones, shot on a 50mm lens, "
             f"candid and authentic (not a stock photo look). The product must be sharp and clearly visible. {SEM_TEXTO}")
-    img2 = (f"Create a photorealistic vertical 9:16 premium product hero shot. Product: {d['produto_en']}. {FIEL} "
+    img2 = (f"Create a photorealistic vertical 9:16 premium product hero shot. Product: {d['produto_en']}. {FIEL} {SO_PRODUTO} "
             "The product alone, centered in the lower two thirds of the frame, on a dark glossy surface with soft "
             "reflections, a warm golden glow of light behind it, cinematic studio lighting, dark elegant background, "
             f"plenty of empty dark space at the top and bottom of the frame for titles added later. {SEM_TEXTO}")
@@ -80,7 +97,8 @@ def montar(p: Produto) -> list[str]:
     return [
         (f"🎬 <b>Roteiro para criar à mão — {nome}</b>\n\n"
          "<b>Ordem que economiza gerações:</b>\n"
-         "1. No Gemini, abra uma conversa NOVA e anexe a foto do produto que mandei acima (a mais limpa).\n"
+         "1. No Gemini, abra uma conversa NOVA e anexe a foto do produto que mandei como arquivo (foto_0.jpg; se "
+         "vier mais de uma, use a mais limpa, com menos texto em cima).\n"
          "2. Cole o comando da <b>Imagem 1</b>. Saiu com o produto diferente do real? Peça só o conserto "
          "(\"keep everything, fix the product to match the reference photo exactly\") em vez de gerar do zero.\n"
          "3. Imagem aprovada → na MESMA conversa cole o comando do <b>Vídeo 1</b> (ele anima aquela imagem).\n"
