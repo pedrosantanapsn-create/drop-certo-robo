@@ -177,6 +177,31 @@ def _ofertas_do_post(post: dict) -> list[str]:
     return boas
 
 
+def _guardar_foto(oferta: str) -> str:
+    """O endereço da foto no Telegram vence em poucas horas, e a oferta pode esperar na fila mais que
+    isso (aí o post saía sem imagem). Copia a foto agora para o nosso Supabase (pasta posts/, que é
+    limpa sozinha depois de 3 dias) e troca o endereço na oferta."""
+    achado = re.search(r"^foto:\s*(https?://\S+)$", oferta, re.M)
+    if not achado or config.SUPABASE_URL in achado.group(1):
+        return oferta
+    try:
+        import tempfile
+        import time
+        from pathlib import Path
+        r = requests.get(achado.group(1), timeout=25, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        if len(r.content) < 2500:
+            return oferta
+        with tempfile.TemporaryDirectory() as pasta:
+            arquivo = Path(pasta) / "foto.jpg"
+            arquivo.write_bytes(r.content)
+            novo = supabase.enviar_arquivo(arquivo, f"posts/canal_{int(time.time() * 1000)}.jpg", "image/jpeg")
+        return oferta.replace(achado.group(1), novo)
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Foto do canal: {str(erro)[:120]}")
+        return oferta
+
+
 def _e_so_cupom(texto: str) -> bool:
     return bool(re.search(r"cupo[mn]", texto, re.I)) and not re.search(r"R\$\s*\d", texto)
 
@@ -234,6 +259,7 @@ def rodar(avisar) -> int:
                     continue                              # loja em que você não é afiliada: não dá comissão
                 vistos[chave] = carimbo
                 chaves_fila.add(chave)
+                oferta = _guardar_foto(oferta)
                 try:       # Mercado Livre de outro canal: o ajudante gera o SEU meli.la e a oferta entra depois
                     if mercadolivre.e_mercadolivre(link) and not mercadolivre.link_meu(link)[0]:
                         if not (ajudante.ativo() and ajudante.usado_recentemente(7)):
