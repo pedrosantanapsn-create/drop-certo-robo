@@ -220,7 +220,14 @@ def _montar_cenas(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> list[t
 # ---------------------------------------------------------------------------
 def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Path, bool]:
     """Retorna (caminho_do_video, tem_narracao)."""
-    return renderizar(_montar_cenas(p, t, fotos, pasta), t["narracao"], pasta)
+    cenas = _montar_cenas(p, t, fotos, pasta)
+    from . import cenas_ia
+    extras = cenas_ia.gerar(p.nome, fotos[0] if fotos else None, pasta)     # [] na maioria dos vídeos
+    if extras:                       # depois do gancho: 1ª cena de IA; antes do preço/CTA: a 2ª
+        cenas[1:1] = [(extras[0], 1.0)]
+        if len(extras) > 1:
+            cenas[-2:-2] = [(extras[1], 1.0)]
+    return renderizar(cenas, t["narracao"], pasta)
 
 
 def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path,

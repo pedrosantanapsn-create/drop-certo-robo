@@ -160,6 +160,15 @@ HORARIOS_PICO = _env("HORARIOS_PICO", "11:30-13:30,19:00-23:00")
 MINUTOS_FORA_PICO = int(_env("MINUTOS_FORA_PICO", "30"))
 MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "20"))
 
+# --- Cenas de IA no vídeo (PAGO: precisa de cobrança ativada na conta do Google AI Studio) ---
+CENAS_IA = _env_bool("CENAS_IA", True)
+# Chave SEPARADA (outro projeto do Google, com cobrança): assim os textos do robô continuam na chave grátis
+# e só as imagens são cobradas. Sem essa chave, as cenas de IA ficam desligadas.
+GEMINI_API_KEY_PAGA = _env("GEMINI_API_KEY_PAGA")
+CENAS_IA_MODELO = _env("CENAS_IA_MODELO", "gemini-3.1-flash-lite-image")     # o mais barato
+CENAS_IA_DIA = int(_env("CENAS_IA_DIA", "4") or 4)                           # teto de imagens por dia (2 por vídeo)
+CENAS_IA_PRECO_USD = float(_env("CENAS_IA_PRECO_USD", "0.0336") or 0.0336)   # só para a estimativa do /cenas_ia
+
 # --- Gemini (nível gratuito do Google AI Studio) -------------------------
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-flash-latest")

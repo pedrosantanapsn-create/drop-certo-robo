@@ -82,6 +82,7 @@ Comandos:
 /cupons_lojas — o ajudante lê os cupons da Terabyte e do Mercado Livre e manda a lista para você
 /canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
+/cenas_ia — cenas de IA nos vídeos (pago): situação e gasto · /cenas_ia agora = usar no próximo vídeo
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
@@ -815,6 +816,14 @@ def tratar(mensagem: dict) -> None:
         n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
         telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
                               else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando in ("/cenas_ia", "/cenasia", "/ia"):
+        from robo import cenas_ia
+        if "agora" in texto.lower().split():
+            cenas_ia.forcar_proximo()
+            telegram.enviar_texto(chat_id, "🎬 Combinado: o PRÓXIMO vídeo sai com as cenas de IA (se o Google aceitar a "
+                                  "cobrança e o teto do dia não tiver acabado). Mande um link para testar.")
+        else:
+            telegram.enviar_texto(chat_id, cenas_ia.resumo())
     elif comando == "/regras":
         postar_regras(chat_id)
     elif comando == "/ofertas":
