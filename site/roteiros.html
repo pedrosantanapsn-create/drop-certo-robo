@@ -5,54 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Roteiros do dia — Drop Certo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --laranja:#F26A21; --azul:#0E3A5D; --teal:#1BA39C;
-    --fundo:#F5F7FA; --card:#fff; --texto:#1c2430; --texto-2:#5b6572; --borda:#e1e5eb;
-    --bloco:#f0f3f7; --ok:#12805c; --raio:14px;
+    --laranja:#F26A21; --laranja-esc:#c9500f; --azul:#0E3A5D; --azul-2:#154b78; --teal:#1BA39C; --teal-esc:#0f7a75;
+    --fundo:#EEF2F6; --card:#fff; --texto:#17212c; --texto-2:#566270; --borda:#dde3ea;
+    --bloco:#F3F6F9; --ok:#12805c; --trilho:#cfd8e2; --raio:18px;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --fundo:#0d141c; --card:#16202b; --texto:#eef2f6; --texto-2:#9fb0c0; --borda:#263442; --bloco:#0f1821; --ok:#4fd1a5; }
+    :root{ --fundo:#0a1119; --card:#131d28; --texto:#eef2f6; --texto-2:#9fb0c0; --borda:#243240;
+           --bloco:#0d1620; --ok:#4fd1a5; --trilho:#2b3b4b; --teal:#35c4bc; --teal-esc:#35c4bc; --laranja-esc:#ff8a47; }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--fundo);color:var(--texto);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  header{background:var(--azul);color:#fff;padding:18px 16px 16px}
-  header h1{margin:0;font-size:1.25rem;letter-spacing:.2px}
-  header p{margin:4px 0 0;font-size:.85rem;opacity:.85}
-  main{max-width:760px;margin:0 auto;padding:16px}
-  details.como{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);padding:12px 14px;margin-bottom:16px}
-  details.como summary{font-weight:700;cursor:pointer}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important} }
+  body{margin:0;background:var(--fundo);color:var(--texto);font:16px/1.5 Poppins,system-ui,-apple-system,"Segoe UI",sans-serif}
+  :focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+
+  /* Cabeçalho: a "claquete" do dia */
+  header{background:var(--azul);color:#fff;padding:20px 16px 0;position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;inset:0 0 auto 0;height:10px;
+    background:repeating-linear-gradient(115deg,#fff 0 18px,transparent 18px 36px);opacity:.16}
+  .cab{max-width:760px;margin:0 auto}
+  .marca{font-weight:800;font-size:.95rem;letter-spacing:.2px;opacity:.9;margin-top:6px}
+  .marca b{color:var(--laranja)}
+  header h1{margin:6px 0 2px;font-size:clamp(1.7rem,7vw,2.3rem);line-height:1.08;font-weight:800;letter-spacing:-.5px}
+  #quando{margin:0;font-size:.84rem;opacity:.82}
+
+  /* Fita de produtos: toque para ir direto */
+  .fita{display:flex;gap:10px;overflow-x:auto;padding:16px 0 16px;margin:0 -16px;padding-inline:16px;scrollbar-width:none}
+  .fita::-webkit-scrollbar{display:none}
+  .fita a{flex:none;width:86px;text-decoration:none;color:#fff;font-size:.68rem;line-height:1.25;text-align:center}
+  .fita .mini{width:86px;height:86px;border-radius:16px;background:#fff;display:grid;place-items:center;overflow:hidden;
+    margin-bottom:6px;border:3px solid transparent;position:relative}
+  .fita img{width:100%;height:100%;object-fit:contain}
+  .fita .n{position:absolute;left:5px;top:5px;background:var(--azul);color:#fff;font-weight:700;font-size:.7rem;
+    width:22px;height:22px;border-radius:50%;display:grid;place-items:center}
+  .fita a.pronto .mini{border-color:var(--teal)}
+  .fita span.nome{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;opacity:.9}
+
+  main{max-width:760px;margin:0 auto;padding:16px 14px 60px}
+  details.como{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);padding:14px 16px;margin-bottom:18px}
+  details.como summary{font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:32px}
+  details.como summary::-webkit-details-marker{display:none}
+  details.como summary::after{content:"+";font-size:1.4rem;font-weight:500;color:var(--laranja-esc);line-height:1}
+  details.como[open] summary::after{content:"–"}
   details.como ol{margin:10px 0 4px;padding-left:20px}
-  details.como li{margin:6px 0}
-  .aviso{font-size:.88rem;color:var(--texto-2);margin:8px 0 0}
-  .produto{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);margin-bottom:18px;overflow:hidden}
-  .topo{display:flex;gap:12px;padding:14px;align-items:flex-start}
-  .topo img{width:92px;height:92px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--borda);flex:none}
-  .topo h2{margin:0 0 4px;font-size:1rem;line-height:1.3}
-  .preco{font-weight:800;color:var(--laranja);font-variant-numeric:tabular-nums}
-  .de{color:var(--texto-2);text-decoration:line-through;font-weight:400;font-size:.9rem;margin-left:6px}
-  .selo{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bloco);color:var(--texto-2);margin-left:6px;vertical-align:middle}
-  .acoes{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 12px}
-  button,.botao{font:inherit;font-weight:700;font-size:.9rem;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:44px}
-  .primario{background:var(--laranja);color:#fff}
-  .secundario{background:var(--bloco);color:var(--texto);border:1px solid var(--borda)}
-  button.feito{background:var(--ok);color:#fff}
-  .passo{border-top:1px solid var(--borda);padding:12px 14px}
-  .passo h3{margin:0 0 2px;font-size:.95rem}
-  .passo .dica{margin:0 0 8px;font-size:.84rem;color:var(--texto-2)}
-  pre{margin:0 0 8px;background:var(--bloco);border:1px solid var(--borda);border-radius:10px;padding:10px;font:.8rem/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
-  ul.textos{margin:0 0 8px;padding-left:18px;font-size:.92rem}
-  ul.textos li{margin:3px 0}
-  .vazio{text-align:center;color:var(--texto-2);padding:40px 16px}
-  .fotos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .fotos a{display:block}
-  .fotos img{width:72px;height:72px;object-fit:contain;background:#fff;border:1px solid var(--borda);border-radius:8px}
+  details.como li{margin:7px 0;font-size:.94rem}
+  .aviso{font-size:.85rem;color:var(--texto-2);margin:10px 0 0;padding:10px 12px;background:var(--bloco);border-radius:10px}
+
+  /* Ficha de cada produto */
+  .produto{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);margin-bottom:22px;overflow:hidden;scroll-margin-top:12px}
+  .topo{display:grid;grid-template-columns:112px 1fr;gap:14px;padding:16px;align-items:center;background:linear-gradient(180deg,var(--bloco),transparent)}
+  .topo .capa{width:112px;height:112px;border-radius:14px;background:#fff;border:1px solid var(--borda);display:grid;place-items:center;overflow:hidden}
+  .topo .capa img{width:100%;height:100%;object-fit:contain}
+  .topo h2{margin:0 0 6px;font-size:1.02rem;line-height:1.3;font-weight:700;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .preco{font-weight:800;font-size:1.25rem;color:var(--laranja-esc);font-variant-numeric:tabular-nums}
+  .de{color:var(--texto-2);text-decoration:line-through;font-weight:500;font-size:.85rem;margin-left:8px}
+  .linha2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+  .selo{font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--bloco);color:var(--texto-2);border:1px solid var(--borda)}
+  .selo.fila{background:transparent;color:var(--teal-esc);border-color:var(--teal)}
+  .progresso{height:6px;background:var(--bloco)}
+  .progresso i{display:block;height:100%;width:0;background:var(--teal);transition:width .3s ease}
+
+  /* Linha do tempo: os passos são uma sequência de verdade */
+  .passos{list-style:none;margin:0;padding:8px 16px 6px}
+  .passo{display:grid;grid-template-columns:36px 1fr;gap:12px;position:relative;padding:12px 0 16px}
+  .passo::before{content:"";position:absolute;left:17px;top:48px;bottom:-12px;width:2px;background:var(--trilho)}
+  .passo:last-child::before{display:none}
+  .marcar{appearance:none;-webkit-appearance:none;width:36px;height:36px;border-radius:50%;border:2px solid var(--trilho);background:var(--card);
+    margin:0;cursor:pointer;display:grid;place-items:center;font:700 .9rem Poppins,sans-serif;color:var(--texto-2);position:relative;z-index:1}
+  .marcar::after{content:attr(data-n)}
+  .marcar:checked{background:var(--ok);border-color:var(--ok);color:#fff}
+  .marcar:checked::after{content:"✓"}
+  .passo.feito .corpo{opacity:.55}
+  .passo h3{margin:4px 0 2px;font-size:.98rem;font-weight:700;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tipo{font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:6px;color:#fff}
+  .tipo.imagem{background:var(--teal-esc)} .tipo.video{background:var(--laranja-esc)}
+  @media (prefers-color-scheme: dark){ .tipo{color:#0a1119} }
+  .passo .dica{margin:0 0 10px;font-size:.84rem;color:var(--texto-2)}
+  pre{margin:0 0 10px;background:var(--bloco);border:1px solid var(--borda);border-left:4px solid var(--trilho);border-radius:10px;padding:10px 12px;
+    font:.78rem/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:118px;overflow:auto}
+  .passo.imagem pre{border-left-color:var(--teal)} .passo.video pre{border-left-color:var(--laranja)}
+  .acoes{display:flex;flex-wrap:wrap;gap:8px}
+  button{font:600 .9rem Poppins,system-ui,sans-serif;border:0;border-radius:12px;padding:10px 16px;cursor:pointer;min-height:46px}
+  .primario{background:var(--azul);color:#fff}
+  @media (prefers-color-scheme: dark){ .primario{background:#e9eff5;color:#0a1119} }
+  .secundario{background:transparent;color:var(--texto);border:1.5px solid var(--borda)}
+  button.feito{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)}
+  ul.textos{margin:0 0 10px;padding:0;list-style:none;font-size:.9rem;border:1px solid var(--borda);border-radius:10px;overflow:hidden}
+  ul.textos li{padding:8px 12px;border-bottom:1px solid var(--borda);display:grid;grid-template-columns:92px 1fr;gap:8px}
+  ul.textos li:last-child{border-bottom:0}
+  ul.textos li span:first-child{color:var(--texto-2);font-size:.8rem;padding-top:2px}
+  ul.textos li span:last-child{font-weight:600}
+  .fotos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .fotos a{display:block;border-radius:12px;overflow:hidden;border:1px solid var(--borda);background:#fff}
+  .fotos img{width:96px;height:96px;object-fit:contain;display:block}
+  .vazio{text-align:center;color:var(--texto-2);padding:48px 16px}
 </style>
 </head>
 <body>
 <header>
-  <h1>Roteiros do dia</h1>
-  <p id="quando">Carregando…</p>
+  <div class="cab">
+    <div class="marca">Drop <b>Certo</b></div>
+    <h1>Roteiros de hoje</h1>
+    <p id="quando">Carregando…</p>
+    <nav class="fita" id="fita" aria-label="Produtos de hoje"></nav>
+  </div>
 </header>
 <main>
   <details class="como">
@@ -96,63 +157,76 @@ function botaoCopiar(rotulo, texto, classe) {
   return b;
 }
 
-function passo(titulo, dica, comando, extra) {
-  return el("div", { class: "passo" }, [
-    el("h3", { text: titulo }), el("p", { class: "dica", text: dica }),
-    el("pre", { text: comando }),
-    el("div", { class: "acoes", style: "padding:0" }, [botaoCopiar("Copiar comando", comando, "primario"), extra]),
-  ]);
-}
+function guardado() { try { return JSON.parse(localStorage.getItem("roteiros_feitos") || "{}"); } catch (_) { return {}; } }
+function guardar(d) { try { localStorage.setItem("roteiros_feitos", JSON.stringify(d)); } catch (_) { /* sem armazenamento: segue sem lembrar */ } }
 
-function cartao(p) {
+function passo(n, tipo, titulo, dica, corpo, ctx) {
+  const chave = ctx.id + ":" + n;
+  const marcar = el("input", { type: "checkbox", class: "marcar", "data-n": n, "aria-label": "Marcar passo " + n + " como feito" });
+  const li = el("li", { class: "passo " + (tipo || "") }, [marcar, el("div", { class: "corpo" }, [
+    el("h3", {}, [document.createTextNode(titulo), tipo ? el("span", { class: "tipo " + tipo, text: tipo === "video" ? "Vídeo" : "Imagem" }) : null]),
+    el("p", { class: "dica", text: dica }), ...corpo])]);
+  const aplicar = () => { li.classList.toggle("feito", marcar.checked); ctx.atualizar(); };
+  marcar.checked = !!guardado()[chave];
+  marcar.addEventListener("change", () => { const d = guardado(); if (marcar.checked) d[chave] = 1; else delete d[chave]; guardar(d); aplicar(); });
+  ctx.marcas.push(marcar); li.classList.toggle("feito", marcar.checked);
+  return li;
+}
+const comando = (texto, extra) => [el("pre", { text: texto, tabindex: "0" }), el("div", { class: "acoes" }, [botaoCopiar("Copiar comando", texto, "primario"), extra])];
+
+function cartao(p, indice) {
   const fotos = (p.fotos || []).filter((u) => /^https:\/\//.test(u));
-  const precoLinha = el("div", {}, [
-    el("span", { class: "preco", text: p.preco || "preço: confira no link" }),
-    p.de ? el("span", { class: "de", text: p.de }) : null,
-    el("span", { class: "selo", text: p.origem === "fila" ? "na fila" : "já postado" }),
-  ]);
-  const textos = [
-    "Abertura: " + (p.gancho || ""), "Nome: " + p.nome,
-    ...(p.beneficios || []).map((b) => "Benefício: " + b),
-    "Preço: " + (p.preco || "confira no link") + (p.de ? " (antes " + p.de + ")" : ""),
-    "Final: LINK NA BIO / NO CANAL", "Nas cenas de IA: Imagem ilustrativa gerada por IA",
-  ];
+  const barra = el("i");
+  const atalho = el("a", { href: "#p" + indice }, [
+    el("div", { class: "mini" }, [fotos[0] ? el("img", { src: fotos[0], alt: "", referrerpolicy: "no-referrer" }) : null, el("span", { class: "n", text: String(indice + 1) })]),
+    el("span", { class: "nome", text: p.nome })]);
+  const ctx = { id: p.id || p.link, marcas: [], atualizar: () => {
+    const feitos = ctx.marcas.filter((m) => m.checked).length;
+    barra.style.width = (100 * feitos / ctx.marcas.length) + "%";
+    atalho.classList.toggle("pronto", feitos === ctx.marcas.length);
+  } };
+  const textos = [["Abertura", p.gancho || ""], ["Nome", p.nome], ...(p.beneficios || []).map((b) => ["Benefício", b]),
+    ["Preço", (p.preco || "confira no link") + (p.de ? " (antes " + p.de + ")" : "")], ["Final", "LINK NA BIO / NO CANAL"],
+    ["Nas cenas de IA", "Imagem ilustrativa gerada por IA"]];
   const caixaFotos = el("div", { class: "fotos" }, fotos.map((u, i) =>
     el("a", { href: u, target: "_blank", rel: "noopener", "aria-label": "Abrir foto " + (i + 1) + " para salvar" },
       [el("img", { src: u, alt: "Foto " + (i + 1) + " do produto", loading: "lazy", referrerpolicy: "no-referrer" })])));
-  return el("article", { class: "produto" }, [
-    el("div", { class: "topo" }, [
-      fotos[0] ? el("img", { src: fotos[0], alt: "", referrerpolicy: "no-referrer" }) : null,
-      el("div", {}, [el("h2", { text: p.nome }), precoLinha]),
-    ]),
-    el("div", { class: "acoes" }, [botaoCopiar("Copiar link do produto", p.link)]),
-    el("div", { class: "passo" }, [
-      el("h3", { text: "1. Foto do produto" }),
-      el("p", { class: "dica", text: fotos.length ? "Toque na foto para abrir e salvar. Use a mais limpa (menos texto em cima) e anexe no Gemini."
-                                                    : "Sem foto aqui: salve a foto principal do anúncio e anexe no Gemini." }),
-      caixaFotos,
-    ]),
-    passo("2. Imagem 1 — produto em uso", "Com a foto anexada, cole este comando.", p.img1, botaoCopiar("Copiar conserto", CONSERTO)),
-    passo("3. Vídeo 1 — animar a Imagem 1", "Na mesma conversa, só depois de aprovar a imagem.", p.vid1),
-    passo("4. Imagem 2 — produto em destaque", "Anexe a foto do produto de novo.", p.img2, botaoCopiar("Copiar conserto", CONSERTO)),
-    passo("5. Vídeo 2 — animar a Imagem 2", "Na mesma conversa da Imagem 2.", p.vid2),
-    el("div", { class: "passo" }, [
-      el("h3", { text: "6. Textos para a edição" }),
-      el("p", { class: "dica", text: "Confira no anúncio se os benefícios são verdade e o preço no dia de postar." }),
-      el("ul", { class: "textos" }, textos.map((t) => el("li", { text: t }))),
-      botaoCopiar("Copiar textos", textos.join("\n")),
-    ]),
+  const conserto = () => botaoCopiar("Copiar conserto", CONSERTO);
+  const passos = el("ol", { class: "passos" }, [
+    passo(1, "", "Salve a foto do produto", fotos.length ? "Toque na foto para abrir e salvar. Use a mais limpa, com menos texto em cima, e anexe no Gemini."
+                                                           : "Sem foto aqui: salve a foto principal do anúncio e anexe no Gemini.", [caixaFotos], ctx),
+    passo(2, "imagem", "Produto em uso", "Conversa nova no Gemini, foto anexada, cole este comando.", comando(p.img1, conserto()), ctx),
+    passo(3, "video", "Anime a imagem do passo 2", "Na mesma conversa, só depois de aprovar a imagem.", comando(p.vid1), ctx),
+    passo(4, "imagem", "Produto em destaque", "Anexe a foto do produto de novo.", comando(p.img2, conserto()), ctx),
+    passo(5, "video", "Anime a imagem do passo 4", "Na mesma conversa do passo 4.", comando(p.vid2), ctx),
+    passo(6, "", "Monte e mande para o bot", "Ponha estes textos na edição (confira benefícios e preço no anúncio) e mande o vídeo ao bot com o link na legenda.", [
+      el("ul", { class: "textos" }, textos.map(([a, b]) => el("li", {}, [el("span", { text: a }), el("span", { text: b })]))),
+      el("div", { class: "acoes" }, [botaoCopiar("Copiar textos", textos.map(([a, b]) => a + ": " + b).join("\n"), "primario"), botaoCopiar("Copiar link do produto", p.link)]),
+    ], ctx),
   ]);
+  const ficha = el("article", { class: "produto", id: "p" + indice }, [
+    el("div", { class: "topo" }, [
+      el("div", { class: "capa" }, [fotos[0] ? el("img", { src: fotos[0], alt: "", referrerpolicy: "no-referrer" }) : null]),
+      el("div", {}, [el("h2", { text: p.nome }),
+        el("div", {}, [el("span", { class: "preco", text: p.preco || "Preço no link" }), p.de ? el("span", { class: "de", text: p.de }) : null]),
+        el("div", { class: "linha2" }, [el("span", { class: "selo" + (p.origem === "fila" ? " fila" : ""), text: p.origem === "fila" ? "Na fila para postar" : "Já postado pelo robô" })])]),
+    ]),
+    el("div", { class: "progresso", role: "presentation" }, [barra]),
+    passos,
+  ]);
+  ctx.atualizar();
+  return [ficha, atalho];
 }
 
 fetch(ARQUIVO, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((d) => {
   const lista = document.getElementById("lista"); lista.textContent = "";
   const itens = d.itens || [];
   const quando = d.gerado ? new Date(d.gerado) : null;
-  document.getElementById("quando").textContent = (quando ? "Atualizado em " + quando.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + " · " : "")
-    + itens.length + " produto(s) · para atualizar agora, mande /roteiros ao bot";
+  document.getElementById("quando").textContent = (quando ? "Atualizado em " + quando.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + ", " : "")
+    + itens.length + " produtos. Para atualizar agora, mande /roteiros ao bot.";
   if (!itens.length) { lista.appendChild(el("p", { class: "vazio", text: "Nenhum produto por enquanto. Mande /roteiros ao bot para montar a lista." })); return; }
-  itens.forEach((p) => lista.appendChild(cartao(p)));
+  const fita = document.getElementById("fita");
+  itens.forEach((p, i) => { const [ficha, atalho] = cartao(p, i); lista.appendChild(ficha); fita.appendChild(atalho); });
 }).catch(() => {
   document.getElementById("quando").textContent = "Ainda sem roteiros";
   const lista = document.getElementById("lista"); lista.textContent = "";
