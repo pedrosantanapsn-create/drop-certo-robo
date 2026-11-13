@@ -16,6 +16,7 @@ import re
 import os
 import shutil
 import sys
+import tempfile
 import time
 import traceback
 from datetime import datetime
@@ -82,6 +83,7 @@ Comandos:
 /cupons_lojas — o ajudante lê os cupons da Terabyte e do Mercado Livre e manda a lista para você
 /canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
+/roteiro link — kit para criar o vídeo à mão no Gemini (fotos + comandos prontos); depois mande o vídeo com o link
 /cenas_ia — cenas de IA nos vídeos (pago): situação e gasto · /cenas_ia agora = usar no próximo vídeo
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
@@ -357,6 +359,31 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         fotos.append(foto_enviada)
     fotos += baixar_imagens(produto, pasta)
 
+    # Você mandou o VÍDEO pronto (feito à mão): ele entra no lugar do vídeo do robô
+    video_enviado = None
+    arq_video = mensagem.get("video") or {}
+    if not arq_video and str((mensagem.get("document") or {}).get("mime_type", "")).startswith("video/"):
+        arq_video = mensagem["document"]
+    if arq_video.get("file_id"):
+        if int(arq_video.get("file_size") or 0) > 20 * 1024 * 1024:
+            status.append("• Seu vídeo passa de 20 MB (limite do Telegram para robôs): usei o meu. Exporte em 1080p "
+                          "com qualidade média e mande de novo se quiser")
+        else:
+            try:
+                bruto = telegram.baixar_arquivo(arq_video["file_id"], pasta / "video_bruto.mp4")
+                video_enviado = pasta / "video_enviado.mp4"
+                video._rodar(["ffmpeg", "-y", "-i", str(bruto), "-vf",
+                              "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
+                              "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                              "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(video_enviado)])
+                if not fotos:                    # sem foto do produto: usa um quadro do vídeo na arte e no site
+                    quadro = pasta / "foto_do_video.jpg"
+                    video._rodar(["ffmpeg", "-y", "-ss", "1", "-i", str(video_enviado), "-frames:v", "1", str(quadro)])
+                    fotos.append(quadro)
+            except Exception as erro:  # noqa: BLE001
+                video_enviado = None
+                status.append(f"• Não consegui usar o seu vídeo ({str(erro)[:100]}): usei o meu")
+
     # Você mandou foto/print: o robô lê o produto da imagem. Ela vale mais que a página
     # quando a página não trouxe preço (loja bloqueou, link curto caiu na vitrine etc.).
     pagina_confiavel = bool(produto.nome) and produto.preco is not None and not produto.nome_do_link
@@ -468,8 +495,14 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     try:
         if not vai_redes:
             raise RuntimeError("não precisa (oferta só para o site)")
-        caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
-        if com_voz:
+        if video_enviado:
+            caminho_video, com_voz = video_enviado, True
+            status.append("• Vídeo: usei o que você mandou ✅")
+        else:
+            caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
+        if video_enviado:
+            pass
+        elif com_voz:
             status.append(f"• Vídeo: pronto com narração ({video.voz_usada})"
                           + (f" + música \"{musicas.musica_usada}\"" if musicas.musica_usada else ""))
         else:
@@ -816,6 +849,8 @@ def tratar(mensagem: dict) -> None:
         n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
         telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
                               else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando in ("/roteiro", "/prompt", "/prompts"):
+        enviar_roteiro(chat_id, mensagem, texto)
     elif comando in ("/cenas_ia", "/cenasia", "/ia"):
         from robo import cenas_ia
         if "agora" in texto.lower().split():
@@ -977,6 +1012,65 @@ hora: 00:00
 Para usar cupom num produto, coloque a linha "cupom: CODIGO o que dá" embaixo do link:
 https://meli.la/abc123
 cupom: DROP10 10% off"""
+
+
+def enviar_roteiro(chat_id, mensagem: dict, texto: str) -> None:
+    """/roteiro link → fotos do produto + comandos prontos para criar o vídeo à mão no Gemini."""
+    from robo import roteiro
+    corpo = texto.split(None, 1)[1].strip() if len(texto.split()) > 1 else ""
+    if not fila.RE_LINK.search(corpo):          # sem link: usa a oferta de maior nota da fila
+        itens_fila = [i for i in fila.itens() if i.get("texto")]
+        if not itens_fila:
+            telegram.enviar_texto(chat_id, "Use assim: /roteiro link-do-produto\n(se o robô não conseguir ler a loja, "
+                                  "acrescente as linhas \"nome: …\" e \"preco: …\" e mande a foto junto)")
+            return
+        melhor = max(itens_fila, key=fila._nota_do_item)
+        corpo = melhor["texto"]
+        if melhor.get("foto_url") and "foto:" not in corpo:
+            corpo += f"\nfoto: {melhor['foto_url']}"
+    dados = ler_mensagem(corpo)
+    link = dados.get("link") or ""
+    produto = Produto(link=link, nome=dados.get("nome", ""), preco=dados.get("preco"),
+                      preco_antigo=dados.get("preco_antigo"))
+    imagens = [dados["imagem"]] if str(dados.get("imagem", "")).startswith("http") else []
+    try:
+        if shopee.ativo() and shopee.e_shopee(link):
+            oficial = shopee.ler(link)
+        elif mercadolivre.ativo() and mercadolivre.e_mercadolivre(link):
+            oficial = mercadolivre.ler(link)
+        else:
+            lido = buscar_produto(link)
+            oficial = {"nome": lido.nome if not lido.nome_do_link else "", "preco": lido.preco,
+                       "preco_antigo": lido.preco_antigo, "imagens": lido.imagens}
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Roteiro (leitura): {str(erro)[:150]}")
+        oficial = {}
+    produto.nome = produto.nome or str(oficial.get("nome") or "").strip()
+    produto.preco = produto.preco or oficial.get("preco")
+    produto.preco_antigo = produto.preco_antigo or oficial.get("preco_antigo")
+    imagens += [i for i in ([oficial.get("imagem")] + list(oficial.get("imagens") or [])) if i]
+    if not produto.nome:
+        telegram.enviar_texto(chat_id, "Não consegui ler o nome do produto nessa loja. Mande de novo assim:\n"
+                              "/roteiro link\nnome: nome do produto\npreco: 199,90\n(e a foto do produto junto, se tiver)")
+        return
+    produto.imagens = list(dict.fromkeys(imagens))[:3]
+    with tempfile.TemporaryDirectory() as tmp:
+        pasta = Path(tmp)
+        fotos = []
+        enviada = telegram.baixar_foto_da_mensagem(mensagem, pasta / "foto_enviada.jpg")
+        if enviada:
+            fotos.append(enviada)
+        fotos += baixar_imagens(produto, pasta)
+        for n, foto in enumerate(fotos[:3], 1):      # como ARQUIVO: sem a compressão do Telegram
+            try:
+                telegram.enviar_arquivo(chat_id, foto, f"📎 Foto {n} do produto — anexe no Gemini")
+            except Exception as erro:  # noqa: BLE001
+                print(f"::warning::Roteiro (foto): {str(erro)[:120]}")
+        if not fotos:
+            telegram.enviar_texto(chat_id, "⚠️ Não consegui pegar a foto do produto nessa loja. Salve a foto principal "
+                                  "do anúncio no celular e anexe ela no Gemini (sem a foto, a IA inventa o produto).")
+    for parte in roteiro.montar(produto):
+        telegram.enviar_html(chat_id, parte)
 
 
 def postar_cupom(chat_id, texto: str) -> None:
