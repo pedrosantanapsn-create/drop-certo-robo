@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Roteiros do dia — Drop Certo</title>
+<style>
+  :root{
+    --laranja:#F26A21; --azul:#0E3A5D; --teal:#1BA39C;
+    --fundo:#F5F7FA; --card:#fff; --texto:#1c2430; --texto-2:#5b6572; --borda:#e1e5eb;
+    --bloco:#f0f3f7; --ok:#12805c; --raio:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --fundo:#0d141c; --card:#16202b; --texto:#eef2f6; --texto-2:#9fb0c0; --borda:#263442; --bloco:#0f1821; --ok:#4fd1a5; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fundo);color:var(--texto);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{background:var(--azul);color:#fff;padding:18px 16px 16px}
+  header h1{margin:0;font-size:1.25rem;letter-spacing:.2px}
+  header p{margin:4px 0 0;font-size:.85rem;opacity:.85}
+  main{max-width:760px;margin:0 auto;padding:16px}
+  details.como{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);padding:12px 14px;margin-bottom:16px}
+  details.como summary{font-weight:700;cursor:pointer}
+  details.como ol{margin:10px 0 4px;padding-left:20px}
+  details.como li{margin:6px 0}
+  .aviso{font-size:.88rem;color:var(--texto-2);margin:8px 0 0}
+  .produto{background:var(--card);border:1px solid var(--borda);border-radius:var(--raio);margin-bottom:18px;overflow:hidden}
+  .topo{display:flex;gap:12px;padding:14px;align-items:flex-start}
+  .topo img{width:92px;height:92px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--borda);flex:none}
+  .topo h2{margin:0 0 4px;font-size:1rem;line-height:1.3}
+  .preco{font-weight:800;color:var(--laranja);font-variant-numeric:tabular-nums}
+  .de{color:var(--texto-2);text-decoration:line-through;font-weight:400;font-size:.9rem;margin-left:6px}
+  .selo{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bloco);color:var(--texto-2);margin-left:6px;vertical-align:middle}
+  .acoes{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 12px}
+  button,.botao{font:inherit;font-weight:700;font-size:.9rem;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:44px}
+  .primario{background:var(--laranja);color:#fff}
+  .secundario{background:var(--bloco);color:var(--texto);border:1px solid var(--borda)}
+  button.feito{background:var(--ok);color:#fff}
+  .passo{border-top:1px solid var(--borda);padding:12px 14px}
+  .passo h3{margin:0 0 2px;font-size:.95rem}
+  .passo .dica{margin:0 0 8px;font-size:.84rem;color:var(--texto-2)}
+  pre{margin:0 0 8px;background:var(--bloco);border:1px solid var(--borda);border-radius:10px;padding:10px;font:.8rem/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
+  ul.textos{margin:0 0 8px;padding-left:18px;font-size:.92rem}
+  ul.textos li{margin:3px 0}
+  .vazio{text-align:center;color:var(--texto-2);padding:40px 16px}
+  .fotos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .fotos a{display:block}
+  .fotos img{width:72px;height:72px;object-fit:contain;background:#fff;border:1px solid var(--borda);border-radius:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Roteiros do dia</h1>
+  <p id="quando">Carregando…</p>
+</header>
+<main>
+  <details class="como">
+    <summary>Como usar (ordem que economiza gerações)</summary>
+    <ol>
+      <li>Salve a <b>foto do produto</b> (toque nela e segure) e abra uma conversa <b>nova</b> no Gemini com a foto anexada.</li>
+      <li>Copie o comando da <b>Imagem 1</b> e cole. Produto saiu diferente? Use o botão <b>“Copiar conserto”</b> na mesma conversa em vez de gerar do zero.</li>
+      <li>Imagem aprovada: na <b>mesma conversa</b>, cole o comando do <b>Vídeo 1</b> (ele anima aquela imagem).</li>
+      <li>Repita com a <b>Imagem 2</b> e o <b>Vídeo 2</b>.</li>
+      <li>Junte os clipes, ponha os textos e mande o vídeo pronto (até 20 MB) para o bot com o <b>link do produto na legenda</b>.</li>
+    </ol>
+    <p class="aviso">Só gaste geração de vídeo em imagem já aprovada. Nunca peça texto dentro da imagem: a IA erra as letras. Nas cenas de IA, escreva pequeno: “Imagem ilustrativa gerada por IA”.</p>
+  </details>
+  <div id="lista"><p class="vazio">Carregando os produtos…</p></div>
+</main>
+
+<script src="config.js"></script>
+<script>
+const CONSERTO = "Keep everything in the image exactly the same, but fix the product so it matches the attached reference photo exactly: same shape, colors, proportions and details.";
+const cfg = window.LOJAML_CONFIG || {};
+const ARQUIVO = cfg.SUPABASE_URL + "/storage/v1/object/public/produtos/robo/roteiros.json?t=" + Date.now();
+const el = (tag, attrs, filhos) => {
+  const e = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => { if (k === "text") e.textContent = v; else if (k === "class") e.className = v; else e.setAttribute(k, v); });
+  (filhos || []).forEach((f) => f && e.appendChild(f));
+  return e;
+};
+
+function botaoCopiar(rotulo, texto, classe) {
+  const b = el("button", { class: classe || "secundario", type: "button", text: rotulo });
+  b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(texto); }
+    catch (_) {                                   // navegadores antigos / dentro do Telegram
+      const t = el("textarea"); t.value = texto; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); } catch (e) { /* sem cópia automática */ }
+      t.remove();
+    }
+    b.textContent = "Copiado ✓"; b.classList.add("feito");
+    setTimeout(() => { b.textContent = rotulo; b.classList.remove("feito"); }, 1800);
+  });
+  return b;
+}
+
+function passo(titulo, dica, comando, extra) {
+  return el("div", { class: "passo" }, [
+    el("h3", { text: titulo }), el("p", { class: "dica", text: dica }),
+    el("pre", { text: comando }),
+    el("div", { class: "acoes", style: "padding:0" }, [botaoCopiar("Copiar comando", comando, "primario"), extra]),
+  ]);
+}
+
+function cartao(p) {
+  const fotos = (p.fotos || []).filter((u) => /^https:\/\//.test(u));
+  const precoLinha = el("div", {}, [
+    el("span", { class: "preco", text: p.preco || "preço: confira no link" }),
+    p.de ? el("span", { class: "de", text: p.de }) : null,
+    el("span", { class: "selo", text: p.origem === "fila" ? "na fila" : "já postado" }),
+  ]);
+  const textos = [
+    "Abertura: " + (p.gancho || ""), "Nome: " + p.nome,
+    ...(p.beneficios || []).map((b) => "Benefício: " + b),
+    "Preço: " + (p.preco || "confira no link") + (p.de ? " (antes " + p.de + ")" : ""),
+    "Final: LINK NA BIO / NO CANAL", "Nas cenas de IA: Imagem ilustrativa gerada por IA",
+  ];
+  const caixaFotos = el("div", { class: "fotos" }, fotos.map((u, i) =>
+    el("a", { href: u, target: "_blank", rel: "noopener", "aria-label": "Abrir foto " + (i + 1) + " para salvar" },
+      [el("img", { src: u, alt: "Foto " + (i + 1) + " do produto", loading: "lazy", referrerpolicy: "no-referrer" })])));
+  return el("article", { class: "produto" }, [
+    el("div", { class: "topo" }, [
+      fotos[0] ? el("img", { src: fotos[0], alt: "", referrerpolicy: "no-referrer" }) : null,
+      el("div", {}, [el("h2", { text: p.nome }), precoLinha]),
+    ]),
+    el("div", { class: "acoes" }, [botaoCopiar("Copiar link do produto", p.link)]),
+    el("div", { class: "passo" }, [
+      el("h3", { text: "1. Foto do produto" }),
+      el("p", { class: "dica", text: fotos.length ? "Toque na foto para abrir e salvar. Use a mais limpa (menos texto em cima) e anexe no Gemini."
+                                                    : "Sem foto aqui: salve a foto principal do anúncio e anexe no Gemini." }),
+      caixaFotos,
+    ]),
+    passo("2. Imagem 1 — produto em uso", "Com a foto anexada, cole este comando.", p.img1, botaoCopiar("Copiar conserto", CONSERTO)),
+    passo("3. Vídeo 1 — animar a Imagem 1", "Na mesma conversa, só depois de aprovar a imagem.", p.vid1),
+    passo("4. Imagem 2 — produto em destaque", "Anexe a foto do produto de novo.", p.img2, botaoCopiar("Copiar conserto", CONSERTO)),
+    passo("5. Vídeo 2 — animar a Imagem 2", "Na mesma conversa da Imagem 2.", p.vid2),
+    el("div", { class: "passo" }, [
+      el("h3", { text: "6. Textos para a edição" }),
+      el("p", { class: "dica", text: "Confira no anúncio se os benefícios são verdade e o preço no dia de postar." }),
+      el("ul", { class: "textos" }, textos.map((t) => el("li", { text: t }))),
+      botaoCopiar("Copiar textos", textos.join("\n")),
+    ]),
+  ]);
+}
+
+fetch(ARQUIVO, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((d) => {
+  const lista = document.getElementById("lista"); lista.textContent = "";
+  const itens = d.itens || [];
+  const quando = d.gerado ? new Date(d.gerado) : null;
+  document.getElementById("quando").textContent = (quando ? "Atualizado em " + quando.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + " · " : "")
+    + itens.length + " produto(s) · para atualizar agora, mande /roteiros ao bot";
+  if (!itens.length) { lista.appendChild(el("p", { class: "vazio", text: "Nenhum produto por enquanto. Mande /roteiros ao bot para montar a lista." })); return; }
+  itens.forEach((p) => lista.appendChild(cartao(p)));
+}).catch(() => {
+  document.getElementById("quando").textContent = "Ainda sem roteiros";
+  const lista = document.getElementById("lista"); lista.textContent = "";
+  lista.appendChild(el("p", { class: "vazio", text: "A lista ainda não foi criada. Mande /roteiros ao bot do Telegram e recarregue esta página em 1 minuto." }));
+});
+</script>
+</body>
+</html>

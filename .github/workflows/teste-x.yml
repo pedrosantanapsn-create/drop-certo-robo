@@ -1,0 +1,30 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 Pillow
+      - run: |
+          python - > /tmp/s.txt 2>&1 <<'PY'
+          import requests
+          from robo import roteiros
+          try:
+              print("RESULTADO: gerados", roteiros.gerar())
+              d = requests.get(roteiros._url_arquivo(), params={"t": 1}, timeout=20)
+              j = d.json()
+              print("RESULTADO: arquivo publico", d.status_code, len(j["itens"]), "itens, gerado", j["gerado"])
+              for i in j["itens"][:6]:
+                  print("RESULTADO:", i["origem"], "|", i["nome"][:50], "|", i["preco"], "| fotos", len(i["fotos"]), "|", i["img1"][70:170].replace("\n", " "))
+          except Exception as e: print("RESULTADO: ERRO", repr(e)[:300])
+          PY
+          grep "RESULTADO\|warning" /tmp/s.txt | head -9 | while read -r l; do echo "::warning::${l:0:600}"; done

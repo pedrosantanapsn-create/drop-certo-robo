@@ -160,6 +160,11 @@ HORARIOS_PICO = _env("HORARIOS_PICO", "11:30-13:30,19:00-23:00")
 MINUTOS_FORA_PICO = int(_env("MINUTOS_FORA_PICO", "30"))
 MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "20"))
 
+# --- Página de roteiros (kits para criar o vídeo à mão no Gemini) ---
+ROTEIROS = _env_bool("ROTEIROS", True)
+ROTEIROS_QUANTOS = int(_env("ROTEIROS_QUANTOS", "6") or 6)     # produtos na página
+ROTEIROS_HORAS = float(_env("ROTEIROS_HORAS", "3") or 3)       # de quantas em quantas horas atualiza
+
 # --- Cenas de IA no vídeo (PAGO: precisa de cobrança ativada na conta do Google AI Studio) ---
 CENAS_IA = _env_bool("CENAS_IA", True)
 # Chave SEPARADA (outro projeto do Google, com cobrança): assim os textos do robô continuam na chave grátis

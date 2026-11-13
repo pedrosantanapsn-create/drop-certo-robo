@@ -388,6 +388,23 @@ def retirar_proximo() -> dict | None:
     return item
 
 
+def remover_link(link: str) -> int:
+    """Tira da fila a oferta desse link (ex.: você postou o produto à mão, com o seu vídeo)."""
+    chave = chave_link(link)
+    if not chave:
+        return 0
+    lista = itens()
+    ficam = [i for i in lista if chave_link(i.get("texto", "")) != chave]
+    for item in lista:
+        if item not in ficam and "_chave" in item:
+            supabase.apagar_config(item["_chave"])
+    if len(ficam) != len(lista):
+        _salvar(ficam)
+        if not ficam:
+            _marcar_proxima(None)
+    return len(lista) - len(ficam)
+
+
 def limpar() -> int:
     total = len(itens())
     for item in _linhas_foto():

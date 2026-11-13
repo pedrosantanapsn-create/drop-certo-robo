@@ -22,7 +22,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, cuponslojas, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, cuponslojas, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, roteiros, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -83,6 +83,7 @@ Comandos:
 /cupons_lojas — o ajudante lê os cupons da Terabyte e do Mercado Livre e manda a lista para você
 /canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
+/roteiros — atualiza e manda o link da PÁGINA de roteiros (melhores ofertas do dia, com tudo para copiar)
 /roteiro link — kit para criar o vídeo à mão no Gemini (fotos + comandos prontos); depois mande o vídeo com o link
 /cenas_ia — cenas de IA nos vídeos (pago): situação e gasto · /cenas_ia agora = usar no próximo vídeo
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
@@ -498,6 +499,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         if video_enviado:
             caminho_video, com_voz = video_enviado, True
             status.append("• Vídeo: usei o que você mandou ✅")
+            try:                 # se esse produto ainda estava na fila, sai dela (senão postaria duas vezes)
+                if fila.remover_link(dados.get("link") or ""):
+                    status.append("• Tirei esse produto da fila (você já postou com o seu vídeo)")
+            except Exception as erro:  # noqa: BLE001
+                print("Fila (remover):", erro, file=sys.stderr)
         else:
             caminho_video, com_voz = video.gerar_video(produto, textos, fotos, pasta)
         if video_enviado:
@@ -849,6 +855,14 @@ def tratar(mensagem: dict) -> None:
         n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
         telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
                               else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando in ("/roteiros", "/pagina", "/página"):
+        try:
+            n = roteiros.gerar()
+            telegram.enviar_texto(chat_id, f"📄 Página de roteiros atualizada: {n} produto(s).\n{roteiros.url_pagina()}\n\n"
+                                  "Cada produto tem a foto, os comandos para copiar e os textos da edição. Depois é só me "
+                                  "mandar o vídeo pronto com o link na legenda.")
+        except Exception as erro:  # noqa: BLE001
+            telegram.enviar_texto(chat_id, f"❌ Roteiros: {str(erro)[:200]}\n{roteiros.url_pagina()}")
     elif comando in ("/roteiro", "/prompt", "/prompts"):
         enviar_roteiro(chat_id, mensagem, texto)
     elif comando in ("/cenas_ia", "/cenasia", "/ia"):
@@ -1362,6 +1376,12 @@ def main() -> None:
     if args.canais:
         n = canais.rodar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
         print(f"Canais-fonte: {n} oferta(s) nova(s).")
+        try:
+            feitos = roteiros.se_for_hora()
+            if feitos:
+                print(f"Página de roteiros: {feitos} produto(s).")
+        except Exception as erro:  # noqa: BLE001
+            print("Roteiros:", erro, file=sys.stderr)
         try:
             cuponslojas.pedir_se_for_hora()
         except Exception as erro:  # noqa: BLE001

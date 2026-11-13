@@ -71,11 +71,9 @@ def _detalhes(nome: str, foto=None) -> dict:
         return dict(PADRAO)
 
 
-def montar(p: Produto, foto=None) -> list[str]:
-    """Mensagens (HTML) do kit. Os comandos vêm em blocos: toque para copiar."""
+def kit(p: Produto, foto=None) -> dict:
+    """Os comandos e textos do produto, em dados: {img1, vid1, img2, vid2, gancho, beneficios}."""
     d = _detalhes(p.nome, foto)
-    nome = escape(p.nome[:90])
-    bloco = lambda t: f"<pre>{escape(t)}</pre>"  # noqa: E731
 
     img1 = (f"Create a photorealistic vertical 9:16 lifestyle advertising photo. Product: {d['produto_en']}. {FIEL} {SO_PRODUTO} "
             f"Scene: {d['cena_uso_en']}. Soft natural light, shallow depth of field, warm tones, shot on a 50mm lens, "
@@ -92,6 +90,16 @@ def montar(p: Produto, foto=None) -> list[str]:
             f"stays perfectly rigid and identical to the image, no morphing, no new parts. {SEM_TEXTO} "
             "Audio: subtle cinematic whoosh only, no speech, no music.")
 
+    return {"img1": img1, "vid1": vid1, "img2": img2, "vid2": vid2, "gancho": str(d["gancho"]),
+            "beneficios": [str(x) for x in d["beneficios"]]}
+
+
+def montar(p: Produto, foto=None) -> list[str]:
+    """Mensagens (HTML) do kit. Os comandos vêm em blocos: toque para copiar."""
+    d = kit(p, foto)
+    img1, vid1, img2, vid2 = d["img1"], d["vid1"], d["img2"], d["vid2"]
+    nome = escape(p.nome[:90])
+    bloco = lambda t: f"<pre>{escape(t)}</pre>"  # noqa: E731
     preco = formatar_preco(p.preco) if p.preco else "confira no link"
     de = f" (antes {formatar_preco(p.preco_antigo)})" if p.preco_antigo and p.preco and p.preco_antigo > p.preco else ""
     return [
