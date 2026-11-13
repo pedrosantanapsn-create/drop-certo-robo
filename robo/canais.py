@@ -8,7 +8,8 @@ trocado pelo seu na hora do post (Amazon, Shopee, KaBuM, Terabyte) ou pelo ajuda
 Filtros: só tecnologia/peças de PC ou marca conhecida · o mesmo produto só volta depois de
 CANAIS_REPETIR_HORAS (e nunca enquanto está na fila) · no máximo CANAIS_MAX_DIA ofertas por dia ·
 não enche a fila além de CANAIS_FILA_MAX.
-Posts só de cupom não vão para a fila: o robô avisa você para divulgar com /cupom.
+Posts só de cupom não vão para a fila: o robô publica o cupom direto no canal (código + fatos + o SEU link;
+CANAIS_CUPONS_AUTO=false volta a só avisar). O que ele não entende, manda para você divulgar com /cupom.
 
 Comandos: /canais · /canal_add @nome · /canal_tirar @nome
 """
@@ -206,6 +207,130 @@ def _e_so_cupom(texto: str) -> bool:
     return bool(re.search(r"cupo[mn]", texto, re.I)) and not re.search(r"R\$\s*\d", texto)
 
 
+# ---------------------------------------------------------------------------
+# Cupom visto em canal → post de cupom no SEU canal, com o SEU link
+# ---------------------------------------------------------------------------
+CHAVE_CUPONS = "canais_cupons"          # {"feitos": ["LOJA:CODIGO", …], "dia": "yymmdd", "n": quantos hoje}
+RE_CODIGO = re.compile(r"(?i:cupo[mn])\s*:?\s*([A-Z0-9][A-Z0-9_-]{3,19})(?![a-zà-ú])")
+RE_NAO_CODIGO = re.compile(r"^(KABUM|AMAZON|SHOPEE|TERABYTE|MERCADO|LIVRE|CUPOM|CUPONS|PARA|PRODUTOS|SELECIONADOS|"
+                           r"DESCONTO|OFERTA|OFERTAS|NOVO|NOVOS|LIBERADO|ATIVO|RESGATE|AQUI)$")
+LOJAS_CUPOM = (("Amazon", r"amazon\.com\.br|amzn\.to|a\.co/|link\.amazon"), ("Shopee", r"shopee\.|shp\.ee"),
+               ("KaBuM", r"kabum\.com\.br"), ("Terabyte", r"terabyteshop\.com\.br"),
+               ("Mercado Livre", r"meli\.la|mercadoli[bv]re\.com"))
+
+
+def _ate_a_loja(link: str) -> str:
+    """Segue encurtadores (e links da Awin de outra pessoa) até o endereço da loja."""
+    from . import awin
+    url = link
+    for _ in range(6):
+        if awin.e_link_awin(url):
+            return awin.destino_se_for_de_outro(url) or url
+        if RE_LOJAS.search(url) and not re.search(r"amzn\.to|a\.co/|link\.amazon|shp\.ee|s\.shopee|meli\.la", url, re.I):
+            return url
+        try:
+            r = requests.get(url, allow_redirects=False, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        except requests.RequestException:
+            return url
+        proximo = r.headers.get("Location")
+        if not proximo:
+            return url
+        url = requests.compat.urljoin(url, proximo)
+    return url
+
+
+def _meu_link(link: str) -> tuple[str, str]:
+    """(nome da loja, SEU link de afiliada). Link vazio = não consegui gerar o seu (posta só o código).
+    Loja vazia = loja em que você não é afiliada (não posta)."""
+    from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+    from . import awin, shopee
+    destino = _ate_a_loja(link)
+    loja = next((nome for nome, padrao in LOJAS_CUPOM if re.search(padrao, destino, re.I)), "")
+    if not loja:
+        return "", ""
+    try:
+        partes = urlparse(destino)
+        params = dict(parse_qsl(partes.query))
+        if loja == "Amazon" and config.AMAZON_TAG:
+            params = {k: v for k, v in params.items() if k not in ("tag", "linkCode", "linkId", "ref_", "ascsubtag")}
+            params["tag"] = config.AMAZON_TAG
+            return loja, urlunparse(partes._replace(query=urlencode(params)))
+        if loja == "Terabyte":
+            params["p"], params["tag"] = config.TERABYTE_PARCEIRO, config.TERABYTE_TAG
+            return loja, urlunparse(partes._replace(query=urlencode(params)))
+        if loja == "Shopee" and shopee.ativo():
+            return loja, shopee.link_afiliado(destino, "cupom")
+        if loja == "KaBuM" and awin.ativo():
+            return loja, awin.converter(destino)[1]
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Cupom ({loja}): {str(erro)[:120]}")
+    return loja, ""            # Mercado Livre (só o meli.la vale) ou falha: sai sem link, só o código
+
+
+def _descricao_cupom(texto: str) -> str:
+    """Só os FATOS do cupom (valor, mínimo, onde vale) — nunca o texto do outro canal."""
+    partes = []
+    m = re.search(r"(\d{1,2})\s?%", texto)
+    v = re.search(r"R\$\s?(\d[\d.]*(?:,\d{2})?)\s*(?:de\s+)?(?:off|desconto)", texto, re.I)
+    if m:
+        partes.append(f"{m.group(1)}% OFF")
+    elif v:
+        partes.append(f"R$ {v.group(1)} OFF")
+    minimo = re.search(r"(?:acima de|a partir de|m[ií]nim\w*(?: de)?)\s*R\$\s?(\d[\d.]*(?:,\d{2})?)", texto, re.I)
+    if minimo:
+        partes.append(f"em compras acima de R$ {minimo.group(1)}")
+    if re.search(r"selecionad", texto, re.I):
+        partes.append("em produtos selecionados")
+    return " ".join(partes)
+
+
+def _postar_cupons(canal: str, texto: str, avisar) -> bool:
+    """Posta no canal os cupons do post. False = não deu para postar sozinho (avisa a dona do jeito antigo)."""
+    from . import cupons as post_cupom, telegram
+    if not (config.CANAIS_CUPONS_AUTO and config.CANAL_ID):
+        return False
+    codigos = [c for c in dict.fromkeys(RE_CODIGO.findall(texto)) if not RE_NAO_CODIGO.match(c)
+               and re.search(r"[A-Z]", c)][:3]
+    links = [l.rstrip(").,;!?") for l in fila.RE_LINK.findall(texto)]
+    links = [l for l in links if not copiar.RE_IGNORAR_LINK.search(l)]
+    if not codigos:
+        return False
+    loja, meu = _meu_link(links[0]) if links else ("", "")
+    if not loja:           # sem link: tenta achar a loja pelo texto
+        loja = next((nome for nome, _ in LOJAS_CUPOM if nome.lower() in texto.lower()), "")
+    if not loja:
+        return False
+    estado = _json(CHAVE_CUPONS, {})
+    hoje = datetime.now(fila.FUSO).strftime("%y%m%d")
+    if estado.get("dia") != hoje:
+        estado["dia"], estado["n"] = hoje, 0
+    feitos = list(estado.get("feitos") or [])
+    descricao = _descricao_cupom(texto)
+    for codigo in codigos:
+        marca = f"{loja}:{codigo}"
+        if marca in feitos:
+            continue
+        if estado["n"] >= config.CANAIS_CUPONS_DIA:
+            break
+        pedido = f"/cupom {codigo} {descricao}".strip() + f"\nloja: {loja}" + (f"\n{meu}" if meu else "")
+        if not meu:
+            pedido += (f"\n1. Abra a loja ({loja}) e adicione os produtos ao carrinho"
+                       "\n2. Na finalização, toque em \"Cupom\" e cole o código\n3. Confira o desconto antes de pagar")
+        post = post_cupom.montar(pedido)
+        if not post:
+            continue
+        telegram.enviar_html(config.CANAL_ID, post["html"])
+        feitos.append(marca)
+        estado["n"] += 1
+        avisar(f"🎟️ Cupom {codigo} ({loja}) publicado no canal — visto em @{canal}."
+               + (" Link: o seu de afiliada." if meu else " Saiu SEM link (não consegui gerar o seu para essa loja).")
+               + "\nNão conferi se o cupom ainda vale: se não valer, apague o post do canal.")
+    estado["feitos"] = feitos[-300:]
+    supabase.gravar_config(CHAVE_CUPONS, json.dumps(estado))
+    return True
+
+
 def _chave_produto(nome: str) -> str:
     return "".join(sorted(set(re.findall(r"[a-z0-9]{3,}", nome.lower()))))[:60]
 
@@ -245,8 +370,14 @@ def rodar(avisar) -> int:
             if post["id"] <= ultimo:
                 continue
             estado[canal] = post["id"]
-            if _e_so_cupom(post["texto"]) and len(cupons) < 3:
-                cupons.append(f"@{canal}:\n{post['texto'].strip()[:500]}")
+            if _e_so_cupom(post["texto"]):
+                try:
+                    postado = _postar_cupons(canal, post["texto"], avisar)
+                except Exception as erro:  # noqa: BLE001
+                    print(f"::warning::Cupom de @{canal}: {str(erro)[:150]}")
+                    postado = False
+                if not postado and len(cupons) < 3:
+                    cupons.append(f"@{canal}:\n{post['texto'].strip()[:500]}")
                 continue
             for oferta in _ofertas_do_post(post):
                 if dia["n"] >= config.CANAIS_MAX_DIA or na_fila + len(novas) >= config.CANAIS_FILA_MAX:

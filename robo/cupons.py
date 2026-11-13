@@ -91,8 +91,9 @@ def montar(texto: str) -> dict | None:
         url = rastreio.link(link, None, f"Cupom {codigo}")
         partes += ["", f'🛒 <a href="{escape(url)}">Ir para a {escape(loja or "loja")}</a>']
     partes += ["", "<i>Toque no código para copiar. Regras da loja; o cupom pode acabar antes do prazo.</i>",
-               "<i>(ANÚNCIO) #publi · link de afiliado"
-               + (f"\n{escape(amazon.AVISO)}" if link and amazon.e_amazon(link) else "") + "</i>"]
+               ("<i>(ANÚNCIO) #publi · link de afiliado"
+                + (f"\n{escape(amazon.AVISO)}" if amazon.e_amazon(link) else "") + "</i>") if link
+               else "<i>Divulgação de cupom, sem link de afiliado.</i>"]
     return {"html": "\n".join(partes), "codigo": codigo, "quando": quando, "tem_validade": bool(validade)}
 
 

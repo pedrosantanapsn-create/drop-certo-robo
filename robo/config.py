@@ -125,6 +125,8 @@ AJUDANTE = _env_bool("AJUDANTE", True)
 CANAIS_MAX_DIA = int(_env("CANAIS_MAX_DIA", "30") or 30)      # ofertas por dia vindas dos canais
 CANAIS_FILA_MAX = int(_env("CANAIS_FILA_MAX", "20") or 20)    # não pega mais se a fila já tem isso
 CANAIS_MINUTOS = int(_env("CANAIS_MINUTOS", "10") or 10)      # de quanto em quanto tempo olha os canais
+CANAIS_CUPONS_AUTO = _env_bool("CANAIS_CUPONS_AUTO", True)   # cupom visto em canal-fonte vai direto para o canal
+CANAIS_CUPONS_DIA = int(_env("CANAIS_CUPONS_DIA", "8") or 8)  # no máximo esses cupons automáticos por dia
 CANAIS_REPETIR_HORAS = float(_env("CANAIS_REPETIR_HORAS", "6") or 6)   # o mesmo produto pode voltar depois dessas horas
 CUPONS_LOJAS = _env_bool("CUPONS_LOJAS", True)                # ajudante lê as páginas de cupons (Terabyte e ML) 1x por dia
 # Terabyte e Amazon na fila automática: o ajudante faz 1 busca por loja e o robô escolhe as melhores
