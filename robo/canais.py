@@ -128,6 +128,28 @@ def ler_canal(canal: str) -> list[dict]:
     return sorted(posts, key=lambda p: p["id"])
 
 
+# Lojas em que a dona é afiliada (o robô sabe trocar o link pelo dela)
+RE_LOJAS = re.compile(r"shopee\.|shp\.ee|meli\.la|mercadoli[bv]re\.com|amazon\.com\.br|amzn\.to|a\.co/|"
+                      r"kabum\.com\.br|terabyteshop\.com\.br|awin1\.com|tidd\.ly", re.I)
+
+
+def _link_de_loja_afiliada(link: str) -> str:
+    """O link (abrindo encurtadores como aoferta.net) se for de loja em que ela é afiliada; senão ''."""
+    url = link
+    for _ in range(5):
+        if RE_LOJAS.search(url):
+            return link
+        try:
+            r = requests.get(url, allow_redirects=False, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        except requests.RequestException:
+            return ""
+        proximo = r.headers.get("Location")
+        if not proximo:
+            return ""
+        url = requests.compat.urljoin(url, proximo)
+    return link if RE_LOJAS.search(url) else ""
+
+
 def _campo(oferta: str, nome: str) -> str:
     achado = re.search(rf"^{nome}:\s*(.+)$", oferta, re.M)
     return achado.group(1).strip() if achado else ""
@@ -192,8 +214,10 @@ def rodar(avisar) -> int:
                 chave = _chave_produto(_campo(oferta, "nome"))
                 if chave in vistos:
                     continue
-                vistos.append(chave)
                 link = oferta.splitlines()[0]
+                if not _link_de_loja_afiliada(link):
+                    continue                              # loja em que você não é afiliada: não dá comissão
+                vistos.append(chave)
                 try:       # Mercado Livre de outro canal: o ajudante gera o SEU meli.la e a oferta entra depois
                     if mercadolivre.e_mercadolivre(link) and not mercadolivre.link_meu(link)[0]:
                         if not (ajudante.ativo() and ajudante.usado_recentemente(7)):
