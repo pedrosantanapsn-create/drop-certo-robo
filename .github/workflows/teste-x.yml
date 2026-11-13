@@ -1,0 +1,34 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 Pillow
+      - run: |
+          python - > /tmp/s.txt 2>&1 <<'PY'
+          import re, requests
+          from robo import canais, amazon
+          asins = []
+          for c in ["PoisonPromos", "TJGOFERTASs", "ofertasgamer_oficial"]:
+              posts = canais.ler_canal(c)
+              tot = com = amz = amzf = 0
+              for p in posts:
+                  for o in canais._ofertas_do_post(p):
+                      tot += 1; com += "\nfoto:" in o
+                      l = o.splitlines()[0]
+                      if amazon.e_amazon(l) or "aoferta" in l:
+                          amz += 1; amzf += "\nfoto:" in o
+                          if len(asins) < 4:
+                              try: asins.append(amazon.resolver(l)[1] if hasattr(amazon, "resolver") else None)
+                              except Exception as e: asins.append(None)
+              print(f"RESULTADO: {c}: {tot} ofertas, {amz} Amazon, {amzf} Amazon com foto do post, {sum(1 for p in posts if p['foto'])}/{len(posts)} posts com foto")
+          print("RESULTADO: funcoes amazon:", [n for n in dir(amazon) if not n.startswith("__")][:20])
+          for a in [x for x in asins if x] + ["B0CHX1W1XY", "B08N5WRWNW"]:
+              r = requests.get(f"https://images-na.ssl-images-amazon.com/images/P/{a}.01._SCLZZZZZZZ_.jpg", timeout=20)
+              print("RESULTADO: imagem", a, r.status_code, len(r.content), r.headers.get("content-type"))
+          PY
+          grep RESULTADO /tmp/s.txt | head -9 | while read -r l; do echo "::warning::${l:0:900}"; done; grep -v RESULTADO /tmp/s.txt | tail -3 | while read -r l; do echo "::warning::ERR ${l:0:300}"; done

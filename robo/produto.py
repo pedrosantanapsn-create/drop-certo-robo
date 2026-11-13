@@ -389,6 +389,8 @@ def baixar_imagens(produto: Produto, pasta) -> list:
         try:
             r = requests.get(url, headers=CABECALHOS, timeout=25)
             r.raise_for_status()
+            if len(r.content) < 2500:          # imagem "vazia" (1 pixel) que algumas lojas devolvem
+                continue
             caminho = pasta / f"foto_{i}.jpg"
             caminho.write_bytes(r.content)
             caminhos.append(caminho)

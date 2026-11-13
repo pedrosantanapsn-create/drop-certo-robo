@@ -121,10 +121,14 @@ def ler_canal(canal: str) -> list[dict]:
                 a.replace_with(f"{a.get_text()} {href} ")
         texto = corpo.get_text()
         foto = ""
-        capa = bloco.select_one(".tgme_widget_message_photo_wrap")
-        if capa and capa.get("style"):
-            achado = re.search(r"url\('([^']+)'\)", capa["style"])
-            foto = achado.group(1) if achado else ""
+        # foto do post; se não tiver, a capa do vídeo ou a imagem da prévia do link
+        for seletor in (".tgme_widget_message_photo_wrap", ".tgme_widget_message_video_thumb",
+                        ".link_preview_image", ".link_preview_right_image"):
+            capa = bloco.select_one(seletor)
+            achado = re.search(r"url\('([^']+)'\)", capa.get("style") or "") if capa else None
+            if achado:
+                foto = achado.group(1)
+                break
         posts.append({"id": ident, "texto": texto, "foto": foto})
     return sorted(posts, key=lambda p: p["id"])
 
@@ -164,7 +168,9 @@ def _ofertas_do_post(post: dict) -> list[str]:
         if not nome or not (RE_NICHO.search(nome) or marcas.conhecida(nome)):
             continue
         link = oferta.splitlines()[0]
-        if re.search(r"amazon\.|amzn\.|a\.co/|aoferta|terabyteshop", link, re.I) and post.get("foto") \
+        # Shopee e Mercado Livre dão a foto pela API; nas outras (Amazon, Terabyte, encurtadores como
+        # link.amazon…) o robô não consegue fotografar sozinho: leva a foto do post
+        if not re.search(r"shopee\.|shp\.ee|meli\.la|mercadoli[bv]re", link, re.I) and post.get("foto") \
                 and "\nfoto:" not in oferta:
             oferta += f"\nfoto: {post['foto']}"       # lojas que o robô não consegue fotografar sozinho
         boas.append(oferta)

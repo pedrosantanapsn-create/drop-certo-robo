@@ -135,6 +135,7 @@ PALAVRAS_TERABYTE = _env("PALAVRAS_TERABYTE", "ssd,memoria ram,placa de video,pr
 PALAVRAS_AMAZON = _env("PALAVRAS_AMAZON", "ssd,memoria ram ddr4,placa de video,processador ryzen,monitor gamer,"
                        "headset gamer,teclado mecanico,mouse gamer,webcam,roteador wifi 6")
 FILA_AUTO_ML_AJUDANTE = int(_env("FILA_AUTO_ML_AJUDANTE", "3") or 3)   # ML na fila automática, só via ajudante
+ML_NOS_RANKINGS = False   # Top 5 e custo-benefício sem Mercado Livre (lá o robô não tem link com comissão)
 FILA_AUTO_ML = 0      # Mercado Livre fora da fila automática (pedido em 09/11/2026); /ofertas_ml continua
 
 # --- Ofertas sugeridas (todo dia às 10h) -------------------------------

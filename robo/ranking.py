@@ -149,7 +149,7 @@ def buscar_produtos(palavra: str, teto: float | None, quantos: int = 5) -> list[
             c["link"] = shopee.link_afiliado(str(c["link"]), "dropcerto_top5")
         except Exception:  # noqa: BLE001
             pass
-    if len(escolhidos) < quantos and mercadolivre.ativo():
+    if len(escolhidos) < quantos and mercadolivre.ativo() and config.ML_NOS_RANKINGS:
         try:
             for n in sugestoes.buscar_ml([palavra], quantas=quantos * 2):
                 if teto and n["preco"] > teto:
@@ -286,7 +286,7 @@ def buscar_custo(palavra: str, teto: float | None, requisitos: list[str], quanto
                     candidatos.append({"nome": nome, "preco": preco, "nota": nota, "vendas": vendas, "ficha": nome,
                                        "link": n.get("productLink") or n.get("offerLink"),
                                        "imagem": n.get("imageUrl"), "loja": "Shopee"})
-    if mercadolivre.ativo():
+    if mercadolivre.ativo() and config.ML_NOS_RANKINGS:
         try:
             dominio = (mercadolivre._get("/sites/MLB/domain_discovery/search", q=busca, limit=1) or [{}])[0]
             ranking_ml = (mercadolivre._get(f"/highlights/MLB/category/{dominio['category_id']}").get("content")

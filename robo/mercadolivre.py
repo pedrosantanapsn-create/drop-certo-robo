@@ -230,11 +230,10 @@ def ler(link: str) -> dict:
 
 
 def link_afiliado(produto_id: str) -> str:
-    """SEU link de afiliada para um produto de catálogo (mesmos códigos dos seus meli.la)."""
-    base = f"https://www.mercadolivre.com.br/p/{produto_id}"
-    if config.ML_MATT_WORD and config.ML_MATT_TOOL:
-        return f"{base}?matt_word={config.ML_MATT_WORD}&matt_tool={config.ML_MATT_TOOL}"
-    return base
+    """Endereço NORMAL do produto de catálogo. O robô não monta mais link "de afiliada" (matt_word
+    direto não conta comissão — pedido em 13/11/2026): o único link que vale é o meli.la, que o
+    ajudante gera na conta da dona quando a oferta vai para a fila."""
+    return f"https://www.mercadolivre.com.br/p/{produto_id}"
 
 
 # ---------------------------------------------------------------------------

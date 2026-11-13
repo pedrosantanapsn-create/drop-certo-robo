@@ -342,6 +342,14 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             produto.bloqueado = False
             status.append("• Dados lidos da página da loja pelo Google/Gemini ✅ (confira o preço)")
 
+    # Amazon: tenta a imagem pública do produto pelo código (ASIN)
+    if amazon.e_amazon(produto.link):
+        asin = amazon.RE_ASIN.search(produto.link)
+        if asin:
+            # vem primeiro: é a foto oficial do produto (a do post do outro canal pode ter a marca dele)
+            produto.imagens = [f"https://images-na.ssl-images-amazon.com/images/P/{asin.group(1)}.01._SCLZZZZZZZ_.jpg",
+                               *produto.imagens][:4]
+
     fotos: list[Path] = []
     foto_enviada = telegram.baixar_foto_da_mensagem(mensagem, pasta / "foto_enviada.jpg")
     if foto_enviada:

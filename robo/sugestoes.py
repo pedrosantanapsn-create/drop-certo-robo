@@ -506,11 +506,12 @@ def mensagem_ml(produtos: list[dict], html: bool = False) -> str:
             link,
             "",
         ]
-    afiliado = bool(config.ML_MATT_WORD and config.ML_MATT_TOOL)
-    if afiliado:
+    from . import ajudante
+    if ajudante.ativo() and ajudante.usado_recentemente(7):
         _guardar("M", [n["link"] for n in produtos])
-        linhas += ["➕ Pôr na fila: /add M1 M4  ·  todos: /add ml  ·  ou copie a lista abaixo",
-                   "(os links já levam o seu código de afiliada)",
+        linhas += ["➕ Pôr na fila: /add M1 M4  ·  todos: /add ml",
+                   "🧩 Estes são os links NORMAIS do produto: quando você põe na fila, o ajudante (Edge) gera o",
+                   "SEU meli.la e só então a oferta entra. Sem o meli.la não há comissão.",
                    "ℹ️ Preço do vendedor principal agora: pode mudar até o post sair."]
     else:
         linhas += ["👉 Para postar: abra o link, gere o SEU link de afiliado (meli.la) na barra",
