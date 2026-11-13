@@ -131,6 +131,13 @@ jobs:
           AINDAVALE=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.aindavale_proximo&select=valor" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          # Canais-fonte: hora de olhar os canais públicos do Telegram (rodada leve, sem vídeo)
+          CANAIS=$(curl -s "${SUPABASE_URL}/rest/v1/config?chave=eq.canais_proximo&select=valor" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            | grep -o '"valor":"[0-9]*"' | grep -o '[0-9]\+' || true)
+          if [ -n "$CANAIS" ] && [ "$(date +%s)" -ge "$CANAIS" ]; then
+            echo "canais=sim" >> "$GITHUB_OUTPUT"
+          fi
           # Ajudante do PC: links meli.la prontos (ou erros) esperando para entrar na fila
           AJUDANTE=$(curl -s "${SUPABASE_URL}/rest/v1/ajudante_pedidos?status=in.(pronto,erro)&loja=neq._sistema&select=id&limit=1" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
@@ -196,10 +203,10 @@ jobs:
           fi
 
       - uses: actions/checkout@v6
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' || steps.checar.outputs.canais == 'sim'
 
       - uses: actions/setup-python@v6
-        if: steps.checar.outputs.tem == 'sim'
+        if: steps.checar.outputs.tem == 'sim' || steps.checar.outputs.canais == 'sim'
         with:
           python-version: "3.12"
           cache: pip
@@ -207,6 +214,13 @@ jobs:
       # Resposta rápida: comandos e listas de links não precisam de vídeo nem de voz. O robô responde
       # só com o básico instalado (poucos segundos). Se a mensagem precisar de arte/vídeo, ele manda o
       # "⏳ Recebi!" e pede a rodada completa (código de saída 10).
+      - name: Ler canais-fonte
+        if: steps.checar.outputs.canais == 'sim'
+        continue-on-error: true
+        run: |
+          pip install -q requests beautifulsoup4 Pillow
+          python main.py --canais
+
       - name: Resposta rápida
         id: rapida
         if: steps.checar.outputs.mensagem == 'sim'

@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -70,6 +70,7 @@ Comandos:
 /awin — sua conta Awin: ID de afiliada e lojas aceitas (Casas Bahia, KaBuM!…)
 /awin_ofertas ssd 1tb · /casasbahia monitor até 900 — busca produtos nas lojas Awin (já com seu link)
 /awin_cupons — cupons e promoções ativas das suas lojas Awin
+/canais · /canal_add @nome · /canal_tirar @nome — canais públicos do Telegram de onde o robô pega ofertas
 /terabyte ssd 1tb · /amazon_busca monitor até 900 — busca feita pelo ajudante (extensão no Edge); /add T1 Z2
 /add S1 M3 — põe na fila produtos da última sugestão (/add todos, /add ml, /add shopee)
 /site link + preco: — coloca SÓ no site (quando o post saiu sem preço)
@@ -646,6 +647,16 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_texto(chat_id, awin.mensagem_cupons(awin.cupons()))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Cupons da Awin: {str(erro)[:200]}")
+    elif comando in ("/canais", "/canal", "/fontes"):
+        telegram.enviar_texto(chat_id, canais.resumo())
+    elif comando in ("/canal_add", "/canaladd", "/add_canal"):
+        nomes = texto.split()[1:]
+        telegram.enviar_texto(chat_id, "\n\n".join(canais.adicionar(n) for n in nomes[:5]) if nomes
+                              else "Use assim: /canal_add @nomedocanal (canal público do Telegram)")
+    elif comando in ("/canal_tirar", "/canaltirar", "/tirar_canal"):
+        nomes = texto.split()[1:]
+        telegram.enviar_texto(chat_id, "\n".join(canais.tirar(n) for n in nomes[:5]) if nomes
+                              else "Use assim: /canal_tirar @nomedocanal")
     elif comando == "/awin":
         try:
             telegram.enviar_texto(chat_id, awin.resumo())
@@ -1218,7 +1229,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Robô Drop Certo")
     parser.add_argument("--continuo", action="store_true", help="fica ligado respondendo na hora")
     parser.add_argument("--teste", action="store_true", help="gera exemplo sem internet")
+    parser.add_argument("--canais", action="store_true", help="só lê os canais-fonte (rodada leve)")
     args = parser.parse_args()
+
+    if args.canais:
+        n = canais.rodar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
+        print(f"Canais-fonte: {n} oferta(s) nova(s).")
+        return
 
     if args.teste:
         modo_teste()
