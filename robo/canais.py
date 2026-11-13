@@ -46,7 +46,7 @@ def lista() -> list[str]:
 
 def _limpar_nome(nome: str) -> str:
     nome = (nome or "").strip()
-    nome = re.sub(r"^https?://(www\.)?(t\.me|telegram\.me)/(s/)?", "", nome, flags=re.I).lstrip("@").split("/")[0]
+    nome = re.sub(r"^(https?://)?(www\.)?(t\.me|telegram\.me)/(s/)?", "", nome, flags=re.I).lstrip("@").split("/")[0]
     return nome if RE_NOME_CANAL.match(nome) else ""
 
 
