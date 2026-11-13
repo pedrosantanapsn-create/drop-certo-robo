@@ -108,6 +108,14 @@ feito por ela, e gera o meli.la dos produtos que o robô pedir (tabela `ajudante
 - PC desligado = pedidos esperam (48 h). Login caiu = o robô avisa no Telegram.
 - Risco: automação na conta de afiliado pode ir contra as regras do Mercado Livre (decisão da dona).
 
+## 4.2 Canais-fonte (ofertas de outros canais, com o link da dona)
+
+`/canal_add @nome` cadastra um canal PÚBLICO de ofertas do Telegram. A cada 20 min (8h–23h) o robô lê a
+página pública `t.me/s/nome` (sem conta), pega dos posts novos só produto, preço, cupom e link, filtra
+(tecnologia/marca conhecida, loja em que ela é afiliada, sem repetir, máx. `CANAIS_MAX_DIA`=12 por dia,
+fila até `CANAIS_FILA_MAX`=12) e põe na fila; o link é trocado pelo dela (ML via ajudante). Posts só de cupom
+viram aviso para ela divulgar com `/cupom`. Texto, arte e vídeo são sempre os do robô.
+
 ## 5. Configuração
 
 **Secrets (GitHub → Settings → Secrets and variables → Actions):**
