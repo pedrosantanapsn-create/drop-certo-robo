@@ -53,4 +53,26 @@ function testarBusca(loja, base) {
 el("buscaTera").addEventListener("click", () => testarBusca("busca_terabyte", "https://www.terabyteshop.com.br/busca?str="));
 el("buscaAmz").addEventListener("click", () => testarBusca("busca_amazon", "https://www.amazon.com.br/s?k="));
 
+function testarCupons(url) {
+  const caixa = el("testeCupons");
+  caixa.hidden = false; caixa.style.whiteSpace = "pre-wrap";
+  caixa.textContent = "Lendo… (abre uma aba e fecha sozinho)";
+  chrome.runtime.sendMessage({ tipo: "testarCupons", url }, (r) => {
+    if (r && r.itens && r.itens.length) {
+      caixa.textContent = "DEU CERTO! " + r.itens.length + " cupons. Os 3 primeiros:\n" +
+        r.itens.slice(0, 3).map((i) => "• " + i.replace(/\n+/g, " · ").slice(0, 110)).join("\n");
+    } else if (r && r.login) {
+      caixa.textContent = "A loja pediu login. Entre na sua conta neste navegador e teste de novo.";
+    } else if (r && r.texto) {
+      caixa.textContent = "Li a página, mas sem separar os cupons (o robô tenta pelo texto):\n" + r.texto.slice(0, 300) +
+        "\nTire um print desta janela e mande para o Claude.";
+    } else {
+      caixa.textContent = "Não consegui: " + ((r && r.erro) || "sem resposta") + "\n" + ((r && r.amostra) || "") +
+        "\nTire um print desta janela e mande para o Claude.";
+    }
+  });
+}
+el("cuponsTera").addEventListener("click", () => testarCupons("https://www.terabyteshop.com.br/cupons"));
+el("cuponsMl").addEventListener("click", () => testarCupons("https://www.mercadolivre.com.br/cupons"));
+
 mostrar();

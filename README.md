@@ -23,7 +23,7 @@ Telegram (você) ──► Supabase (função telegram-robo, modo instantâneo) 
    (link rastreado r.html)   Netlify)               + Story (Zernio)                      alertas no bot
 ```
 
-- **robo.yml** roda a cada 10 min (cron-job.org) e na hora em que você manda mensagem (modo instantâneo).
+- **robo.yml** roda a cada 5 min (cron do GitHub + cron-job.org) e na hora em que você manda mensagem (modo instantâneo).
   Um passo rápido confere se há algo a fazer (mensagem, fila, relatório, conferência, quadro, top do dia…)
   antes de instalar tudo.
 - **site.yml** publica a pasta `site/` na Netlify sempre que ela muda.
@@ -97,6 +97,9 @@ feito por ela, e gera o meli.la dos produtos que o robô pedir (tabela `ajudante
 - **Jeito recomendado: extensão** (`ajudante/extensao/`) no navegador normal da dona, já logado no ML:
   `edge://extensions` → Modo do desenvolvedor → "Carregar sem compactação" → pasta `extensao` → clicar no
   ícone e colar a senha do ajudante. Gera pelo "Gerador de links" de afiliados (plano B: botão Compartilhar).
+- A extensão também lê as **páginas de cupons** da Terabyte e do Mercado Livre 1x por dia (9h) e o robô manda
+  para a dona só os cupons novos; `/cupons_lojas` pede na hora. O robô não divulga sozinho (CDC art. 37):
+  a dona confere e usa `/cupom`. Precisa da extensão v1.2.0 ou mais nova.
 - A extensão também faz **buscas** nas lojas que bloqueiam o robô: `/terabyte ssd 1tb` e
   `/amazon_busca monitor até 900` → lista com códigos T1…/Z1… → `/add T1 Z2` (já com o seu código/tag).
   Risco: leitura automática do site pode ir contra as regras de afiliado (Amazon é a mais rígida).
@@ -167,3 +170,8 @@ segredo `GITHUB_TOKEN_ROBO`).
 `shopee`, `mercadolivre`, `amazon`, `verificador`, `quedas`, `top`, `alertas`, `rastreio`, `relatorio`,
 `arte`, `video`, `recorte`, `legenda`, `instagram`, `tiktok`, `zernio`, `quadro`…) · `site/` (vitrine,
 admin, quadro, `r.html` dos cliques, `ml.html` da autorização) · `supabase/functions/telegram-robo`.
+
+
+### Canais-fonte: ritmo (13/11/2026)
+
+Leitura a cada 10 min (`CANAIS_MINUTOS`), até 30 ofertas por dia (`CANAIS_MAX_DIA`), fila até 20 (`CANAIS_FILA_MAX`). O mesmo produto pode voltar depois de 6 h (`CANAIS_REPETIR_HORAS`), nunca enquanto ainda está na fila.

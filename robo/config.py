@@ -122,9 +122,11 @@ RAPIDO = _env_bool("RAPIDO", False)          # rodada leve: só comandos; arte/v
 JA_AVISOU = _env_bool("JA_AVISOU", False)    # rodada completa depois da leve: não repete o "⏳ Recebi!"
 AJUDANTE = _env_bool("AJUDANTE", True)
 # Canais-fonte (canais públicos de ofertas no Telegram lidos pelo robô) — ver robo/canais.py
-CANAIS_MAX_DIA = int(_env("CANAIS_MAX_DIA", "12") or 12)      # ofertas por dia vindas dos canais
-CANAIS_FILA_MAX = int(_env("CANAIS_FILA_MAX", "12") or 12)    # não pega mais se a fila já tem isso
-CANAIS_MINUTOS = int(_env("CANAIS_MINUTOS", "20") or 20)      # de quanto em quanto tempo olha os canais
+CANAIS_MAX_DIA = int(_env("CANAIS_MAX_DIA", "30") or 30)      # ofertas por dia vindas dos canais
+CANAIS_FILA_MAX = int(_env("CANAIS_FILA_MAX", "20") or 20)    # não pega mais se a fila já tem isso
+CANAIS_MINUTOS = int(_env("CANAIS_MINUTOS", "10") or 10)      # de quanto em quanto tempo olha os canais
+CANAIS_REPETIR_HORAS = float(_env("CANAIS_REPETIR_HORAS", "6") or 6)   # o mesmo produto pode voltar depois dessas horas
+CUPONS_LOJAS = _env_bool("CUPONS_LOJAS", True)                # ajudante lê as páginas de cupons (Terabyte e ML) 1x por dia
 # Terabyte e Amazon na fila automática: o ajudante faz 1 busca por loja e o robô escolhe as melhores
 FILA_AUTO_TERABYTE = int(_env("FILA_AUTO_TERABYTE", "3") or 3)
 FILA_AUTO_AMAZON = int(_env("FILA_AUTO_AMAZON", "3") or 3)

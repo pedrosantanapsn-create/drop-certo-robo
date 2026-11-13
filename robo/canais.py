@@ -5,8 +5,9 @@ pega de cada post novo só os FATOS (produto, preço, cupom e o link da loja) e 
 fila. O texto, a arte e o vídeo são os seus, feitos como sempre; o link do outro canal é
 trocado pelo seu na hora do post (Amazon, Shopee, KaBuM, Terabyte) ou pelo ajudante (meli.la).
 
-Filtros: só tecnologia/peças de PC ou marca conhecida · sem repetir produto · no máximo
-CANAIS_MAX_DIA ofertas por dia · não enche a fila além de CANAIS_FILA_MAX.
+Filtros: só tecnologia/peças de PC ou marca conhecida · o mesmo produto só volta depois de
+CANAIS_REPETIR_HORAS (e nunca enquanto está na fila) · no máximo CANAIS_MAX_DIA ofertas por dia ·
+não enche a fila além de CANAIS_FILA_MAX.
 Posts só de cupom não vão para a fila: o robô avisa você para divulgar com /cupom.
 
 Comandos: /canais · /canal_add @nome · /canal_tirar @nome
@@ -191,8 +192,16 @@ def rodar(avisar) -> int:
     dia = _json(CHAVE_DIA, {})
     if dia.get("dia") != hoje:
         dia = {"dia": hoje, "n": 0}
-    estado, vistos = _json(CHAVE_ESTADO, {}), _json(CHAVE_VISTOS, [])
-    na_fila = len(fila.itens())
+    estado, vistos = _json(CHAVE_ESTADO, {}), _json(CHAVE_VISTOS, {})
+    carimbo = int(agora.timestamp())
+    if isinstance(vistos, list):                 # formato antigo (só os nomes): vira {produto: quando foi pego}
+        vistos = {c: carimbo for c in vistos}
+    # O mesmo produto pode voltar (outro canal, ou de novo mais tarde), mas nunca perto do post anterior
+    # nem enquanto ainda está esperando na fila.
+    limite = carimbo - int(config.CANAIS_REPETIR_HORAS * 3600)
+    itens_fila = fila.itens()
+    na_fila = len(itens_fila)
+    chaves_fila = {_chave_produto(_campo(str(i.get("texto") or ""), "nome")) for i in itens_fila}
     novas, pedidas, cupons, origem = [], 0, [], set()
     for canal in canais:
         try:
@@ -212,12 +221,13 @@ def rodar(avisar) -> int:
                 if dia["n"] >= config.CANAIS_MAX_DIA or na_fila + len(novas) >= config.CANAIS_FILA_MAX:
                     break
                 chave = _chave_produto(_campo(oferta, "nome"))
-                if chave in vistos:
+                if int(vistos.get(chave, 0)) > limite or chave in chaves_fila:
                     continue
                 link = oferta.splitlines()[0]
                 if not _link_de_loja_afiliada(link):
                     continue                              # loja em que você não é afiliada: não dá comissão
-                vistos.append(chave)
+                vistos[chave] = carimbo
+                chaves_fila.add(chave)
                 try:       # Mercado Livre de outro canal: o ajudante gera o SEU meli.la e a oferta entra depois
                     if mercadolivre.e_mercadolivre(link) and not mercadolivre.link_meu(link)[0]:
                         if not (ajudante.ativo() and ajudante.usado_recentemente(7)):
@@ -239,7 +249,7 @@ def rodar(avisar) -> int:
                 dia["n"] += 1
                 origem.add(canal)
     supabase.gravar_config(CHAVE_ESTADO, json.dumps(estado))
-    supabase.gravar_config(CHAVE_VISTOS, json.dumps(vistos[-600:]))
+    supabase.gravar_config(CHAVE_VISTOS, json.dumps(dict(sorted(vistos.items(), key=lambda kv: kv[1])[-600:])))
     supabase.gravar_config(CHAVE_DIA, json.dumps(dia))
     if novas:
         fila.adicionar(novas)

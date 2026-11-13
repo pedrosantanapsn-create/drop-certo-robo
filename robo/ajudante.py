@@ -211,6 +211,16 @@ def importar(avisar) -> int:
     for p in _ler({"status": "eq.pronto", "select": "id,loja,chave,url,link,dados", "order": "feito_em.asc",
                    "limit": "20"}):
         dados = p.get("dados") or {}
+        if str(p.get("loja", "")).startswith("cupons_"):       # página de cupons lida: manda os novos
+            from . import cuponslojas
+            try:
+                texto_cupons = cuponslojas.mensagem(str(p["loja"]).replace("cupons_", ""), dados)
+                if texto_cupons:
+                    avisar(texto_cupons)
+            except Exception as erro:  # noqa: BLE001
+                avisar(f"🎟️ Cupons: não consegui montar a lista ({str(erro)[:150]})")
+            _mudar(p["id"], {"status": "importado"})
+            continue
         if str(p.get("loja", "")).startswith("busca_"):        # resultado de busca: manda a lista
             qual = str(p["loja"]).replace("busca_", "")
             try:
@@ -235,7 +245,9 @@ def importar(avisar) -> int:
         avisar(f"🧩 O ajudante gerou {postas} link(s) meli.la seu(s) — já estão na fila. /fila para ver.")
 
     for p in _ler({"status": "eq.erro", "loja": "neq._sistema", "select": "id,loja,url,erro", "limit": "10"}):
-        if str(p.get("loja", "")).startswith("busca_"):
+        if str(p.get("loja", "")).startswith("cupons_"):
+            avisar(f"🎟️ O ajudante não conseguiu ler a página de cupons:\n{p['url']}\nMotivo: {str(p.get('erro'))[:300]}")
+        elif str(p.get("loja", "")).startswith("busca_"):
             avisar(f"🧩 O ajudante não conseguiu fazer a busca:\n{p['url']}\nMotivo: {str(p.get('erro'))[:600]}")
         else:
             avisar(f"🧩 O ajudante não conseguiu gerar o link de:\n{p['url']}\nMotivo: {str(p.get('erro'))[:200]}\n"

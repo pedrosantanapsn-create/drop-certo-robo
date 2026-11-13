@@ -20,6 +20,10 @@ chrome.runtime.onMessage.addListener((msg, _de, responder) => {
     executarNaAba(msg.url, naPaginaBusca, [msg.loja]).then((r) => responder(r)).catch((e) => responder({ itens: [], erro: String(e) }));
     return true;
   }
+  if (msg && msg.tipo === "testarCupons") {
+    executarNaAba(msg.url, naPaginaCupons, []).then((r) => responder(r)).catch((e) => responder({ itens: [], erro: String(e) }));
+    return true;
+  }
   if (msg && msg.tipo === "testar") {
     gerarMeli(msg.url).then((r) => responder(r)).catch((e) => responder({ link: "", erro: String(e) }));
     return true;                                   // resposta assíncrona
@@ -166,6 +170,33 @@ async function naPaginaBusca(loja) {
   return { itens: [], erro: "não achei produtos na página (" + location.href.slice(0, 80) + ")",
            amostra: (exemplo ? (exemplo.closest("div") || exemplo).outerHTML : (document.body.innerText || "")).slice(0, 500) };
 }
+
+// Lê a página de cupons da loja (Terabyte ou Mercado Livre) do jeito que ela aparece para você.
+// Não clica em nada (não ativa nem resgata cupom): só copia o que está escrito.
+async function naPaginaCupons() {
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  await esperar(3000);
+  for (const y of [1200, 2600, 4000, 0]) { window.scrollTo(0, y); await esperar(600); }
+  const temValor = (t) => /\d{1,2}\s?%|R\$\s?\d/.test(t);
+  const temSinal = (t) => /\boff\b|cupom|cupon|desconto/i.test(t);
+  const serve = (e) => {
+    const t = (e.innerText || "").trim();
+    return t.length >= 12 && t.length <= 420 && t.split("\n").filter((l) => l.trim()).length >= 2 && temValor(t) && temSinal(t);
+  };
+  const itens = [];
+  document.querySelectorAll("li, article, section, div").forEach((e) => {
+    if (e.closest("header, footer, nav") || !serve(e)) return;
+    if ([...e.querySelectorAll("li, article, section, div")].some(serve)) return;     // fica só com o menor "cartão"
+    const t = e.innerText.trim();
+    const cod = e.querySelector("input[value], [data-coupon], [data-code], [data-clipboard-text]");
+    const codigo = cod ? (cod.value || cod.getAttribute("data-coupon") || cod.getAttribute("data-code") || cod.getAttribute("data-clipboard-text") || "") : "";
+    const linha = codigo && !t.includes(codigo) ? t + "\nCódigo: " + codigo : t;
+    if (!itens.includes(linha)) itens.push(linha);
+  });
+  const texto = (document.body ? document.body.innerText : "").slice(0, 7000);
+  if (!itens.length && !temValor(texto)) return { itens: [], texto: "", erro: "não achei cupons na página (" + location.href.slice(0, 80) + ")", amostra: texto.slice(0, 400) };
+  return { itens: itens.slice(0, 30), texto };
+}
 // ---------------------------------------------------------------------------------------------
 
 async function executarNaAba(endereco, funcao, args) {
@@ -206,13 +237,32 @@ async function rodada() {
       chrome.action.setBadgeText({ text: "!" });
       return;
     }
-    const r = await fetch(TABELA + "?status=eq.pendente&loja=in.(ml,busca_terabyte,busca_amazon)&select=id,loja,chave,url,dados&order=criado_em.asc&limit=3",
+    const r = await fetch(TABELA + "?status=eq.pendente&loja=in.(ml,busca_terabyte,busca_amazon,cupons_terabyte,cupons_ml)&select=id,loja,chave,url,dados&order=criado_em.asc&limit=3",
                           { headers: await cabecalhos() });
     const pedidos = r.ok ? await r.json() : [];
     let { feitos = [], total = 0 } = await ler(["feitos", "total"]);
     for (const p of pedidos) {
       feitos = feitos.filter((t) => Date.now() - t < 3600000);
       if (feitos.length >= MAX_POR_HORA) break;
+      if (String(p.loja).startsWith("cupons_")) {             // página de cupons da loja
+        const c = await executarNaAba(p.url, naPaginaCupons, []);
+        feitos.push(Date.now());
+        const dados = p.dados || {};
+        if (c.login) {
+          await responder(p.id, { status: "erro", erro: "a loja pediu login: entre na sua conta neste navegador" });
+        } else if ((c.itens && c.itens.length) || c.texto) {
+          dados.itens = c.itens || []; dados.texto = c.texto || "";
+          await responder(p.id, { status: "pronto", dados });
+          total += 1;
+          await guardar({ ultimo: "cupons: " + p.loja.replace("cupons_", "") + " (" + dados.itens.length + ")", ultimoQuando: Date.now(), total });
+        } else {
+          await responder(p.id, { status: "erro", erro: (c.erro || "sem resultado") + (c.amostra ? " | amostra: " + c.amostra : "") });
+          await guardar({ ultimoErro: c.erro || "", ultimoErroQuando: Date.now() });
+        }
+        await guardar({ feitos });
+        await dormir(PAUSA_ENTRE_LINKS_MS);
+        continue;
+      }
       if (String(p.loja).startsWith("busca_")) {              // busca na Terabyte / Amazon
         const b = await executarNaAba(p.url, naPaginaBusca, [p.loja]);
         feitos.push(Date.now());

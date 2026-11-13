@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, cuponslojas, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -79,12 +79,14 @@ Comandos:
 /musica (mande o áudio) · /musicas · /tirar_musica N — músicas de fundo dos vídeos
 /cupom CODIGO descrição — cupom no canal com passo a passo; "hora: 00:00" agenda (/cupom sozinho = modelo)
 /cupons — cupons agendados · /cancelar_cupom CODIGO
+/cupons_lojas — o ajudante lê os cupons da Terabyte e do Mercado Livre e manda a lista para você
+/canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
 /ofertas_amazon [palavra|tudo] — só Amazon: promoções do dia (ex.: /ofertas_amazon ssd)
 /ofertas_ml [palavra] — só Mercado Livre: mais vendidos com desconto (ex.: /ofertas_ml monitor)
 /shopee [palavra] — busca na Shopee e já manda o SEU link de afiliada (ex.: /shopee mouse gamer)
-/instantaneo on — o robô responde na hora (off = volta aos 10 min)
+/instantaneo on — o robô responde na hora (off = volta aos 5 min)
 /ajuda — mostra esta mensagem"""
 
 FALHA_LEITURA = """⚠️ Não consegui ler os dados do anúncio (algumas lojas bloqueiam robôs).
@@ -647,6 +649,19 @@ def tratar(mensagem: dict) -> None:
             telegram.enviar_texto(chat_id, awin.mensagem_cupons(awin.cupons()))
         except Exception as erro:  # noqa: BLE001
             telegram.enviar_texto(chat_id, f"❌ Cupons da Awin: {str(erro)[:200]}")
+    elif comando in ("/cupons_lojas", "/cuponslojas", "/cupons_loja"):
+        if not (ajudante.ativo() and ajudante.usado_recentemente(7)):
+            telegram.enviar_texto(chat_id, "Quem lê as páginas de cupons é o ajudante (a extensão no seu Edge), e ele "
+                                  "não deu sinal nos últimos dias. Abra o Edge e tente de novo em 1 minuto.")
+        else:
+            try:
+                cuponslojas.pedir(manual=True)
+                telegram.enviar_texto(chat_id, "🎟️ Pedi ao ajudante para ler os cupons da Terabyte e do Mercado Livre. "
+                                      + ("Ele está ligado: a lista chega em até uns 5 minutos."
+                                         if ajudante.ligado() else
+                                         "Ele está DESLIGADO agora: a lista chega depois que você abrir o Edge."))
+            except Exception as erro:  # noqa: BLE001
+                telegram.enviar_texto(chat_id, f"❌ Cupons das lojas: {str(erro)[:200]}")
     elif comando in ("/canais", "/canal", "/fontes"):
         telegram.enviar_texto(chat_id, canais.resumo())
     elif comando in ("/canal_add", "/canaladd", "/add_canal"):
@@ -734,7 +749,7 @@ def tratar(mensagem: dict) -> None:
                 ajudante.pedir_busca(qual, palavra, teto)
                 telegram.enviar_texto(chat_id, f"🧩 Pedi ao ajudante para procurar \"{palavra}\" na "
                                       f"{ajudante.BUSCAS[qual]['nome']}. " + (
-                                          "Ele está ligado: a lista chega em até uns 10 minutos."
+                                          "Ele está ligado: a lista chega em até uns 5 minutos."
                                           if ajudante.ligado() else
                                           "Ele está DESLIGADO agora: a lista chega depois que você abrir o Edge."))
             except Exception as erro:  # noqa: BLE001
@@ -841,7 +856,7 @@ def tratar(mensagem: dict) -> None:
     elif comando == "/agora":
         if fila.itens():
             fila.adiantar()
-            telegram.enviar_texto(chat_id, "⏩ O próximo da fila sai na próxima rodada (até 10 min).")
+            telegram.enviar_texto(chat_id, "⏩ O próximo da fila sai na próxima rodada (até 5 min).")
         else:
             telegram.enviar_texto(chat_id, "📭 A fila está vazia.")
     elif comando == "/intervalo":
@@ -1235,6 +1250,10 @@ def main() -> None:
     if args.canais:
         n = canais.rodar(lambda texto: telegram.enviar_texto(config.ADMIN_CHAT_ID, texto))
         print(f"Canais-fonte: {n} oferta(s) nova(s).")
+        try:
+            cuponslojas.pedir_se_for_hora()
+        except Exception as erro:  # noqa: BLE001
+            print("Cupons das lojas:", erro, file=sys.stderr)
         return
 
     if args.teste:

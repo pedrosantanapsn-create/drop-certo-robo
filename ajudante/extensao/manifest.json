@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Drop Certo - Ajudante",
-  "version": "1.1.0",
-  "description": "Ajudante do robô Drop Certo: gera o seu meli.la e faz buscas na Terabyte e na Amazon pelo seu navegador.",
+  "version": "1.2.0",
+  "description": "Ajudante do robô Drop Certo: gera o seu meli.la e faz buscas na Terabyte e na Amazon e lê as páginas de cupons pelo seu navegador.",
   "permissions": [
     "alarms",
     "storage",

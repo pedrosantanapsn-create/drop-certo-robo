@@ -2,7 +2,7 @@ name: Robô Drop Certo
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # confere o Telegram a cada 10 minutos (horário UTC)
+    - cron: "*/5 * * * *"    # confere o Telegram a cada 5 minutos (horário UTC)
   workflow_dispatch:          # botão "Run workflow" para rodar na hora
     inputs:
       update:
