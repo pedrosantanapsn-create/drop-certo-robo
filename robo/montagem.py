@@ -18,7 +18,10 @@ TRANSICAO = 0.35
 CLIPE_MAX = 9.0            # usa no máximo isso de cada clipe
 AVISO_IA = "Imagem ilustrativa gerada por IA"
 MASCOTE = Path(__file__).parent / "recursos" / "mascote.jpg"     # o Certinho: abre todo vídeo montado
-ABERTURA = 1.8                                                   # segundos de mascote no começo
+ABERTURA = 1.8                                                   # segundos de mascote parado no começo
+ABERTURA_ANIMADA = 2.6                                           # máximo da animação fixa do mascote
+CHAVE_ANIMACAO = "mascote_animacao"                              # "1" = existe animação guardada (/mascote)
+ARQUIVO_ANIMACAO = "robo/mascote.mp4"
 AZUL = (14, 58, 93)
 
 
@@ -64,27 +67,60 @@ def _base(pasta: Path) -> Path:
     return destino
 
 
-def _quadro_abertura(texto: str, pasta: Path) -> Path:
-    """Abertura fixa: o mascote (fundo branco) com a frase de abertura e a marca."""
-    from PIL import ImageOps
-    mascote = ImageOps.fit(Image.open(MASCOTE).convert("RGB"), (arte.VW, arte.VH), Image.LANCZOS)
-    img = Image.new("RGB", (arte.VW, arte.VH), mascote.getpixel((8, 8)))      # mesmo branco do fundo da imagem
-    img.paste(mascote, (0, 250))                                              # desce o mascote: o texto fica livre em cima
+def _texto_abertura(texto: str, pasta: Path) -> Path:
+    """Camada transparente da abertura: frase em azul (com contorno branco) + selo da marca + aviso."""
+    img = Image.new("RGBA", (arte.VW, arte.VH), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     f = arte.fonte("black", 88)
     y = 150
     for linha in arte.quebrar(d, texto, f, arte.VW - 2 * arte.VM, 3):
-        d.text((arte.VW / 2, y), linha, font=f, fill=AZUL, anchor="ma")
+        d.text((arte.VW / 2, y), linha, font=f, fill=AZUL + (255,), anchor="ma", stroke_width=6, stroke_fill=(255, 255, 255, 255))
         y += int(f.size * 1.12)
     fm = arte.fonte("extrabold", 46)
     marca = "Drop Certo achou"
     w = d.textlength(marca, font=fm)
-    d.rounded_rectangle(((arte.VW - w) / 2 - 34, y + 26, (arte.VW + w) / 2 + 34, y + 26 + 86), 43, fill=(242, 106, 33))
-    d.text((arte.VW / 2, y + 26 + 43), marca, font=fm, fill=(255, 255, 255), anchor="mm")
-    d.text((arte.VW / 2, 1656), config.AVISO_LEGAL, font=arte.fonte("semibold", 26), fill=(90, 100, 112), anchor="mm")
+    d.rounded_rectangle(((arte.VW - w) / 2 - 34, y + 26, (arte.VW + w) / 2 + 34, y + 26 + 86), 43, fill=(242, 106, 33, 255))
+    d.text((arte.VW / 2, y + 26 + 43), marca, font=fm, fill=(255, 255, 255, 255), anchor="mm")
+    fa = arte.fonte("semibold", 26)
+    wa = d.textlength(config.AVISO_LEGAL, font=fa)
+    d.rounded_rectangle(((arte.VW - wa) / 2 - 22, 1632, (arte.VW + wa) / 2 + 22, 1680), 24, fill=(255, 255, 255, 215))
+    d.text((arte.VW / 2, 1656), config.AVISO_LEGAL, font=fa, fill=(70, 80, 92, 255), anchor="mm")
+    destino = pasta / "m_abertura_texto.png"
+    img.save(destino)
+    return destino
+
+
+def _quadro_mascote(pasta: Path) -> Path:
+    """Abertura parada (quando não há animação): o mascote, um pouco mais para baixo."""
+    from PIL import ImageOps
+    mascote = ImageOps.fit(Image.open(MASCOTE).convert("RGB"), (arte.VW, arte.VH), Image.LANCZOS)
+    img = Image.new("RGB", (arte.VW, arte.VH), mascote.getpixel((8, 8)))      # mesmo branco do fundo da imagem
+    img.paste(mascote, (0, 250))                                              # o texto fica livre em cima
     destino = pasta / "m_abertura.png"
     img.save(destino)
     return destino
+
+
+def url_animacao() -> str:
+    return f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{ARQUIVO_ANIMACAO}"
+
+
+def _abertura(pasta: Path) -> tuple[Path, float] | None:
+    """(clipe de abertura, segundos). Prefere a ANIMAÇÃO fixa do mascote (/mascote); senão a imagem parada."""
+    from . import supabase
+    try:
+        if supabase.ativo() and (supabase.ler_config(CHAVE_ANIMACAO) or {}).get("valor") == "1":
+            import requests
+            r = requests.get(url_animacao(), params={"t": "1"}, timeout=60)
+            if r.status_code == 200 and len(r.content) > 20000:
+                arq = pasta / "m_mascote.mp4"
+                arq.write_bytes(r.content)
+                return arq, min(max(video.duracao(arq) - TRANSICAO, 1.2), ABERTURA_ANIMADA)
+    except Exception as erro:  # noqa: BLE001
+        print(f"::warning::Animação do mascote: {str(erro)[:120]}")
+    if MASCOTE.exists():
+        return video._clipe(_quadro_mascote(pasta), ABERTURA + TRANSICAO, pasta / "m_abertura.mp4", 0), ABERTURA
+    return None
 
 
 def _cartao_gancho(texto: str, pasta: Path) -> Path:
@@ -144,10 +180,11 @@ def montar(clipes: list[Path], p: Produto, textos: dict, pasta: Path, nome: str 
     alvo = max((video.duracao(audio) + video.ATRASO_VOZ + 0.9) if audio else 0, 9.0)
     gancho = str(textos.get("gancho") or "Olha esse achado")
     intro = 0.0
-    if config.MASCOTE_ABERTURA and MASCOTE.exists():          # o mascote vira o "clipe zero"
+    if config.MASCOTE_ABERTURA:                               # o mascote vira o "clipe zero"
         try:
-            abertura = video._clipe(_quadro_abertura(gancho, pasta), ABERTURA + TRANSICAO, pasta / "m_abertura.mp4", 0)
-            clipes, intro = [abertura, *clipes], ABERTURA
+            achada = _abertura(pasta)
+            if achada:
+                clipes, intro = [achada[0], *clipes], achada[1]
         except Exception as erro:  # noqa: BLE001
             print(f"::warning::Abertura com mascote: {str(erro)[:120]}")
     n = len(clipes)
@@ -156,7 +193,7 @@ def montar(clipes: list[Path], p: Produto, textos: dict, pasta: Path, nome: str 
     reais = n - (1 if intro else 0)
     fatias = [min(o, CLIPE_MAX, (alvo - intro) / reais + TRANSICAO) for o in originais]
     if intro:
-        fatias[0] = ABERTURA + TRANSICAO
+        fatias[0] = intro + TRANSICAO
     total = sum(fatias) - TRANSICAO * (n - 1)
     falta = max(alvo - total, 0)                      # narração mais longa que os clipes: congela o último quadro
     total += falta
@@ -181,7 +218,7 @@ def montar(clipes: list[Path], p: Produto, textos: dict, pasta: Path, nome: str 
         virada = sum(fatias[:primeiro + 1]) - TRANSICAO * (primeiro + 1)
     else:
         virada = intro + (total - intro) * 0.5
-    sobre = [(_base(pasta), intro, total, 0), (_cartao_gancho(gancho, pasta), intro + 0.25, virada - 0.1, 0),
+    sobre = ([(_texto_abertura(gancho, pasta), 0.0, intro, 0)] if intro else []) + [(_base(pasta), intro, total, 0), (_cartao_gancho(gancho, pasta), intro + 0.25, virada - 0.1, 0),
              (_cartao_preco(p, pasta), virada + 0.25, total, 0), (_cartao_cta(pasta), max(total - 3.2, virada + 0.4), total, 0)]
     # legendas animadas da narração (mesmo estilo dos vídeos do robô)
     fim_fala = (video.duracao(audio) + video.ATRASO_VOZ) if audio else total - 1.0

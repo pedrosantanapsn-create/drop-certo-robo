@@ -84,6 +84,7 @@ Comandos:
 /canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
 /roteiros — atualiza e manda o link da PÁGINA de roteiros (melhores ofertas do dia, com tudo para copiar)
+/mascote (na legenda do vídeo do mascote) — animação fixa de abertura dos vídeos montados · /mascote tirar
 /clipe (na legenda de cada vídeo do Gemini) + /montar link — junto os clipes com narração, legendas e preço · /montar postar
 /roteiro link — kit para criar o vídeo à mão no Gemini (fotos + comandos prontos); depois mande o vídeo com o link
 /cenas_ia — cenas de IA nos vídeos (pago): situação e gasto · /cenas_ia agora = usar no próximo vídeo
@@ -856,6 +857,8 @@ def tratar(mensagem: dict) -> None:
         n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
         telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
                               else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando == "/mascote":
+        guardar_mascote(chat_id, mensagem, texto)
     elif comando in ("/clipe", "/clipes"):
         guardar_clipe(chat_id, mensagem, texto)
     elif comando == "/montar":
@@ -1066,6 +1069,40 @@ def guardar_clipe(chat_id, mensagem: dict, texto: str) -> None:
     link = next(iter(fila.RE_LINK.findall(texto)), "") or estado.get("link", "")
     supabase.gravar_config(CHAVE_CLIPES, json.dumps({"ids": ids, "link": link}))
     telegram.enviar_texto(chat_id, f"🎞️ Clipe {len(ids)} guardado. Mande o próximo com /clipe ou monte: /montar link-do-produto")
+
+
+def guardar_mascote(chat_id, mensagem: dict, texto: str) -> None:
+    """Vídeo com a legenda /mascote: vira a animação FIXA de abertura dos vídeos montados."""
+    from robo import montagem
+    arq = mensagem.get("video") or mensagem.get("animation") or {}
+    if not arq and str((mensagem.get("document") or {}).get("mime_type", "")).startswith("video/"):
+        arq = mensagem["document"]
+    if "tirar" in texto.lower().split() or "parado" in texto.lower().split():
+        supabase.gravar_config(montagem.CHAVE_ANIMACAO, "")
+        telegram.enviar_texto(chat_id, "🤖 Animação tirada: a abertura volta a ser o mascote parado.")
+        return
+    if not arq.get("file_id"):
+        tem = (supabase.ler_config(montagem.CHAVE_ANIMACAO) or {}).get("valor") == "1"
+        telegram.enviar_texto(chat_id, ("🤖 A abertura dos vídeos montados usa a ANIMAÇÃO do mascote." if tem else
+                                        "🤖 A abertura dos vídeos montados usa o mascote parado.")
+                              + "\nPara trocar: mande o vídeo do mascote (2 a 4 s, fundo claro) com a legenda /mascote."
+                              "\n/mascote tirar — volta para a imagem parada")
+        return
+    if int(arq.get("file_size") or 0) > 20 * 1024 * 1024:
+        telegram.enviar_texto(chat_id, "Esse vídeo passa de 20 MB. Mande em qualidade menor.")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        pasta = Path(tmp)
+        bruto = telegram.baixar_arquivo(arq["file_id"], pasta / "bruto.mp4")
+        pronto = pasta / "mascote.mp4"
+        seg = montagem.ABERTURA_ANIMADA + montagem.TRANSICAO
+        video._rodar(["ffmpeg", "-y", "-i", str(bruto), "-t", f"{seg:.2f}", "-an", "-vf",
+                      "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p",
+                      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", str(pronto)])
+        supabase.enviar_arquivo(pronto, montagem.ARQUIVO_ANIMACAO, "video/mp4")
+    supabase.gravar_config(montagem.CHAVE_ANIMACAO, "1")
+    telegram.enviar_texto(chat_id, f"🤖 Pronto: essa animação (os primeiros {montagem.ABERTURA_ANIMADA:.1f} s) abre todos os "
+                          "vídeos do /montar, com a frase de abertura por cima. /mascote tirar desfaz.")
 
 
 def montar_clipes(chat_id, texto: str) -> None:
