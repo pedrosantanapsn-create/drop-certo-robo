@@ -84,6 +84,7 @@ Comandos:
 /canais — canais de onde o robô pega ofertas · /canal_add @nome · /canal_tirar @nome
 /regras — publica e fixa as regras no canal
 /roteiros — atualiza e manda o link da PÁGINA de roteiros (melhores ofertas do dia, com tudo para copiar)
+/clipe (na legenda de cada vídeo do Gemini) + /montar link — junto os clipes com narração, legendas e preço · /montar postar
 /roteiro link — kit para criar o vídeo à mão no Gemini (fotos + comandos prontos); depois mande o vídeo com o link
 /cenas_ia — cenas de IA nos vídeos (pago): situação e gasto · /cenas_ia agora = usar no próximo vídeo
 /ofertas_pc — só peças de PC (placa de vídeo, placa-mãe, processador…) nas 3 lojas
@@ -152,7 +153,7 @@ class PrecisaCompleto(Exception):
 
 
 # Comandos que precisam de vídeo/voz/fotos (na rodada rápida vão direto para a completa)
-COMANDOS_PESADOS = {"/video_top", "/videotop", "/top5", "/custo", "/custobeneficio", "/custo_beneficio",
+COMANDOS_PESADOS = {"/montar", "/video_top", "/videotop", "/top5", "/custo", "/custobeneficio", "/custo_beneficio",
                     "/voz", "/agora", "/site", "/conferir", "/relatorio"}
 
 
@@ -855,6 +856,10 @@ def tratar(mensagem: dict) -> None:
         n = cupons.cancelar(partes[1]) if len(partes) > 1 else 0
         telegram.enviar_texto(chat_id, f"🗑️ {n} cupom(ns) {partes[1].upper()} tirado(s) da agenda." if n
                               else "Não achei esse cupom na agenda. Veja em /cupons.")
+    elif comando in ("/clipe", "/clipes"):
+        guardar_clipe(chat_id, mensagem, texto)
+    elif comando == "/montar":
+        montar_clipes(chat_id, texto)
     elif comando in ("/roteiros", "/pagina", "/página"):
         try:
             n = roteiros.gerar()
@@ -1026,6 +1031,88 @@ hora: 00:00
 Para usar cupom num produto, coloque a linha "cupom: CODIGO o que dá" embaixo do link:
 https://meli.la/abc123
 cupom: DROP10 10% off"""
+
+
+CHAVE_CLIPES = "clipes_montagem"      # {"ids": [file_id…], "link": "", "montado": file_id do vídeo pronto}
+
+
+def _clipes() -> dict:
+    try:
+        return json.loads((supabase.ler_config(CHAVE_CLIPES) or {}).get("valor") or "{}")
+    except ValueError:
+        return {}
+
+
+def guardar_clipe(chat_id, mensagem: dict, texto: str) -> None:
+    """Vídeo com a legenda /clipe: guarda para a montagem (até 4, na ordem em que chegam)."""
+    arq = mensagem.get("video") or {}
+    if not arq and str((mensagem.get("document") or {}).get("mime_type", "")).startswith("video/"):
+        arq = mensagem["document"]
+    estado = _clipes()
+    if "limpar" in texto.lower().split():
+        supabase.gravar_config(CHAVE_CLIPES, "{}")
+        telegram.enviar_texto(chat_id, "🧹 Clipes apagados. Mande os novos com a legenda /clipe.")
+        return
+    if not arq.get("file_id"):
+        n = len(estado.get("ids") or [])
+        telegram.enviar_texto(chat_id, f"🎞️ Clipes guardados: {n}.\nMande cada vídeo do Gemini COMO VÍDEO com a legenda /clipe "
+                              "(primeiro o do produto em uso, depois o do produto em destaque). Depois: /montar link-do-produto\n"
+                              "/clipe limpar — começa de novo")
+        return
+    if int(arq.get("file_size") or 0) > 20 * 1024 * 1024:
+        telegram.enviar_texto(chat_id, "Esse clipe passa de 20 MB (limite do Telegram para robôs). Mande em qualidade menor.")
+        return
+    ids = [i for i in (estado.get("ids") or []) if i != arq["file_id"]][-3:] + [arq["file_id"]]
+    link = next(iter(fila.RE_LINK.findall(texto)), "") or estado.get("link", "")
+    supabase.gravar_config(CHAVE_CLIPES, json.dumps({"ids": ids, "link": link}))
+    telegram.enviar_texto(chat_id, f"🎞️ Clipe {len(ids)} guardado. Mande o próximo com /clipe ou monte: /montar link-do-produto")
+
+
+def montar_clipes(chat_id, texto: str) -> None:
+    """/montar link → junta os clipes com narração, legendas, preço e chamada e te manda para ver.
+    /montar postar → publica o vídeo montado (canal, site, Instagram, TikTok) com o seu link."""
+    from robo import montagem, roteiro
+    estado = _clipes()
+    palavras = texto.lower().split()
+    if "postar" in palavras:
+        if not (estado.get("montado") and estado.get("link")):
+            telegram.enviar_texto(chat_id, "Ainda não tem vídeo montado. Primeiro: /montar link-do-produto")
+            return
+        supabase.gravar_config(CHAVE_CLIPES, "{}")
+        processar_oferta({"caption": estado["link"], "video": {"file_id": estado["montado"]},
+                          "chat": {"id": chat_id}}, chat_id)
+        return
+    link = next(iter(fila.RE_LINK.findall(texto)), "") or estado.get("link", "")
+    if not estado.get("ids"):
+        telegram.enviar_texto(chat_id, "Não tenho clipes guardados. Mande cada vídeo com a legenda /clipe e depois /montar link-do-produto")
+        return
+    if not link:
+        telegram.enviar_texto(chat_id, "Faltou o link do produto: /montar link-do-produto")
+        return
+    corpo = texto.split(None, 1)[1] if len(texto.split()) > 1 else link
+    produto, _ = roteiros.ler_produto(corpo if fila.RE_LINK.search(corpo) else link)
+    if not produto.nome:
+        telegram.enviar_texto(chat_id, "Não consegui ler o nome do produto. Mande assim:\n/montar link\nnome: nome do produto\npreco: 74,99")
+        return
+    telegram.enviar_texto(chat_id, f"⏳ Montando {len(estado['ids'])} clipe(s) de \"{produto.nome[:50]}\"…")
+    with tempfile.TemporaryDirectory() as tmp:
+        pasta = Path(tmp)
+        arquivos = [telegram.baixar_arquivo(fid, pasta / f"clipe_{n}.mp4") for n, fid in enumerate(estado["ids"])]
+        kit_pronto = roteiros._anteriores().get(fila.chave_link(link)) or {}
+        if not kit_pronto.get("gancho"):                     # sem kit na página: o Gemini olha um quadro do clipe
+            quadro = pasta / "quadro.jpg"
+            try:
+                video._rodar(["ffmpeg", "-y", "-ss", "1", "-i", str(arquivos[-1]), "-frames:v", "1", str(quadro)])
+            except Exception:  # noqa: BLE001
+                quadro = None
+            kit_pronto = roteiro._detalhes(produto.nome, quadro)
+        pronto, com_voz = montagem.montar(arquivos, produto, kit_pronto, pasta)
+        resposta = telegram.enviar_video(chat_id, pronto, "🎬 Vídeo montado. Gostou? /montar postar\nQuer trocar os clipes? "
+                                         "/clipe limpar e mande de novo.")
+    fid = ((resposta or {}).get("video") or {}).get("file_id", "")
+    supabase.gravar_config(CHAVE_CLIPES, json.dumps({**estado, "link": link, "montado": fid}))
+    if not com_voz:
+        telegram.enviar_texto(chat_id, f"⚠️ Saiu sem narração ({video.motivo_sem_voz[:120]}); as legendas estão lá.")
 
 
 def enviar_roteiro(chat_id, mensagem: dict, texto: str) -> None:
