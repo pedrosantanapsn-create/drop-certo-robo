@@ -18,6 +18,7 @@ TRANSICAO = 0.35
 CLIPE_MAX = 9.0            # usa no máximo isso de cada clipe
 AVISO_IA = "Imagem ilustrativa gerada por IA"
 MASCOTE = Path(__file__).parent / "recursos" / "mascote.jpg"     # o Certinho: abre todo vídeo montado
+MASCOTE_ANIMADO = Path(__file__).parent / "recursos" / "mascote.mp4"   # acena, pula e aponta (2,9 s)
 ABERTURA = 1.8                                                   # segundos de mascote parado no começo
 ABERTURA_ANIMADA = 2.6                                           # máximo da animação fixa do mascote
 CHAVE_ANIMACAO = "mascote_animacao"                              # "1" = existe animação guardada (/mascote)
@@ -118,6 +119,8 @@ def _abertura(pasta: Path) -> tuple[Path, float] | None:
                 return arq, min(max(video.duracao(arq) - TRANSICAO, 1.2), ABERTURA_ANIMADA)
     except Exception as erro:  # noqa: BLE001
         print(f"::warning::Animação do mascote: {str(erro)[:120]}")
+    if MASCOTE_ANIMADO.exists():                 # animação que veio junto com o robô (o Certinho acenando)
+        return MASCOTE_ANIMADO, min(max(video.duracao(MASCOTE_ANIMADO) - TRANSICAO, 1.2), ABERTURA_ANIMADA)
     if MASCOTE.exists():
         return video._clipe(_quadro_mascote(pasta), ABERTURA + TRANSICAO, pasta / "m_abertura.mp4", 0), ABERTURA
     return None
