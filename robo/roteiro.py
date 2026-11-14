@@ -90,7 +90,13 @@ def kit(p: Produto, foto=None) -> dict:
             f"stays perfectly rigid and identical to the image, no morphing, no new parts. {SEM_TEXTO} "
             "Audio: subtle cinematic whoosh only, no speech, no music.")
 
-    return {"img1": img1, "vid1": vid1, "img2": img2, "vid2": vid2, "gancho": str(d["gancho"]),
+    unico = ("Create ONE 8-second vertical 9:16 video from the two attached images, as two shots with a hard cut "
+             f"between them. Shot 1 (first 4 seconds) starts exactly from the lifestyle image: {d['movimento_uso_en']}. "
+             "Then a clean hard cut (no morphing, no blending between the two images). Shot 2 (last 4 seconds) starts "
+             "exactly from the product hero image: slow, smooth push-in while the light glow behind the product gently "
+             "pulses. The product stays rigid and identical to the images in both shots; the person's face stays "
+             f"identical. {SEM_TEXTO} Audio: soft ambient sound only, no speech, no music.")
+    return {"img1": img1, "vid1": vid1, "img2": img2, "vid2": vid2, "unico": unico, "gancho": str(d["gancho"]),
             "beneficios": [str(x) for x in d["beneficios"]]}
 
 
@@ -120,6 +126,8 @@ def montar(p: Produto, foto=None) -> list[str]:
         "🖼️ <b>Imagem 2 — produto em destaque</b> (mesma conversa)\n" + bloco(img2),
         "🎞️ <b>Vídeo 1 — animar a Imagem 1</b> (anexe a Imagem 1 aprovada)\n" + bloco(vid1),
         "🎞️ <b>Vídeo 2 — animar a Imagem 2</b> (anexe a Imagem 2 aprovada)\n" + bloco(vid2),
+        "🎬 <b>OU um vídeo só com as duas imagens</b> (gasta 1 geração em vez de 2; anexe a Imagem 1 e a Imagem 2 "
+        "juntas). Se o Gemini misturar as duas cenas, volte para os dois vídeos separados.\n" + bloco(d["unico"]),
         ("✍️ <b>Textos para pôr na edição</b> (CapCut, InShot…)\n"
          f"• Abertura: <b>{escape(str(d['gancho']))}</b>\n"
          f"• Nome: {nome}\n"

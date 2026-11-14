@@ -17,6 +17,9 @@ from .produto import Produto, formatar_preco
 TRANSICAO = 0.35
 CLIPE_MAX = 9.0            # usa no máximo isso de cada clipe
 AVISO_IA = "Imagem ilustrativa gerada por IA"
+MASCOTE = Path(__file__).parent / "recursos" / "mascote.jpg"     # o Certinho: abre todo vídeo montado
+ABERTURA = 1.8                                                   # segundos de mascote no começo
+AZUL = (14, 58, 93)
 
 
 def _nome_curto(nome: str, palavras: int = 5) -> str:
@@ -57,6 +60,29 @@ def _base(pasta: Path) -> Path:
     d.text((arte.VW / 2, 1610), AVISO_IA, font=arte.fonte("semibold", 30), fill=(240, 240, 240, 255), anchor="mm")
     d.text((arte.VW / 2, 1656), config.AVISO_LEGAL, font=arte.fonte("semibold", 26), fill=(200, 205, 212, 255), anchor="mm")
     destino = pasta / "m_base.png"
+    img.save(destino)
+    return destino
+
+
+def _quadro_abertura(texto: str, pasta: Path) -> Path:
+    """Abertura fixa: o mascote (fundo branco) com a frase de abertura e a marca."""
+    from PIL import ImageOps
+    mascote = ImageOps.fit(Image.open(MASCOTE).convert("RGB"), (arte.VW, arte.VH), Image.LANCZOS)
+    img = Image.new("RGB", (arte.VW, arte.VH), mascote.getpixel((8, 8)))      # mesmo branco do fundo da imagem
+    img.paste(mascote, (0, 250))                                              # desce o mascote: o texto fica livre em cima
+    d = ImageDraw.Draw(img)
+    f = arte.fonte("black", 88)
+    y = 150
+    for linha in arte.quebrar(d, texto, f, arte.VW - 2 * arte.VM, 3):
+        d.text((arte.VW / 2, y), linha, font=f, fill=AZUL, anchor="ma")
+        y += int(f.size * 1.12)
+    fm = arte.fonte("extrabold", 46)
+    marca = "Drop Certo achou"
+    w = d.textlength(marca, font=fm)
+    d.rounded_rectangle(((arte.VW - w) / 2 - 34, y + 26, (arte.VW + w) / 2 + 34, y + 26 + 86), 43, fill=(242, 106, 33))
+    d.text((arte.VW / 2, y + 26 + 43), marca, font=fm, fill=(255, 255, 255), anchor="mm")
+    d.text((arte.VW / 2, 1656), config.AVISO_LEGAL, font=arte.fonte("semibold", 26), fill=(90, 100, 112), anchor="mm")
+    destino = pasta / "m_abertura.png"
     img.save(destino)
     return destino
 
@@ -116,10 +142,21 @@ def montar(clipes: list[Path], p: Produto, textos: dict, pasta: Path, nome: str 
     fala = narracao(p, textos)
     audio, _ = video.narrar(fala, pasta / "m_narracao.mp3")
     alvo = max((video.duracao(audio) + video.ATRASO_VOZ + 0.9) if audio else 0, 9.0)
+    gancho = str(textos.get("gancho") or "Olha esse achado")
+    intro = 0.0
+    if config.MASCOTE_ABERTURA and MASCOTE.exists():          # o mascote vira o "clipe zero"
+        try:
+            abertura = video._clipe(_quadro_abertura(gancho, pasta), ABERTURA + TRANSICAO, pasta / "m_abertura.mp4", 0)
+            clipes, intro = [abertura, *clipes], ABERTURA
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Abertura com mascote: {str(erro)[:120]}")
     n = len(clipes)
     originais = [video.duracao(c) for c in clipes]
     # cada clipe ocupa uma fatia igual do tempo (limitada ao tamanho dele e a CLIPE_MAX)
-    fatias = [min(o, CLIPE_MAX, alvo / n + TRANSICAO) for o in originais]
+    reais = n - (1 if intro else 0)
+    fatias = [min(o, CLIPE_MAX, (alvo - intro) / reais + TRANSICAO) for o in originais]
+    if intro:
+        fatias[0] = ABERTURA + TRANSICAO
     total = sum(fatias) - TRANSICAO * (n - 1)
     falta = max(alvo - total, 0)                      # narração mais longa que os clipes: congela o último quadro
     total += falta
@@ -139,8 +176,12 @@ def montar(clipes: list[Path], p: Produto, textos: dict, pasta: Path, nome: str 
         anterior = f"[x{i}]"
 
     # cartões: gancho no 1º clipe, preço do 2º em diante (ou na 2ª metade), chamada nos últimos segundos
-    virada = (fatias[0] - TRANSICAO) if n > 1 else total * 0.5
-    sobre = [(_base(pasta), 0.0, total, 0), (_cartao_gancho(str(textos.get("gancho") or "Olha esse achado"), pasta), 0.25, virada - 0.1, 0),
+    primeiro = 1 if intro else 0                      # índice do 1º clipe de verdade
+    if reais > 1:
+        virada = sum(fatias[:primeiro + 1]) - TRANSICAO * (primeiro + 1)
+    else:
+        virada = intro + (total - intro) * 0.5
+    sobre = [(_base(pasta), intro, total, 0), (_cartao_gancho(gancho, pasta), intro + 0.25, virada - 0.1, 0),
              (_cartao_preco(p, pasta), virada + 0.25, total, 0), (_cartao_cta(pasta), max(total - 3.2, virada + 0.4), total, 0)]
     # legendas animadas da narração (mesmo estilo dos vídeos do robô)
     fim_fala = (video.duracao(audio) + video.ATRASO_VOZ) if audio else total - 1.0
