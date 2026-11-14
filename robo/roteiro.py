@@ -82,10 +82,10 @@ def kit(p: Produto, foto=None) -> dict:
             "The product alone, centered in the lower two thirds of the frame, on a dark glossy surface with soft "
             "reflections, a warm golden glow of light behind it, cinematic studio lighting, dark elegant background, "
             f"plenty of empty dark space at the top and bottom of the frame for titles added later. {SEM_TEXTO}")
-    vid1 = (f"Animate this exact image into an 8-second vertical 9:16 video. {d['movimento_uso_en']}. Natural, subtle, "
+    vid1 = (f"Animate the attached image into an 8-second vertical 9:16 video, starting exactly from it. {d['movimento_uso_en']}. Natural, subtle, "
             "realistic motion; smooth slow camera move; keep the person's face and the product identical to the image "
             f"for the whole clip, no morphing. {SEM_TEXTO} Audio: soft ambient sound only, no speech, no music.")
-    vid2 = ("Animate this exact image into an 8-second vertical 9:16 video. Slow, smooth 20-degree orbit around the "
+    vid2 = ("Animate the attached image into an 8-second vertical 9:16 video, starting exactly from it. Slow, smooth 20-degree orbit around the "
             "product while the light glow behind it gently pulses and reflections move on the surface. The product "
             f"stays perfectly rigid and identical to the image, no morphing, no new parts. {SEM_TEXTO} "
             "Audio: subtle cinematic whoosh only, no speech, no music.")
@@ -104,19 +104,22 @@ def montar(p: Produto, foto=None) -> list[str]:
     de = f" (antes {formatar_preco(p.preco_antigo)})" if p.preco_antigo and p.preco and p.preco_antigo > p.preco else ""
     return [
         (f"🎬 <b>Roteiro para criar à mão — {nome}</b>\n\n"
-         "<b>Ordem que economiza gerações:</b>\n"
+         "<b>Ordem que economiza gerações: primeiro TODAS as imagens, depois os vídeos.</b>\n"
          "1. No Gemini, abra uma conversa NOVA e anexe a foto do produto que mandei como arquivo (foto_0.jpg; se "
          "vier mais de uma, use a mais limpa, com menos texto em cima).\n"
-         "2. Cole o comando da <b>Imagem 1</b>. Saiu com o produto diferente do real? Peça só o conserto "
-         "(\"keep everything, fix the product to match the reference photo exactly\") em vez de gerar do zero.\n"
-         "3. Imagem aprovada → na MESMA conversa cole o comando do <b>Vídeo 1</b> (ele anima aquela imagem).\n"
-         "4. Repita com a <b>Imagem 2</b> e o <b>Vídeo 2</b>.\n"
-         "5. Junte os clipes, ponha os textos da última mensagem e me mande o vídeo pronto com o link na legenda.\n\n"
+         "2. Cole o comando da <b>Imagem 1</b>. Na mesma conversa, cole o da <b>Imagem 2</b>. Saiu com o produto "
+         "diferente do real? Peça só o conserto (\"keep everything, fix the product to match the reference photo "
+         "exactly\") em vez de gerar do zero.\n"
+         "3. Com as DUAS imagens aprovadas, salve as duas no celular.\n"
+         "4. Para cada vídeo: anexe a imagem aprovada e cole o comando do <b>Vídeo 1</b> (com a Imagem 1) e do "
+         "<b>Vídeo 2</b> (com a Imagem 2).\n"
+         "5. Mande cada clipe para mim com a legenda /clipe e depois /montar link-do-produto: eu junto, narro, "
+         "legendo e ponho o preço.\n\n"
          "⚠️ Só gaste geração de VÍDEO em imagem já aprovada. Nunca peça texto dentro da imagem: a IA erra as letras."),
         "🖼️ <b>Imagem 1 — produto em uso</b> (anexe a foto do produto)\n" + bloco(img1),
-        "🎞️ <b>Vídeo 1 — animar a Imagem 1</b> (na mesma conversa, depois de aprovar a imagem)\n" + bloco(vid1),
-        "🖼️ <b>Imagem 2 — produto em destaque</b> (anexe a foto do produto de novo)\n" + bloco(img2),
-        "🎞️ <b>Vídeo 2 — animar a Imagem 2</b>\n" + bloco(vid2),
+        "🖼️ <b>Imagem 2 — produto em destaque</b> (mesma conversa)\n" + bloco(img2),
+        "🎞️ <b>Vídeo 1 — animar a Imagem 1</b> (anexe a Imagem 1 aprovada)\n" + bloco(vid1),
+        "🎞️ <b>Vídeo 2 — animar a Imagem 2</b> (anexe a Imagem 2 aprovada)\n" + bloco(vid2),
         ("✍️ <b>Textos para pôr na edição</b> (CapCut, InShot…)\n"
          f"• Abertura: <b>{escape(str(d['gancho']))}</b>\n"
          f"• Nome: {nome}\n"
@@ -126,6 +129,6 @@ def montar(p: Produto, foto=None) -> list[str]:
          "• Obrigatório, pequeno, nas cenas de IA: <i>Imagem ilustrativa gerada por IA</i>\n\n"
          "ℹ️ Use só benefícios que são verdade para esse produto (confira no anúncio). "
          "Não ponha \"frete grátis\" nem parcelas se a loja não mostrar isso.\n\n"
-         "📤 <b>Para postar:</b> me mande o VÍDEO pronto (até 20 MB) com o link do produto na legenda. "
-         "Eu uso o seu vídeo no lugar do meu e posto com o seu link."),
+         "📤 <b>Para postar:</b> mande cada clipe com a legenda /clipe e depois /montar link-do-produto "
+         "(eu junto e ponho narração, legendas e preço), ou mande o VÍDEO já pronto (até 20 MB) com o link na legenda."),
     ]

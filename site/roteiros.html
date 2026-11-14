@@ -120,12 +120,12 @@
     <summary>Como usar (ordem que economiza gerações)</summary>
     <ol>
       <li>Salve a <b>foto do produto</b> (toque nela e segure) e abra uma conversa <b>nova</b> no Gemini com a foto anexada.</li>
-      <li>Copie o comando da <b>Imagem 1</b> e cole. Produto saiu diferente? Use o botão <b>“Copiar conserto”</b> na mesma conversa em vez de gerar do zero.</li>
-      <li>Imagem aprovada: na <b>mesma conversa</b>, cole o comando do <b>Vídeo 1</b> (ele anima aquela imagem).</li>
-      <li>Repita com a <b>Imagem 2</b> e o <b>Vídeo 2</b>.</li>
-      <li>Junte os clipes, ponha os textos e mande o vídeo pronto (até 20 MB) para o bot com o <b>link do produto na legenda</b>.</li>
+      <li>Gere as <b>duas imagens</b> primeiro (passos 2 e 3). Produto saiu diferente? Use <b>“Copiar conserto”</b> na mesma conversa em vez de gerar do zero.</li>
+      <li>Com as duas aprovadas, salve as imagens.</li>
+      <li>Só então gere os <b>vídeos</b> (passos 4 e 5), anexando a imagem aprovada de cada um.</li>
+      <li>Mande cada clipe ao bot com a legenda <b>/clipe</b> e depois <b>/montar</b> com o link do produto. Ele junta, narra, legenda e põe o preço.</li>
     </ol>
-    <p class="aviso">Só gaste geração de vídeo em imagem já aprovada. Nunca peça texto dentro da imagem: a IA erra as letras. Nas cenas de IA, escreva pequeno: “Imagem ilustrativa gerada por IA”.</p>
+    <p class="aviso">Geração de vídeo é a que tem limite apertado: só gaste em imagem já aprovada. Nunca peça texto dentro da imagem, a IA erra as letras.</p>
   </details>
   <div id="lista"><p class="vazio">Carregando os produtos…</p></div>
 </main>
@@ -195,11 +195,11 @@ function cartao(p, indice) {
   const passos = el("ol", { class: "passos" }, [
     passo(1, "", "Salve a foto do produto", fotos.length ? "Toque na foto para abrir e salvar. Use a mais limpa, com menos texto em cima, e anexe no Gemini."
                                                            : "Sem foto aqui: salve a foto principal do anúncio e anexe no Gemini.", [caixaFotos], ctx),
-    passo(2, "imagem", "Produto em uso", "Conversa nova no Gemini, foto anexada, cole este comando.", comando(p.img1, conserto()), ctx),
-    passo(3, "video", "Anime a imagem do passo 2", "Na mesma conversa, só depois de aprovar a imagem.", comando(p.vid1), ctx),
-    passo(4, "imagem", "Produto em destaque", "Anexe a foto do produto de novo.", comando(p.img2, conserto()), ctx),
-    passo(5, "video", "Anime a imagem do passo 4", "Na mesma conversa do passo 4.", comando(p.vid2), ctx),
-    passo(6, "", "Monte e mande para o bot", "Ponha estes textos na edição (confira benefícios e preço no anúncio) e mande o vídeo ao bot com o link na legenda.", [
+    passo(2, "imagem", "Produto em uso", "Conversa nova no Gemini, foto do produto anexada, cole este comando.", comando(p.img1, conserto()), ctx),
+    passo(3, "imagem", "Produto em destaque", "Na mesma conversa. Só siga quando as duas imagens estiverem boas; salve as duas.", comando(p.img2, conserto()), ctx),
+    passo(4, "video", "Anime a imagem do passo 2", "Anexe a imagem aprovada do passo 2 e cole este comando.", comando(p.vid1), ctx),
+    passo(5, "video", "Anime a imagem do passo 3", "Anexe a imagem aprovada do passo 3 e cole este comando.", comando(p.vid2), ctx),
+    passo(6, "", "Mande os clipes para o bot", "Mande cada clipe ao bot com a legenda /clipe e depois /montar com o link do produto: ele junta, narra, legenda e põe o preço. Estes são os textos que ele usa (confira no anúncio).", [
       el("ul", { class: "textos" }, textos.map(([a, b]) => el("li", {}, [el("span", { text: a }), el("span", { text: b })]))),
       el("div", { class: "acoes" }, [botaoCopiar("Copiar textos", textos.map(([a, b]) => a + ": " + b).join("\n"), "primario"), botaoCopiar("Copiar link do produto", p.link)]),
     ], ctx),
