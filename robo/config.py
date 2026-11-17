@@ -51,9 +51,11 @@ AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
 TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
 # Máximo de vídeos por dia no TikTok (0 = sem limite). Postar demais derruba o alcance.
 # Instagram: Reels no feed limitados (o resto vai só no Story, canal e site)
-INSTAGRAM_MAX_DIA = int(_env("INSTAGRAM_MAX_DIA", "6") or 6)
-INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", False)   # espalhado pelo dia (6 por dia não cabem só no pico)
-INSTAGRAM_INTERVALO_H = float(_env("INSTAGRAM_INTERVALO_H", "1") or 1)
+# Aumentado a pedido em 17/11/2026: de 6 para 10 Reels por dia, com 45 min entre eles (antes 1 h).
+# max/min garantem o aumento mesmo se a variável antiga (6 / 1 h) ainda estiver gravada no GitHub.
+INSTAGRAM_MAX_DIA = max(int(_env("INSTAGRAM_MAX_DIA", "10") or 10), 10)
+INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", False)   # espalhado pelo dia (10 por dia não cabem só no pico)
+INSTAGRAM_INTERVALO_H = min(float(_env("INSTAGRAM_INTERVALO_H", "0.75") or 0.75), 0.75)
 TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "5"))
 TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", False)  # espalhado pelo dia (5 por dia)
 TIKTOK_INTERVALO_H = float(_env("TIKTOK_INTERVALO_H", "1.5") or 1.5)  # horas mínimas entre vídeos no TikTok
