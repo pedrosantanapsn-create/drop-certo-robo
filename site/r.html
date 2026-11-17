@@ -19,12 +19,24 @@
 <script>
 (function(){
   // Só leva para lojas conhecidas (evita que alguém use a página para mandar para golpes)
-  var PERMITIDOS = /(^|\.)(meli\.la|mercadolivre\.com\.br|mercadolibre\.com|amazon\.com\.br|amzn\.to|link\.amazon|a\.co|shopee\.com\.br|s\.shopee\.com\.br|shp\.ee|tiktok\.com|magazineluiza\.com\.br|magalu\.com|aliexpress\.com|s\.click\.aliexpress\.com|kabum\.com\.br|awin1\.com|tidd\.ly|casasbahia\.com\.br|pontofrio\.com\.br|terabyteshop\.com\.br)$/i;
+  var PERMITIDOS = /(^|\.)(meli\.la|mercadolivre\.com\.br|mercadolivre\.com|mercadolibre\.com|amazon\.com|shope\.ee|amazon\.com\.br|amzn\.to|link\.amazon|a\.co|shopee\.com\.br|s\.shopee\.com\.br|shp\.ee|tiktok\.com|magazineluiza\.com\.br|magalu\.com|aliexpress\.com|s\.click\.aliexpress\.com|kabum\.com\.br|awin1\.com|tidd\.ly|casasbahia\.com\.br|pontofrio\.com\.br|terabyteshop\.com\.br)$/i;
   var q = new URLSearchParams(location.search);
   function de64(t){ try{ t=(t||'').replace(/-/g,'+').replace(/_/g,'/'); while(t.length%4) t+='='; return decodeURIComponent(escape(atob(t))); }catch(e){ return ''; } }
   var destino = de64(q.get('u')), nome = de64(q.get('n')), pid = q.get('p');
   var host = ''; try{ host = new URL(destino).hostname; }catch(e){}
-  if (!destino || !PERMITIDOS.test(host)) { document.getElementById('msg').textContent = 'Link inválido.'; return; }
+  if (!destino || !PERMITIDOS.test(host)) {
+    // Nunca deixa a pessoa num beco sem saída: loja fora da lista = ela confirma no botão; sem destino = vai para o site
+    var msg = document.getElementById('msg'), titulo = document.querySelector('h1'), ok = /^https:\/\//i.test(destino) && host;
+    titulo.textContent = ok ? 'Abrir a oferta' : 'Essa oferta saiu do ar';
+    msg.textContent = ok ? 'Você vai sair do Drop Certo para ' + host + '. ' : 'Veja as ofertas de hoje no nosso site. ';
+    var botao = document.createElement('a');
+    botao.href = ok ? destino : 'https://certodrop.netlify.app/';
+    botao.rel = 'noopener nofollow'; botao.textContent = ok ? 'Abrir a loja' : 'Ver ofertas';
+    botao.style.cssText = 'display:inline-block;margin-top:14px;padding:12px 22px;border-radius:12px;background:#FFD43B;color:#0B1220;font-weight:700;text-decoration:none';
+    msg.appendChild(document.createElement('br')); msg.appendChild(botao);
+    if (!ok) setTimeout(function(){ location.replace('https://certodrop.netlify.app/'); }, 2500);
+    return;
+  }
   document.getElementById('ir').href = destino;
   function loja(u){ u=u.toLowerCase();
     if (/meli\.la|mercadoli/.test(u)) return 'Mercado Livre'; if (/amzn|amazon|a\.co\//.test(u)) return 'Amazon';
