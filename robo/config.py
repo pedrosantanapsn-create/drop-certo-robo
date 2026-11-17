@@ -78,7 +78,9 @@ PALAVRAS_AWIN = _env("PALAVRAS_AWIN", "ssd,memoria ram,placa de video,processado
 PALAVRAS_ML = _env("PALAVRAS_ML", "")
 
 # --- Cliques do canal: links do Telegram passam pelo site (r.html) para contar o clique ---
-RASTREAR_CLIQUES = _env_bool("RASTREAR_CLIQUES", True)
+# Desligado a pedido (17/11/2026): os posts do canal levam o link DIRETO da loja, sem passar pela página
+# "Indo para a loja…" (site/r.html). Sem isso o relatório não conta os cliques do canal (só os do site).
+RASTREAR_CLIQUES = False
 SITE_URL = _env("SITE_URL", "https://certodrop.netlify.app")
 
 # --- Vídeo "Top 5" (terça, quinta e domingo às 20h; prévia às 19h) ---
