@@ -175,3 +175,8 @@ admin, quadro, `r.html` dos cliques, `ml.html` da autorização) · `supabase/fu
 ### Canais-fonte: ritmo (13/11/2026)
 
 Leitura a cada 10 min (`CANAIS_MINUTOS`), até 30 ofertas por dia (`CANAIS_MAX_DIA`), fila até 20 (`CANAIS_FILA_MAX`). O mesmo produto pode voltar depois de 6 h (`CANAIS_REPETIR_HORAS`), nunca enquanto ainda está na fila.
+
+
+### Ajudante sem deixar o PC ligado o dia todo (19/11/2026)
+
+`ajudante/acordar/instalar_acordar.bat` (executar como administrador) cria tarefas agendadas que ACORDAM o PC da suspensão em horários marcados (padrão 9h, 13h, 18h, 21h) e abrem o Edge; a extensão atende os pedidos pendentes (guardados por 48 h) e o PC volta a dormir pelo tempo de suspensão do Windows. `remover_acordar.bat` desfaz. Não funciona com o PC desligado nem hibernado em alguns modelos.
