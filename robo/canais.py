@@ -52,7 +52,8 @@ RE_CONVERSA = re.compile(r"\?|\b(?:quem|algu[eé]m|pessoal|galera|voc[eê]s|vcs|
                          r"pegou|pegaram|aquele|aquela|esse aqui|essa aqui|corre|voltou|acabou|esgot\w+|gente)\b", re.I)
 # Preço mínimo plausível por tipo de produto: abaixo disso o "preço" lido é desconto de cupom, parcela ou erro
 PISOS = ((r"\b(?:celular|smartphone|iphone|galaxy [sa]\d|notebook|smart ?tv|tv \d|placa de v[ií]deo|rtx|gtx|"
-          r"geforce|radeon|console|playstation 5|ps5|xbox series|pc gamer|tablet|ipad)", 250.0),
+          r"geforce|radeon|console|playstation 5|ps5|xbox series|nintendo switch|switch (?:oled|lite|2)|pc gamer|tablet|"
+          r"ipad)", 250.0),
          (r"\b(?:monitor|processador|ryzen|core i\d|placa[- ]m[ãa]e|cadeira|ssd|mem[oó]ria ram|fonte|gabinete|"
           r"water ?cooler|soundbar)", 60.0))
 
@@ -62,9 +63,12 @@ def preco_plausivel(nome: str, preco) -> bool:
         valor = float(str(preco).replace(".", "").replace(",", ".")) if isinstance(preco, str) else float(preco)
     except (TypeError, ValueError):
         return True
+    # acessório ("Controle para Switch", "Capa para iPhone", "Jogo PS5") não é o aparelho: sem piso alto
+    acessorio = re.match(r"\W*(?:controle|capa|capinha|case|pel[íi]cula|suporte|jogo|game|cabo|carregador|dock|grip|"
+                         r"fonte|bateria|kit|base|headset|fone|teclado|mouse|cooler|ventoinha|mem[óo]ria|ssd)\b", nome, re.I)
     for padrao, piso in PISOS:
         if re.search(padrao, nome, re.I):
-            return valor >= piso
+            return valor >= (5 if acessorio and piso > 100 else piso)
     return valor >= 5
 
 

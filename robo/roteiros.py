@@ -208,7 +208,9 @@ def gerar(quantos: int | None = None) -> int:
     quantos = quantos or config.ROTEIROS_QUANTOS
     antigos, itens = _anteriores(), []
     with tempfile.TemporaryDirectory() as tmp:
-        for n, c in enumerate(_candidatos(quantos)):
+        for n, c in enumerate(_candidatos(quantos + 4)):
+            if len(itens) >= quantos:
+                break
             ident = fila.chave_link(c["corpo"])
             if ident in antigos and antigos[ident].get("img1") and antigos[ident].get("descricao"):
                 itens.append({**antigos[ident], "origem": c["origem"], "pontos": c["pontos"],
@@ -222,6 +224,9 @@ def gerar(quantos: int | None = None) -> int:
                 pasta.mkdir()
                 baixadas = baixar_imagens(p, pasta)
                 k = roteiro.kit(p, baixadas[0] if baixadas else None)
+                if k.get("confere") is False:
+                    print(f"::warning::Roteiros: foto não bate com o nome, fora da página — {p.nome[:50]}")
+                    continue
                 if not baixadas:
                     continue                          # sem foto não dá para gerar a cena: fica fora da página
                 itens.append({"id": ident, "origem": c["origem"], "pontos": c["pontos"], "motivos": c["motivos"],
