@@ -75,6 +75,7 @@ RE_RUIM_DE_VIDEO = re.compile(
     r"pasta t[ée]rmica|cooler|water ?cooler|pen ?drive|cart[ãa]o de mem[óo]ria|carregador|filtro de linha|suporte|"
     r"pel[íi]cula|capa|capinha|kit \d+)", re.I)
 PONTOS_MINIMOS = 35
+MAX_POR_TIPO = 2            # no máximo 2 produtos do mesmo tipo na página
 
 
 def _pontuar(nome: str, preco, de, tem_foto: bool, nota: int = 0, cliques: int = 0) -> tuple[int, list[str]]:
@@ -177,12 +178,18 @@ def _candidatos(quantos: int) -> list[dict]:
             lista.append({"corpo": corpo, "origem": "postado", "pontos": pontos, "motivos": motivos})
     except Exception as erro:  # noqa: BLE001
         print(f"::warning::Roteiros (site): {str(erro)[:120]}")
-    vistos, unicos = set(), []
+    vistos, unicos, por_tipo = set(), [], {}
     for c in sorted(lista, key=lambda c: -c["pontos"]):
         chave = fila.chave_link(c["corpo"])
-        nome_chave = re.sub(r"[^a-z0-9]", "", (ler_mensagem(c["corpo"]).get("nome") or "").lower())[:28]
+        nome = ler_mensagem(c["corpo"]).get("nome") or ""
+        nome_chave = re.sub(r"[^a-z0-9]", "", nome.lower())[:28]
         if c["pontos"] < PONTOS_MINIMOS or not chave or chave in vistos or (nome_chave and nome_chave in vistos):
             continue
+        achado = RE_BOM_DE_VIDEO.search(nome)
+        tipo = achado.group(0).lower().replace(" ", "") if achado else "outros"
+        if por_tipo.get(tipo, 0) >= MAX_POR_TIPO:          # variedade: não encher a página só de monitor
+            continue
+        por_tipo[tipo] = por_tipo.get(tipo, 0) + 1
         vistos.update({chave, nome_chave} - {""})
         unicos.append(c)
     return unicos[:quantos]
