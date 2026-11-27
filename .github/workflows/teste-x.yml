@@ -1,0 +1,30 @@
+name: teste-x
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_APP_SECRET: ${{ secrets.SHOPEE_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -q requests beautifulsoup4 Pillow
+      - run: |
+          python - > /tmp/s.txt 2>&1 <<'PY'
+          import requests
+          from robo import roteiros
+          try:
+              c = roteiros._candidatos(5)
+              print("RESULTADO: escolhidos", [(x["pontos"], x["origem"]) for x in c])
+              print("RESULTADO: gerados", roteiros.gerar())
+              j = requests.get(roteiros._url_arquivo(), params={"t": 2}, timeout=20).json()
+              for i in j["itens"]:
+                  print("RESULTADO:", i.get("pontos"), i["origem"], "|", i["nome"][:48], "|", i["preco"], "|", "; ".join(i.get("motivos") or []))
+          except Exception as e: print("RESULTADO: ERRO", repr(e)[:300])
+          PY
+          grep "RESULTADO\|warning" /tmp/s.txt | head -9 | while read -r l; do echo "::warning::${l:0:600}"; done

@@ -170,8 +170,10 @@ MINUTOS_NO_PICO = int(_env("MINUTOS_NO_PICO", "20"))
 
 # --- Página de roteiros (kits para criar o vídeo à mão no Gemini) ---
 ROTEIROS = _env_bool("ROTEIROS", True)
-ROTEIROS_QUANTOS = int(_env("ROTEIROS_QUANTOS", "6") or 6)     # produtos na página
-ROTEIROS_HORAS = float(_env("ROTEIROS_HORAS", "3") or 3)       # de quantas em quantas horas atualiza
+# Só os melhores para vídeo (no máximo 5) e atualização de hora em hora — pedido em 27/11/2026.
+# min() garante o novo ritmo mesmo se as variáveis antigas (6 produtos / 3 h) estiverem gravadas no GitHub.
+ROTEIROS_QUANTOS = min(int(_env("ROTEIROS_QUANTOS", "5") or 5), 5)
+ROTEIROS_HORAS = min(float(_env("ROTEIROS_HORAS", "1") or 1), 1.0)
 
 MASCOTE_ABERTURA = _env_bool("MASCOTE_ABERTURA", True)     # o mascote abre os vídeos montados (/montar)
 

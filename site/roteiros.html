@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Roteiros do dia — Drop Certo</title>
+<title>Melhores para vídeo — Drop Certo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -67,6 +67,7 @@
   .linha2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
   .selo{font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--bloco);color:var(--texto-2);border:1px solid var(--borda)}
   .selo.fila{background:transparent;color:var(--teal-esc);border-color:var(--teal)}
+  .porque{margin:8px 0 0;font-size:.8rem;color:var(--texto-2)}
   .progresso{height:6px;background:var(--bloco)}
   .progresso i{display:block;height:100%;width:0;background:var(--teal);transition:width .3s ease}
 
@@ -110,7 +111,7 @@
 <header>
   <div class="cab">
     <div class="marca">Drop <b>Certo</b></div>
-    <h1>Roteiros de hoje</h1>
+    <h1>Melhores para vídeo</h1>
     <p id="quando">Carregando…</p>
     <nav class="fita" id="fita" aria-label="Produtos de hoje"></nav>
   </div>
@@ -213,7 +214,8 @@ function cartao(p, indice) {
       el("div", { class: "capa" }, [fotos[0] ? el("img", { src: fotos[0], alt: "", referrerpolicy: "no-referrer" }) : null]),
       el("div", {}, [el("h2", { text: p.nome }),
         el("div", {}, [el("span", { class: "preco", text: p.preco || "Preço no link" }), p.de ? el("span", { class: "de", text: p.de }) : null]),
-        el("div", { class: "linha2" }, [el("span", { class: "selo" + (p.origem === "fila" ? " fila" : ""), text: p.origem === "fila" ? "Na fila para postar" : "Já postado pelo robô" })])]),
+        el("div", { class: "linha2" }, [el("span", { class: "selo" + (p.origem === "fila" ? " fila" : ""), text: p.origem === "fila" ? "Na fila para postar" : "Já postado pelo robô" })]),
+        (p.motivos && p.motivos.length) ? el("p", { class: "porque", text: "Por que este: " + p.motivos.join(", ") + "." }) : null]),
     ]),
     el("div", { class: "progresso", role: "presentation" }, [barra]),
     passos,
@@ -227,8 +229,8 @@ fetch(ARQUIVO, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r
   const itens = d.itens || [];
   const quando = d.gerado ? new Date(d.gerado) : null;
   document.getElementById("quando").textContent = (quando ? "Atualizado em " + quando.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + ", " : "")
-    + itens.length + " produtos. Para atualizar agora, mande /roteiros ao bot.";
-  if (!itens.length) { lista.appendChild(el("p", { class: "vazio", text: "Nenhum produto por enquanto. Mande /roteiros ao bot para montar a lista." })); return; }
+    + "os " + itens.length + " melhores para vídeo. Atualiza de hora em hora (8h às 23h).";
+  if (!itens.length) { lista.appendChild(el("p", { class: "vazio", text: "Nenhum produto bom o bastante para vídeo agora. A lista é refeita de hora em hora; para forçar, mande /roteiros ao bot." })); return; }
   const fita = document.getElementById("fita");
   itens.forEach((p, i) => { const [ficha, atalho] = cartao(p, i); lista.appendChild(ficha); fita.appendChild(atalho); });
 }).catch(() => {
