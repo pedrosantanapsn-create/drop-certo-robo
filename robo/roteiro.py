@@ -64,6 +64,8 @@ def _detalhes(nome: str, foto=None) -> dict:
         partes.append({"text": PEDIDO.format(nome=nome[:160], fonte_visual=fonte_visual)})
         dados, _ = gemini.chamar(partes, temperatura=0.5, rodadas=2)
         lido = json.loads(dados["candidates"][0]["content"]["parts"][0]["text"])
+        if isinstance(lido, list):               # às vezes o Gemini devolve a resposta dentro de uma lista
+            lido = next((x for x in lido if isinstance(x, dict)), {})
         ok = {k: (lido[k].strip().rstrip(".") if isinstance(lido[k], str) else lido[k]) for k in PADRAO if lido.get(k)}
         ok["confere"] = lido.get("confere") is not False
         if isinstance(ok.get("beneficios"), list):
