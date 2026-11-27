@@ -26,13 +26,15 @@ Responda SÓ com JSON, nestes campos:
   sorri e ajusta o produto; câmera aproxima devagar). Máx. 25 palavras.
 - "beneficios": lista com 3 benefícios em português, cada um com no máximo 3 palavras, SEM inventar números
   ou características que não estejam no nome do produto
-- "gancho": frase de abertura em português, máx. 6 palavras, sem promessa exagerada"""
+- "gancho": frase de abertura em português, máx. 6 palavras, sem promessa exagerada
+- "descricao": descrição do produto em português, 1 ou 2 frases curtas (máx. 30 palavras), só com o que está no nome
+  ou visível na foto: o que é, para que serve e as características citadas. Sem preço, sem opinião, sem inventar."""
 
 PADRAO = {"produto_en": "the product from the reference photo",
           "cena_uso_en": "a young Brazilian adult naturally using the product at a tidy desk at home, medium shot, "
                          "product clearly visible in the foreground",
           "movimento_uso_en": "the person smiles and interacts gently with the product while the camera slowly pushes in",
-          "beneficios": ["Qualidade", "Praticidade", "Bom preço"], "gancho": "Olha essa oferta"}
+          "beneficios": ["Qualidade", "Praticidade", "Bom preço"], "gancho": "Olha essa oferta", "descricao": ""}
 
 FIEL = ("Keep the product EXACTLY as in the attached reference photo: same shape, colors, proportions, buttons and "
         "brand markings. Do not redesign it, do not add or remove parts.")
@@ -96,7 +98,8 @@ def kit(p: Produto, foto=None) -> dict:
              "exactly from the product hero image: slow, smooth push-in while the light glow behind the product gently "
              "pulses. The product stays rigid and identical to the images in both shots; the person's face stays "
              f"identical. {SEM_TEXTO} Audio: soft ambient sound only, no speech, no music.")
-    return {"img1": img1, "vid1": vid1, "img2": img2, "vid2": vid2, "unico": unico, "gancho": str(d["gancho"]),
+    return {"img1": img1, "vid1": vid1, "img2": img2, "vid2": vid2, "unico": unico,
+            "descricao": str(d.get("descricao") or "")[:260], "gancho": str(d["gancho"]),
             "beneficios": [str(x) for x in d["beneficios"]]}
 
 

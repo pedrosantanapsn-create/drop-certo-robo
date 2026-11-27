@@ -210,7 +210,7 @@ def gerar(quantos: int | None = None) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         for n, c in enumerate(_candidatos(quantos)):
             ident = fila.chave_link(c["corpo"])
-            if ident in antigos and antigos[ident].get("img1"):
+            if ident in antigos and antigos[ident].get("img1") and antigos[ident].get("descricao"):
                 itens.append({**antigos[ident], "origem": c["origem"], "pontos": c["pontos"],
                               "motivos": c["motivos"]})                     # kit já feito: reaproveita
                 continue
