@@ -34,8 +34,19 @@ RE_NOME_CANAL = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
 RE_NICHO = re.compile(
     r"\b(?:ssd|hd|mem[oó]ria|ram|placa de v[ií]deo|placa[- ]m[ãa]e|processador|ryzen|intel|geforce|rtx|gtx|radeon|"
     r"rx\s?\d+\w*|monitor|teclado|mouse|headset|fone|webcam|microfone|gabinete|fonte|cooler|notebook|pc gamer|"
-    r"gamer|roteador|pen ?drive|controle|cadeira|mousepad|nvme|ddr\d|smart ?tv|tv|celular|smartphone|iphone|"
-    r"galaxy|console|playstation|ps[45]|xbox|tablet|soundbar|caixa de som|carregador|power ?bank)(?:e?s)?\b", re.I)
+    r"gamer|roteador|pen ?drive|controle|cadeira (?:gamer|de escrit[óo]rio|ergon[ôo]mica|presidente|office|secret[áa]ria|giratória)|mousepad|nvme|ddr\d|smart ?tv|tv|celular|smartphone|iphone|"
+    r"galaxy|console|playstation|ps[45]|xbox|tablet|soundbar|caixa de som|carregador|power ?bank|"
+    # perto do nicho (incluído a pedido em 26/11/2026): casa inteligente, ferramentas, mesa e escritório
+    r"l[âa]mpada inteligente|l[âa]mpada (?:wi-?fi|smart|led rgb)|tomada inteligente|interruptor inteligente|"
+    r"c[âa]mera (?:wi-?fi|ip|de seguran[çc]a|inteligente)|alexa|echo dot|echo show|fechadura digital|"
+    r"rob[ôo] aspirador|fita led|ring light|smart ?watch|rel[óo]gio inteligente|"
+    r"parafusadeira|furadeira|mult[íi]metro|ferro de solda|esta[çc][ãa]o de solda|kit (?:de )?ferramentas?|"
+    r"jogo de (?:chaves?|bits|soquetes)|chave de fenda|alicate|"
+    r"mesa (?:gamer|digitador\w*|de escrit[óo]rio|para computador|em l)|"
+    r"suporte (?:para|de|articulado para) (?:monitor|notebook|celular|headset|tv)|bra[çc]o articulado|"
+    r"lumin[áa]ria|hub usb|dock ?station|cabo (?:hdmi|usb|displayport|de rede)|adaptador|filtro de linha|"
+    r"nobreak|estabilizador|impressora|scanner|deskmat|desk pad|organizador de cabos|"
+    r"apoio (?:de|para) (?:punho|p[ée]s))(?:e?s)?\b", re.I)
 # Linha que é conversa do outro canal, não nome de produto ("quem pegou já recebeu aí?")
 RE_CONVERSA = re.compile(r"\?|\b(?:quem|algu[eé]m|pessoal|galera|voc[eê]s|vcs|tbm|enviaram|receberam|recebeu|chegou|"
                          r"pegou|pegaram|aquele|aquela|esse aqui|essa aqui|corre|voltou|acabou|esgot\w+|gente)\b", re.I)
