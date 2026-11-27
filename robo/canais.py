@@ -30,9 +30,31 @@ CHAVE_VISTOS = "canais_produtos"        # nomes de produtos já pegos (para não
 CHAVE_DIA = "canais_dia"                # {"dia": "yymmdd", "n": quantas hoje}
 CHAVE_PROXIMO = "canais_proximo"
 RE_NOME_CANAL = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
-RE_NICHO = re.compile(r"ssd|hd\b|mem[oó]ria|ram\b|placa|processador|ryzen|intel|geforce|rtx|gtx|radeon|rx\s?\d|"
-                      r"monitor|teclado|mouse|headset|fone|webcam|microfone|gabinete|fonte|cooler|notebook|"
-                      r"pc gamer|gamer|roteador|pen ?drive|controle|cadeira|mousepad|placa-m[ãa]e|nvme|ddr\d", re.I)
+# Palavra INTEIRA (antes "ram" casava com "enviaRAM" e "receberAM" de conversa de outro canal)
+RE_NICHO = re.compile(
+    r"\b(?:ssd|hd|mem[oó]ria|ram|placa de v[ií]deo|placa[- ]m[ãa]e|processador|ryzen|intel|geforce|rtx|gtx|radeon|"
+    r"rx\s?\d+\w*|monitor|teclado|mouse|headset|fone|webcam|microfone|gabinete|fonte|cooler|notebook|pc gamer|"
+    r"gamer|roteador|pen ?drive|controle|cadeira|mousepad|nvme|ddr\d|smart ?tv|tv|celular|smartphone|iphone|"
+    r"galaxy|console|playstation|ps[45]|xbox|tablet|soundbar|caixa de som|carregador|power ?bank)(?:e?s)?\b", re.I)
+# Linha que é conversa do outro canal, não nome de produto ("quem pegou já recebeu aí?")
+RE_CONVERSA = re.compile(r"\?|\b(?:quem|algu[eé]m|pessoal|galera|voc[eê]s|vcs|tbm|enviaram|receberam|recebeu|chegou|"
+                         r"pegou|pegaram|aquele|aquela|esse aqui|essa aqui|corre|voltou|acabou|esgot\w+|gente)\b", re.I)
+# Preço mínimo plausível por tipo de produto: abaixo disso o "preço" lido é desconto de cupom, parcela ou erro
+PISOS = ((r"\b(?:celular|smartphone|iphone|galaxy [sa]\d|notebook|smart ?tv|tv \d|placa de v[ií]deo|rtx|gtx|"
+          r"geforce|radeon|console|playstation 5|ps5|xbox series|pc gamer|tablet|ipad)", 250.0),
+         (r"\b(?:monitor|processador|ryzen|core i\d|placa[- ]m[ãa]e|cadeira|ssd|mem[oó]ria ram|fonte|gabinete|"
+          r"water ?cooler|soundbar)", 60.0))
+
+
+def preco_plausivel(nome: str, preco) -> bool:
+    try:
+        valor = float(str(preco).replace(".", "").replace(",", ".")) if isinstance(preco, str) else float(preco)
+    except (TypeError, ValueError):
+        return True
+    for padrao, piso in PISOS:
+        if re.search(padrao, nome, re.I):
+            return valor >= piso
+    return valor >= 5
 
 
 def _json(chave: str, padrao):
@@ -168,13 +190,17 @@ def _ofertas_do_post(post: dict) -> list[str]:
         nome = _campo(oferta, "nome")
         if not nome or not (RE_NICHO.search(nome) or marcas.conhecida(nome)):
             continue
-        link = oferta.splitlines()[0]
-        # Shopee e Mercado Livre dão a foto pela API; nas outras (Amazon, Terabyte, encurtadores como
-        # link.amazon…) o robô não consegue fotografar sozinho: leva a foto do post
-        if not re.search(r"shopee\.|shp\.ee|meli\.la|mercadoli[bv]re", link, re.I) and post.get("foto") \
-                and "\nfoto:" not in oferta:
-            oferta += f"\nfoto: {post['foto']}"       # lojas que o robô não consegue fotografar sozinho
-        boas.append(oferta)
+        if RE_CONVERSA.search(nome):                  # a "linha do nome" era conversa do outro canal
+            continue
+        preco = _campo(oferta, "preco")
+        if preco and not preco_plausivel(nome, preco):
+            print(f"::warning::Canais: preço implausível, pulei — {nome[:50]} por R$ {preco}")
+            continue
+        # A foto do post vai sempre junto, como RESERVA: Shopee e Mercado Livre usam primeiro a foto oficial
+        # da API; se a API falhar, o post não sai mais com o logotipo da loja no lugar do produto.
+        if post.get("foto") and "\nfoto:" not in oferta:
+            oferta += f"\nfoto: {post['foto']}"
+        boas.append(oferta + "\norigem: canal")
     return boas
 
 

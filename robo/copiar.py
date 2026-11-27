@@ -82,7 +82,11 @@ def separar(texto: str) -> list[str]:
                 cupom = (m.group(1).upper() + " " + m.group(2).strip(" -–:")).strip()
                 continue
             # "10x de R$ 19,99" é parcela, não o preço
-            m = RE_PRECO.search(re.sub(r"\d+\s*x\s*(de\s*)?R\$\s*[\d.,]+", " ", linha, flags=re.I))
+            sem_parcela = re.sub(r"\d+\s*x\s*(de\s*)?R\$\s*[\d.,]+", " ", linha, flags=re.I)
+            # "R$ 30 OFF", "R$ 100 de desconto/cashback/de volta" são descontos, não o preço
+            sem_parcela = re.sub(r"R\$\s*[\d.,]+\s*(?:de\s+)?(?:off\b|desconto|cashback|de volta|em cupom|no cupom)",
+                                 " ", sem_parcela, flags=re.I)
+            m = RE_PRECO.search(sem_parcela)
             if m and not preco:
                 preco = m.group(1)
                 pix = pix or "pix" in baixa

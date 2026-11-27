@@ -184,17 +184,26 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
                           cupom=dados.get("cupom", ""), cupom_info=dados.get("cupom_info", ""))
         status.append(f"• Leitura do anúncio falhou ({str(erro)[:60]})")
 
+    de_canal = dados.get("origem") == "canal"         # oferta lida de outro canal: nome e preço são "de ouvido"
     if str(dados.get("imagem", "")).startswith("http") and dados["imagem"] not in produto.imagens:
-        produto.imagens = [dados["imagem"], *produto.imagens]      # foto que veio do feed (Awin)
+        produto.imagens = [dados["imagem"], *produto.imagens]      # foto que veio do feed (Awin) ou do post
+    if e_da_shopee := (shopee.ativo() and shopee.e_shopee(produto.link)):
+        # página da Shopee só devolve o logotipo da loja como "foto": não serve
+        produto.imagens = [i for i in produto.imagens if i == dados.get("imagem")]
 
     # Shopee com a API oficial de afiliados: nome, preço e foto sem precisar de print
-    if shopee.ativo() and shopee.e_shopee(produto.link) and not dados.get("preco"):
+    if e_da_shopee:
         try:
             oficial = shopee.ler(produto.link)
-            if oficial.get("nome") and not dados.get("nome"):
+            if oficial.get("nome") and (not dados.get("nome") or de_canal):
                 produto.nome, produto.nome_do_link = str(oficial["nome"]).strip(), False
-            if oficial.get("preco"):
-                produto.preco = oficial["preco"]
+            preco_api = oficial.get("preco")
+            # preço informado (canal/cupom) vale, a não ser que seja absurdo perto do oficial
+            if preco_api and (not dados.get("preco") or not produto.preco or produto.preco < preco_api * 0.5
+                              or produto.preco > preco_api * 1.05):
+                if dados.get("preco") and produto.preco and produto.preco != preco_api:
+                    status.append(f"• Preço do outro canal ({formatar_preco(produto.preco)}) não batia: usei o da Shopee")
+                produto.preco = preco_api
                 produto.preco_antigo = oficial.get("preco_antigo") or produto.preco_antigo
             if oficial.get("imagem"):
                 produto.imagens = [oficial["imagem"], *produto.imagens]
@@ -206,6 +215,9 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• API da Shopee: {str(erro)[:120]}")
             print(f"::warning::API da Shopee: {str(erro)[:200]}")
+
+    # nome que veio com o preço grudado no fim ("… Apoio Pia - R$ 277,44")
+    produto.nome = re.sub(r"\s*[-–|]\s*R\$\s?[\d.,]+\s*$", "", produto.nome or "").strip()
 
     if not LOJAS_CONHECIDAS.search(produto.link):
         aberto = _abrir_encurtador(produto.link)
