@@ -183,7 +183,13 @@ def _campo(oferta: str, nome: str) -> str:
     return achado.group(1).strip() if achado else ""
 
 
-def _ofertas_do_post(post: dict) -> list[str]:
+def foto_serve(canal: str) -> bool:
+    """A foto do post desse canal pode ser usada? Não, se ele carimba a marca dele nas imagens."""
+    marcados = config.CANAIS_COM_MARCA
+    return not ("todos" in marcados or canal.lower() in marcados)
+
+
+def _ofertas_do_post(post: dict, canal: str = "") -> list[str]:
     """Ofertas (texto no formato do robô) que servem: têm link de loja, nome e são de tecnologia."""
     boas = []
     for oferta in copiar.separar(post["texto"]):
@@ -198,7 +204,7 @@ def _ofertas_do_post(post: dict) -> list[str]:
             continue
         # A foto do post vai sempre junto, como RESERVA: Shopee e Mercado Livre usam primeiro a foto oficial
         # da API; se a API falhar, o post não sai mais com o logotipo da loja no lugar do produto.
-        if post.get("foto") and "\nfoto:" not in oferta:
+        if post.get("foto") and "\nfoto:" not in oferta and foto_serve(canal):
             oferta += f"\nfoto: {post['foto']}"
         boas.append(oferta + "\norigem: canal")
     return boas
@@ -405,7 +411,7 @@ def rodar(avisar) -> int:
                 if not postado and len(cupons) < 3:
                     cupons.append(f"@{canal}:\n{post['texto'].strip()[:500]}")
                 continue
-            for oferta in _ofertas_do_post(post):
+            for oferta in _ofertas_do_post(post, canal):
                 if dia["n"] >= config.CANAIS_MAX_DIA or na_fila + len(novas) >= config.CANAIS_FILA_MAX:
                     break
                 chave = _chave_produto(_campo(oferta, "nome"))

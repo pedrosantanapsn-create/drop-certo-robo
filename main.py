@@ -373,6 +373,13 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if foto_enviada:
         fotos.append(foto_enviada)
     fotos += baixar_imagens(produto, pasta)
+    if de_canal and not fotos:
+        # oferta lida de outro canal e a loja não deu foto oficial: melhor não postar do que sair sem imagem
+        # (ou com a foto carimbada do outro canal)
+        telegram.enviar_texto(chat_id, f"⏭️ Pulei \"{(produto.nome or produto.link)[:60]}\": não consegui a foto oficial "
+                              "do produto na loja (e não uso foto com a marca de outro canal).")
+        shutil.rmtree(pasta, ignore_errors=True)
+        return
 
     # Você mandou o VÍDEO pronto (feito à mão): ele entra no lugar do vídeo do robô
     video_enviado = None

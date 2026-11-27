@@ -129,6 +129,10 @@ AJUDANTE = _env_bool("AJUDANTE", True)
 CANAIS_MAX_DIA = int(_env("CANAIS_MAX_DIA", "30") or 30)      # ofertas por dia vindas dos canais
 CANAIS_FILA_MAX = int(_env("CANAIS_FILA_MAX", "20") or 20)    # não pega mais se a fila já tem isso
 CANAIS_MINUTOS = int(_env("CANAIS_MINUTOS", "10") or 10)      # de quanto em quanto tempo olha os canais
+# Canais que põem a marca/logo deles nas fotos: o robô NÃO usa a foto do post deles (só a foto oficial da loja).
+# Lista separada por vírgula; "todos" = nunca usar foto de canal nenhum.
+CANAIS_COM_MARCA = [c.strip().lstrip("@").lower() for c in
+                    _env("CANAIS_COM_MARCA", "ofertasgamer_oficial").split(",") if c.strip()]
 CANAIS_CUPONS_AUTO = _env_bool("CANAIS_CUPONS_AUTO", True)   # cupom visto em canal-fonte vai direto para o canal
 CANAIS_CUPONS_DIA = int(_env("CANAIS_CUPONS_DIA", "8") or 8)  # no máximo esses cupons automáticos por dia
 CANAIS_REPETIR_HORAS = float(_env("CANAIS_REPETIR_HORAS", "6") or 6)   # o mesmo produto pode voltar depois dessas horas
