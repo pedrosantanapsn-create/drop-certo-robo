@@ -51,14 +51,17 @@ AUTO_POSTAR_TIKTOK = _env_bool("AUTO_POSTAR_TIKTOK", True)
 TIKTOK_AVISO_COMERCIAL = _env("TIKTOK_AVISO_COMERCIAL", "brand_content")
 # Máximo de vídeos por dia no TikTok (0 = sem limite). Postar demais derruba o alcance.
 # Instagram: Reels no feed limitados (o resto vai só no Story, canal e site)
-# Aumentado a pedido em 17/11/2026: de 6 para 10 Reels por dia, com 45 min entre eles (antes 1 h).
-# max/min garantem o aumento mesmo se a variável antiga (6 / 1 h) ainda estiver gravada no GitHub.
-INSTAGRAM_MAX_DIA = max(int(_env("INSTAGRAM_MAX_DIA", "10") or 10), 10)
-INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", False)   # espalhado pelo dia (10 por dia não cabem só no pico)
-INSTAGRAM_INTERVALO_H = min(float(_env("INSTAGRAM_INTERVALO_H", "0.75") or 0.75), 0.75)
-TIKTOK_MAX_DIA = int(_env("TIKTOK_MAX_DIA", "5"))
-TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", False)  # espalhado pelo dia (5 por dia)
-TIKTOK_INTERVALO_H = float(_env("TIKTOK_INTERVALO_H", "1.5") or 1.5)  # horas mínimas entre vídeos no TikTok
+# 28/11/2026 — o painel do Instagram mostrou 11 mil visualizações, 4 interações e 0 toques no link com 10 Reels/dia:
+# volume não trouxe público. Agora são poucos vídeos, só dos melhores produtos (ver robo/redes.py).
+# min/max garantem a mudança mesmo se as variáveis antigas (10 por dia / 45 min) ainda estiverem no GitHub.
+INSTAGRAM_MAX_DIA = min(int(_env("INSTAGRAM_MAX_DIA", "3") or 3), 3)
+INSTAGRAM_SO_PICO = _env_bool("INSTAGRAM_SO_PICO", False)
+INSTAGRAM_INTERVALO_H = max(float(_env("INSTAGRAM_INTERVALO_H", "3") or 3), 3.0)
+TIKTOK_MAX_DIA = min(int(_env("TIKTOK_MAX_DIA", "3") or 3), 3)
+TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", False)
+TIKTOK_INTERVALO_H = max(float(_env("TIKTOK_INTERVALO_H", "3") or 3), 3.0)  # horas mínimas entre vídeos
+VIDEO_PONTOS_MINIMOS = int(_env("VIDEO_PONTOS_MINIMOS", "60") or 60)   # só os melhores produtos viram vídeo
+VIDEO_REPETIR_DIAS = int(_env("VIDEO_REPETIR_DIAS", "7") or 7)         # mesmo produto: 1 vídeo por semana
 # Instagram pelo Zernio (se o Instagram estiver conectado lá; senão usa o Make)
 ZERNIO_INSTAGRAM_ACCOUNT = _env("ZERNIO_INSTAGRAM_ACCOUNT")  # opcional
 AUTO_STORY_INSTAGRAM = _env_bool("AUTO_STORY_INSTAGRAM", True)  # Story junto com o Reels
@@ -176,6 +179,8 @@ ROTEIROS_QUANTOS = min(int(_env("ROTEIROS_QUANTOS", "5") or 5), 5)
 ROTEIROS_HORAS = min(float(_env("ROTEIROS_HORAS", "1") or 1), 1.0)
 
 MASCOTE_ABERTURA = _env_bool("MASCOTE_ABERTURA", True)     # o mascote abre os vídeos montados (/montar)
+MASCOTE_NOS_AUTOMATICOS = _env_bool("MASCOTE_NOS_AUTOMATICOS", True)   # ...e os vídeos automáticos (abertura curta)
+MASCOTE_AUTO_SEGUNDOS = float(_env("MASCOTE_AUTO_SEGUNDOS", "1.5") or 1.5)
 
 # --- Cenas de IA no vídeo (PAGO: precisa de cobrança ativada na conta do Google AI Studio) ---
 CENAS_IA = _env_bool("CENAS_IA", True)

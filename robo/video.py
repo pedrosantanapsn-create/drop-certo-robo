@@ -227,14 +227,37 @@ def gerar_video(p: Produto, t: dict, fotos: list[Path], pasta: Path) -> tuple[Pa
         cenas[1:1] = [(extras[0], 1.0)]
         if len(extras) > 1:
             cenas[-2:-2] = [(extras[1], 1.0)]
-    return renderizar(cenas, t["narracao"], pasta)
+    abertura = None
+    if config.MASCOTE_NOS_AUTOMATICOS:
+        try:
+            abertura = _abertura_mascote(str(t.get("gancho") or t.get("titulo") or ""), pasta)
+        except Exception as erro:  # noqa: BLE001
+            print(f"::warning::Mascote na abertura: {str(erro)[:140]}")
+    return renderizar(cenas, t["narracao"], pasta, abertura=abertura)
+
+
+def _abertura_mascote(frase: str, pasta: Path) -> tuple[Path, float, Path | None] | None:
+    """(clipe do mascote já no formato do vídeo, segundos, camada de texto) — abertura curta dos vídeos automáticos."""
+    from . import montagem
+    achada = montagem._abertura(pasta)
+    if not achada:
+        return None
+    seg = max(min(achada[1], config.MASCOTE_AUTO_SEGUNDOS), 0.8)
+    clipe = pasta / "abertura_auto.mp4"
+    _rodar(["ffmpeg", "-y", "-i", str(achada[0]), "-t", f"{seg + TRANSICAO:.3f}", "-an",
+            "-vf", f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps={FPS},format=yuv420p,setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", str(clipe)])
+    texto = montagem._texto_abertura(frase, pasta) if frase.strip() else None
+    return clipe, seg, texto
 
 
 def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path,
-               nome: str = "video.mp4") -> tuple[Path, bool]:
-    """Junta as cenas [(quadro, peso)] com narração e legendas animadas."""
+               nome: str = "video.mp4", abertura: tuple[Path, float, Path | None] | None = None) -> tuple[Path, bool]:
+    """Junta as cenas [(quadro, peso)] com narração e legendas animadas. `abertura` = mascote antes das cenas."""
+    intro = abertura[1] if abertura else 0.0
+    ATRASO_VOZ = globals()["ATRASO_VOZ"] + intro          # a fala (e as legendas) começam depois do mascote
     audio, palavras = narrar(texto_narracao, pasta / f"narracao_{Path(nome).stem}.mp3")
-    total = max(DURACAO_MINIMA, (duracao(audio) + ATRASO_VOZ + 0.6) if audio else 0)
+    total = max(DURACAO_MINIMA, (duracao(audio) + globals()["ATRASO_VOZ"] + 0.6) if audio else 0)
     soma = sum(peso for _, peso in cenas)
     duracoes = [total * peso / soma for _, peso in cenas]
 
@@ -242,13 +265,18 @@ def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path
     if palavras:
         palavras = [(a + ATRASO_VOZ, b + ATRASO_VOZ, w) for a, b, w in palavras]
     else:
-        fim_fala = (duracao(audio) + ATRASO_VOZ) if audio else total - 1.2
+        fim_fala = (duracao(audio) + ATRASO_VOZ) if audio else total + intro - 1.2
         palavras = _tempos_estimados(texto_narracao, ATRASO_VOZ, fim_fala)
 
     clipes = []
     for i, ((q, _), seg) in enumerate(zip(cenas, duracoes)):
         extra = TRANSICAO if i < len(cenas) - 1 else 0
         clipes.append(_clipe(q, seg + extra, pasta / f"clipe_{i}.mp4", i))
+
+    if abertura:                                          # o mascote é o "clipe zero"
+        clipes.insert(0, abertura[0])
+        duracoes.insert(0, intro)
+        total += intro
 
     entradas: list[str] = []
     for c in clipes:
@@ -287,6 +315,11 @@ def renderizar(cenas: list[tuple[Path, float]], texto_narracao: str, pasta: Path
             f"enable='between(t,{ini:.3f},{fim:.3f})'{saida}"
         )
         anterior = saida
+    if abertura and abertura[2]:                          # frase de abertura por cima do mascote
+        entradas += ["-i", str(abertura[2])]
+        filtros.append(f"{anterior}[{n + len(legendas)}:v]overlay=0:0:enable='between(t,0,{intro:.3f})'[ab]")
+        anterior = "[ab]"
+        legendas.append((abertura[2], 0.0, intro))        # conta como entrada (o áudio vem depois dela)
 
     destino = pasta / nome
     cmd = ["ffmpeg", "-y", *entradas]

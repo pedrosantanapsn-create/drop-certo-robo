@@ -22,7 +22,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, cuponslojas, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, roteiros, terabyte, recorte, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
+from robo import aindavale, ajudante, alertas, amazon, arte, awin, busca, canais, canal, config, copiar, cupons, cuponslojas, nota, fila, instagram, instantaneo, legenda, mercadolivre, musicas, precos, quadro, quedas, ranking, reabastecer, roteiros, terabyte, recorte, redes, relatorio, shopee, sugestoes, supabase, telegram, tiktok, top, verificador, video
 from robo.produto import Produto, _para_float, baixar_imagens, buscar_produto, formatar_preco, ler_mensagem
 
 AJUDA = """🤖 Robô Drop Certo
@@ -373,6 +373,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     if foto_enviada:
         fotos.append(foto_enviada)
     fotos += baixar_imagens(produto, pasta)
+    reais = redes.fotos_reais(fotos)                 # logotipo da loja no lugar do produto não é foto
+    if len(reais) < len(fotos):
+        status.append("• Tirei uma \"foto\" que era só o logotipo da loja")
+        fotos = reais
     if de_canal and not fotos:
         # oferta lida de outro canal e a loja não deu foto oficial: melhor não postar do que sair sem imagem
         # (ou com a foto carimbada do outro canal)
@@ -517,6 +521,10 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     try:
         if not vai_redes:
             raise RuntimeError("não precisa (oferta só para o site)")
+        if not video_enviado:
+            faz_video, motivo_video = redes.vale_video(produto, fotos, pontos)
+            if not faz_video:
+                raise RuntimeError(motivo_video)
         if video_enviado:
             caminho_video, com_voz = video_enviado, True
             status.append("• Vídeo: usei o que você mandou ✅")
@@ -536,7 +544,8 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             status.append(f"• Vídeo: pronto (sem narração — {video.motivo_sem_voz[:200]})")
     except Exception as erro:  # noqa: BLE001
         caminho_video = None
-        status.append(f"• Vídeo falhou: {str(erro)[:120]}")
+        status.append((f"• Vídeo: não fiz — {str(erro)[:140]}") if isinstance(erro, RuntimeError)
+                      else f"• Vídeo falhou: {str(erro)[:120]}")
 
     # 4. Site (Supabase) — antes do canal, para o canal usar o link rastreado do produto
     if supabase.ativo():
@@ -564,20 +573,23 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     reserva = 1 if ranking.reservado_hoje() else 0     # dia de Top 5: guarda 1 vaga para o vídeo das 20h
     limite_ig = max(config.INSTAGRAM_MAX_DIA - reserva, 0) if config.INSTAGRAM_MAX_DIA else 0
     feitos_ig = relatorio.postados_hoje("instagram") if (config.INSTAGRAM_MAX_DIA and supabase.ativo()) else 0
-    if caminho_video and instagram.ativo() and config.INSTAGRAM_MAX_DIA and feitos_ig >= limite_ig:
-        status.append(f"• Reels: pulado — limite de {limite_ig} Reels por dia já atingido (vai só no Story)")
-    elif caminho_video and instagram.ativo() and config.INSTAGRAM_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
-        status.append("• Reels: pulado — fora do horário de pico (vai só no Story)")
-    elif (caminho_video and instagram.ativo() and limite_ig and supabase.ativo()
+    reels_ok = False
+    if caminho_video and instagram.ativo() and config.INSTAGRAM_MAX_DIA and feitos_ig >= limite_ig and not video_enviado:
+        status.append(f"• Reels: pulado — limite de {limite_ig} Reels por dia já atingido ")
+    elif (caminho_video and instagram.ativo() and config.INSTAGRAM_SO_PICO and not video_enviado
+          and not fila.em_pico(datetime.now(fila.FUSO))):
+        status.append("• Reels: pulado — fora do horário de pico ")
+    elif (caminho_video and instagram.ativo() and limite_ig and supabase.ativo() and not video_enviado
           and time.time() - relatorio.ultimo_post("instagram") < config.INSTAGRAM_INTERVALO_H * 3600):
-        status.append(f"• Reels: pulado — o último Reels saiu há menos de {config.INSTAGRAM_INTERVALO_H}h (vai só no Story)")
+        status.append(f"• Reels: pulado — o último Reels saiu há menos de {config.INSTAGRAM_INTERVALO_H}h ")
     elif caminho_video and instagram.ativo():
         try:
             link_post = instagram.publicar_reels(caminho_video, legenda_redes, capa=caminho_arte)
             status.append(f"• Instagram: Reels publicado ✅ {link_post}")
+            reels_ok = True
         except Exception as erro:  # noqa: BLE001
             status.append(f"• Instagram: erro — {str(erro)[:160]}")
-    if caminho_video and instagram.story_ativo():
+    if caminho_video and instagram.story_ativo() and reels_ok:      # Story só acompanha um Reels publicado
         try:
             if video.duracao(caminho_video) > 59:
                 raise RuntimeError("vídeo passou de 60 s (limite do Story)")
@@ -588,11 +600,12 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     # 4c. TikTok (pelo Zernio)
     limite_tt = max(config.TIKTOK_MAX_DIA - reserva, 0) if config.TIKTOK_MAX_DIA else 0
     feitos_tt = relatorio.postados_hoje("tiktok") if (config.TIKTOK_MAX_DIA and supabase.ativo()) else 0
-    if caminho_video and tiktok.ativo() and config.TIKTOK_MAX_DIA and feitos_tt >= limite_tt:
+    if caminho_video and tiktok.ativo() and config.TIKTOK_MAX_DIA and feitos_tt >= limite_tt and not video_enviado:
         status.append(f"• TikTok: pulado — limite de {limite_tt} vídeos por dia já atingido (protege o alcance)")
-    elif caminho_video and tiktok.ativo() and config.TIKTOK_SO_PICO and not fila.em_pico(datetime.now(fila.FUSO)):
+    elif (caminho_video and tiktok.ativo() and config.TIKTOK_SO_PICO and not video_enviado
+          and not fila.em_pico(datetime.now(fila.FUSO))):
         status.append("• TikTok: pulado — fora do horário de pico (vai só nos melhores horários)")
-    elif (caminho_video and tiktok.ativo() and limite_tt and supabase.ativo()
+    elif (caminho_video and tiktok.ativo() and limite_tt and supabase.ativo() and not video_enviado
           and time.time() - relatorio.ultimo_post("tiktok") < config.TIKTOK_INTERVALO_H * 3600):
         status.append(f"• TikTok: pulado — o último vídeo saiu há menos de {config.TIKTOK_INTERVALO_H}h")
     elif caminho_video and tiktok.ativo():
@@ -601,6 +614,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• TikTok: erro — {str(erro)[:160]}")
 
+    if caminho_video and any(("Reels publicado ✅" in s_ or s_.startswith("• TikTok: publicado ✅")) for s_ in status):
+        try:
+            redes.marcar(produto.nome)               # esse produto não vira vídeo de novo por uma semana
+        except Exception as erro:  # noqa: BLE001
+            print("Vídeos feitos:", erro, file=sys.stderr)
     if supabase.ativo() and produto.preco is None:
         status.append("  👉 Para pôr no site depois, sem postar de novo: /site link + linha  preco: 89,90")
 
