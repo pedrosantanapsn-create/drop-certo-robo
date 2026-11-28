@@ -508,6 +508,7 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
     textos, origem = legenda.gerar_textos(produto)
     status.append(f"• Textos: {origem}")
 
+    numero_achado = 0
     # 3. Arte e vídeo — alterna o modelo (cores, ordem das cenas) a cada post
     try:
         numero = int(str((supabase.ler_config("modelo_video") or {}).get("valor") or 0)) if supabase.ativo() else 0
@@ -525,6 +526,11 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
             faz_video, motivo_video = redes.vale_video(produto, fotos, pontos)
             if not faz_video:
                 raise RuntimeError(motivo_video)
+            numero_achado = redes.proximo_achado()
+            if numero_achado:                   # o número vai na cena final e na fala; o site mostra o mesmo número
+                textos["achado"] = numero_achado
+                textos["narracao"] = (str(textos.get("narracao") or "").rstrip() +
+                                      f" É o achado número {redes.por_extenso(numero_achado)}.")
         if video_enviado:
             caminho_video, com_voz = video_enviado, True
             status.append("• Vídeo: usei o que você mandou ✅")
@@ -614,6 +620,12 @@ def processar_oferta(mensagem: dict, chat_id) -> None:
         except Exception as erro:  # noqa: BLE001
             status.append(f"• TikTok: erro — {str(erro)[:160]}")
 
+    if caminho_video and numero_achado:
+        try:
+            redes.registrar_achado(numero_achado, produto, pasta)
+            status.append(f"• Achado nº {numero_achado}: o vídeo mostra esse número e o site destaca o produto")
+        except Exception as erro:  # noqa: BLE001
+            status.append(f"• Achado nº {numero_achado}: não consegui marcar no site — {str(erro)[:100]}")
     if caminho_video and any(("Reels publicado ✅" in s_ or s_.startswith("• TikTok: publicado ✅")) for s_ in status):
         try:
             redes.marcar(produto.nome)               # esse produto não vira vídeo de novo por uma semana

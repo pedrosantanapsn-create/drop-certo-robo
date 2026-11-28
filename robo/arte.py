@@ -284,10 +284,22 @@ def cena_cta(p: Produto, t: dict, foto: Path | None, destino: Path) -> Path:
     d.rounded_rectangle((VW / 2 - w / 2 - 60, 760, VW / 2 + w / 2 + 60, 900), 70,
                         fill=config.COR_DESTAQUE)
     d.text((VW / 2, 830), txt, font=f, fill=config.COR_FUNDO, anchor="mm")
-    d.text((VW / 2, 1010), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE,
-           anchor="mm")
-    d.text((VW / 2, 1120), "Siga para mais achados", font=fonte("semibold", 44),
-           fill=config.COR_TEXTO, anchor="mm")
+    numero = int(t.get("achado") or 0)
+    if numero:           # link não é clicável no vídeo: endereço curto do site + número para achar o produto lá
+        site = config.SITE_URL.split("//")[-1].strip("/")
+        d.text((VW / 2, 985), "ou digite no navegador", font=fonte("semibold", 40), fill=CINZA, anchor="mm")
+        d.text((VW / 2, 1065), site, font=fonte("extrabold", 60), fill=config.COR_TEXTO, anchor="mm")
+        fa = fonte("black", 66)
+        rotulo = f"ACHADO Nº {numero}"
+        wa = d.textlength(rotulo, font=fa)
+        d.rounded_rectangle((VW / 2 - wa / 2 - 54, 1160, VW / 2 + wa / 2 + 54, 1290), 65,
+                            outline=config.COR_DESTAQUE, width=6)
+        d.text((VW / 2, 1225), rotulo, font=fa, fill=config.COR_DESTAQUE, anchor="mm")
+    else:
+        d.text((VW / 2, 1010), config.ARROBA, font=fonte("extrabold", 64), fill=config.COR_DESTAQUE,
+               anchor="mm")
+        d.text((VW / 2, 1120), "Siga para mais achados", font=fonte("semibold", 44),
+               fill=config.COR_TEXTO, anchor="mm")
     _rodape_video(d)
     img.save(destino)
     return destino

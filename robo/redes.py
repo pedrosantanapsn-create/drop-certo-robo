@@ -92,3 +92,67 @@ def vale_video(produto, fotos: list[Path], nota: int) -> tuple[bool, str]:
     except Exception:  # noqa: BLE001
         pass
     return True, f"{pontos} pontos para vídeo"
+
+
+# ---------------------------------------------------------------------------
+# "Achado nº X": o número aparece no vídeo e no site, para a pessoa achar o produto sem link clicável
+# ---------------------------------------------------------------------------
+CHAVE_ACHADO = "achado_numero"
+ARQUIVO_ACHADOS = "robo/achados.json"
+_UNIDADES = ["zero", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze",
+             "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"]
+_DEZENAS = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"]
+_CENTENAS = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos",
+             "oitocentos", "novecentos"]
+
+
+def por_extenso(n: int) -> str:
+    """Número falado (a voz lê melhor por extenso). Até 9999."""
+    if n < 20:
+        return _UNIDADES[n]
+    if n < 100:
+        return _DEZENAS[n // 10] + (f" e {_UNIDADES[n % 10]}" if n % 10 else "")
+    if n == 100:
+        return "cem"
+    if n < 1000:
+        return _CENTENAS[n // 100] + (f" e {por_extenso(n % 100)}" if n % 100 else "")
+    if n < 10000:
+        mil = "mil" if n // 1000 == 1 else f"{_UNIDADES[n // 1000]} mil"
+        resto = n % 1000
+        if not resto:
+            return mil
+        return f"{mil} e {por_extenso(resto)}" if (resto < 100 or resto % 100 == 0) else f"{mil} {por_extenso(resto)}"
+    return str(n)
+
+
+def proximo_achado() -> int:
+    """Número do próximo vídeo (só é gasto em registrar_achado). 0 = sem numeração."""
+    if not (supabase.ativo() and config.ACHADO_NUMERO):
+        return 0
+    try:
+        return int(str((supabase.ler_config(CHAVE_ACHADO) or {}).get("valor") or 0)) + 1
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def url_achados() -> str:
+    return f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{ARQUIVO_ACHADOS}"
+
+
+def registrar_achado(numero: int, produto, pasta: Path) -> None:
+    """Grava o número e publica a lista (número → produto do site) que o site lê."""
+    import requests
+    if not (numero and supabase.ativo()):
+        return
+    supabase.gravar_config(CHAVE_ACHADO, str(numero))
+    try:
+        r = requests.get(url_achados(), params={"t": str(int(time.time()))}, timeout=30)
+        itens = (r.json().get("itens") or []) if r.status_code == 200 else []
+    except Exception:  # noqa: BLE001
+        itens = []
+    itens = [i for i in itens if i.get("n") != numero]
+    itens.append({"n": numero, "id": str(getattr(produto, "site_id", "") or ""), "link": produto.link,
+                  "nome": (produto.nome or "")[:120], "t": int(time.time())})
+    arquivo = pasta / "achados.json"
+    arquivo.write_text(json.dumps({"itens": itens[-300:]}, ensure_ascii=False), encoding="utf-8")
+    supabase.enviar_arquivo(arquivo, ARQUIVO_ACHADOS, "application/json")

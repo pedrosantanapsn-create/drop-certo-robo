@@ -61,6 +61,7 @@ TIKTOK_MAX_DIA = min(int(_env("TIKTOK_MAX_DIA", "3") or 3), 3)
 TIKTOK_SO_PICO = _env_bool("TIKTOK_SO_PICO", False)
 TIKTOK_INTERVALO_H = max(float(_env("TIKTOK_INTERVALO_H", "3") or 3), 3.0)  # horas mínimas entre vídeos
 VIDEO_PONTOS_MINIMOS = int(_env("VIDEO_PONTOS_MINIMOS", "60") or 60)   # só os melhores produtos viram vídeo
+ACHADO_NUMERO = _env_bool("ACHADO_NUMERO", True)   # "Achado nº X" no vídeo e no site
 VIDEO_REPETIR_DIAS = int(_env("VIDEO_REPETIR_DIAS", "7") or 7)         # mesmo produto: 1 vídeo por semana
 # Instagram pelo Zernio (se o Instagram estiver conectado lá; senão usa o Make)
 ZERNIO_INSTAGRAM_ACCOUNT = _env("ZERNIO_INSTAGRAM_ACCOUNT")  # opcional

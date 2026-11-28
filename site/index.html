@@ -72,6 +72,7 @@
   .card .foto img{width:100%;height:100%;object-fit:contain}
   .card .selo{position:absolute;top:10px;left:10px;background:var(--laranja);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px}
   .card .selo.novo{background:var(--teal)}
+  .card .achado{position:absolute;top:10px;right:10px;background:var(--azul,#0E3A5D);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px}
   .card .info{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
   .card .nome{font-size:14px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .card .antes{font-size:12px;color:var(--texto-2);text-decoration:line-through}
@@ -135,6 +136,7 @@
     .card:hover{transform:none}
     .card .foto{padding:8px}
     .card .selo{top:6px;left:6px;font-size:10px;padding:3px 7px}
+    .card .achado{top:6px;right:6px;font-size:10px;padding:3px 7px}
     .card .info{padding:8px 10px 10px;gap:3px}
     .card .nome{font-size:12.5px;line-height:1.3;-webkit-line-clamp:3;min-height:3.9em}
     .card .antes{font-size:11px}
@@ -157,7 +159,7 @@
       <span>Drop<span class="m">Certo</span><small>achados que valem a pena</small></span>
     </a>
     <form class="busca" id="formBusca" role="search" onsubmit="return false">
-      <input id="campoBusca" type="search" placeholder="Buscar produto…" aria-label="Buscar produto" autocomplete="off">
+      <input id="campoBusca" type="search" placeholder="Buscar produto ou nº do achado…" aria-label="Buscar produto" autocomplete="off">
       <button type="submit" aria-label="Buscar">Buscar</button>
     </form>
     <nav class="redes" id="redes" aria-label="Redes sociais"></nav>
@@ -243,6 +245,23 @@
     if (error){ $('#grid').innerHTML = `<div class="vazio-msg">Não foi possível carregar os produtos.<br><small>${esc(error.message)}</small></div>`; return; }
     produtos = data || [];
     montarBanner(); montarFiltros(); render();
+    carregarAchados();
+  }
+
+  // "Achado nº X": o número que aparece nos vídeos. A busca aceita o número (27, #27, achado 27).
+  let achados = {};                       // id do produto (ou link) -> número
+  async function carregarAchados(){
+    try {
+      const r = await fetch(cfg.SUPABASE_URL + '/storage/v1/object/public/produtos/robo/achados.json?t=' + Date.now(), { cache:'no-store' });
+      if (!r.ok) return;
+      ((await r.json()).itens || []).forEach(a => { if (a.id) achados['id:'+a.id] = a.n; if (a.link) achados['l:'+a.link] = a.n; });
+      const pedido = new URLSearchParams(location.search).get('achado');
+      if (pedido && /^\d+$/.test(pedido)){ $('#campoBusca').value = pedido; termo = pedido; }
+      render();
+    } catch (_) {}
+  }
+  function numeroAchado(p){ return achados['id:'+p.id] || achados['l:'+p.link] || 0; }
+  function numeroBuscado(){ const m = /^(?:achado\s*)?(?:n[ºo°.]?\s*)?#?\s*(\d{1,5})$/i.exec(termo); return m ? Number(m[1]) : 0;
   }
 
   // ---------- Banner (novidades) ----------
@@ -300,11 +319,13 @@
   // ---------- Grid ----------
   function render(){
     const agora = Date.now(), seteDias = 7*24*3600*1000;
-    const lista = produtos.filter(p =>
+    const buscado = numeroBuscado();
+    const doNumero = buscado ? produtos.filter(p => numeroAchado(p) === buscado) : [];
+    const lista = doNumero.length ? doNumero : produtos.filter(p =>
       (categoria==='Todos' || p.categoria===categoria) &&
       (!termo || (p.nome||'').toLowerCase().includes(termo) || (p.categoria||'').toLowerCase().includes(termo))
     );
-    $('#tituloSecao').textContent = termo ? `Resultados para "${termo}"` : (categoria==='Todos' ? 'Todos os produtos' : categoria);
+    $('#tituloSecao').textContent = doNumero.length ? `Achado nº ${buscado}` : termo ? `Resultados para "${termo}"` : (categoria==='Todos' ? 'Todos os produtos' : categoria);
     $('#contador').textContent = `${lista.length} ${lista.length===1?'produto':'produtos'}`;
     $('#mais').hidden = lista.length <= mostrando;
     if (!lista.length){ $('#grid').innerHTML = '<div class="vazio-msg">Nenhum produto encontrado.</div>'; return; }
@@ -317,6 +338,7 @@
       <article class="card">
         <div class="foto">
           ${desc>0 ? `<span class="selo">-${desc}%</span>` : (novo ? '<span class="selo novo">NOVO</span>' : '')}
+          ${numeroAchado(p) ? `<span class="achado">Achado ${numeroAchado(p)}</span>` : ''}
           <img src="${esc(p.imagem_url)}" alt="${esc(p.nome)}" loading="lazy" decoding="async" width="300" height="300">
         </div>
         <div class="info">
