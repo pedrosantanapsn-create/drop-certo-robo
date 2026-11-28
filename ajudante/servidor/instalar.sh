@@ -1,5 +1,5 @@
 #!/bin/bash
-# Drop Certo — prepara um servidor Linux (Debian/Ubuntu) para rodar o AJUDANTE 24 horas:
+# Drop Certo — prepara um servidor Linux (Debian 13+ ou Ubuntu 24.04+) para rodar o AJUDANTE 24 horas:
 # área de trabalho leve + Google Chrome + acesso remoto (Chrome Remote Desktop) + a extensão do ajudante.
 #
 # Uso (no terminal do servidor, como root ou como usuário com sudo):
@@ -27,8 +27,11 @@ $SUDO apt-get update -qq
 $SUDO apt-get install -y -qq wget curl ca-certificates tar sudo >/dev/null
 
 echo "==> 2/7 Proteção contra tentativas de invasão por senha (fail2ban)…"
-$SUDO apt-get install -y -qq fail2ban >/dev/null 2>&1 || echo "    (não consegui instalar o fail2ban — sigo sem ele)"
-$SUDO systemctl enable --now fail2ban >/dev/null 2>&1 || true
+$SUDO apt-get install -y -qq fail2ban python3-systemd >/dev/null 2>&1 || echo "    (não consegui instalar o fail2ban — sigo sem ele)"
+# Debian novo não tem /var/log/auth.log: o fail2ban precisa ler o diário do systemd, senão não liga
+printf '[DEFAULT]\nbackend = systemd\n\n[sshd]\nenabled = true\n' | $SUDO tee /etc/fail2ban/jail.local >/dev/null
+$SUDO systemctl enable fail2ban >/dev/null 2>&1 || true
+$SUDO systemctl restart fail2ban >/dev/null 2>&1 || true
 
 echo "==> 3/7 Memória de reserva (swap de 2 GB, para o navegador não travar)…"
 if ! $SUDO swapon --show | grep -q .; then
@@ -43,7 +46,14 @@ $SUDO timedatectl set-timezone America/Sao_Paulo || true
 echo "==> 5/7 Acesso remoto (Chrome Remote Desktop)…"
 cd /tmp
 wget -q https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-$SUDO apt-get install -y -qq ./chrome-remote-desktop_current_amd64.deb >/dev/null
+if ! $SUDO apt-get install -y -qq ./chrome-remote-desktop_current_amd64.deb >/dev/null 2>/tmp/crd-erro.txt; then
+  echo
+  echo "PAREI AQUI: a tela remota do Google não instala neste sistema."
+  echo "Ela exige Debian 13 ou Ubuntu 24.04 (ou mais novos). Este servidor está com: $(. /etc/os-release; echo "$PRETTY_NAME")"
+  echo "Troque o sistema operacional no painel da hospedagem e rode este instalador de novo."
+  tail -5 /tmp/crd-erro.txt
+  exit 1
+fi
 echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" | $SUDO tee /etc/chrome-remote-desktop-session >/dev/null
 $SUDO systemctl disable lightdm.service >/dev/null 2>&1 || true
 $SUDO usermod -aG chrome-remote-desktop "$USUARIO" >/dev/null 2>&1 || true
